@@ -1,0 +1,78 @@
+# Python
+venv/
+.venv/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Django / DB
+db.sqlite3
+*.sqlite3
+*.sqlite3-journal
+media/
+staticfiles/
+dashboard/static/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/node_modules/
+
+# Runtime Node local — NE JAMAIS COMMITTER / PUSHER (binaires + headers C)
+.tools/
+.tools
+**/.tools/
+.npm
+.vite/
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# Docs / Word (volumineux)
+*.doc
+*.docx
+*.DOC
+*.DOCX
+.~lock.*
+
+# Playwright / browsers
+.pw-browsers/
+playwright-report/
+test-results/
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Logs / coverage
+logs/
+*.log
+npm-debug.log*
+coverage/
+.nyc_output/
+.cache/
+
+# Cursor / agent clutter
+.bash_profile
+.bashrc
+.gitconfig
+.gitmodules
+.mcp.json
+.profile
+.ripgreprc
+.zprofile
+.zshrc
