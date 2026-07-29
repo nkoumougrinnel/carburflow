@@ -1,5 +1,6 @@
 """Endpoints dashboard analytiques — payloads compatibles frontend."""
 import re
+import statistics
 
 from rest_framework.response import Response
 from rest_framework.views import APIView

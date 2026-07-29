@@ -10,7 +10,7 @@ CJ_IDENTIFIANT_RE = re.compile(r'^CJ\d{3,}$')
 
 def validate_cp_identifiant(value: str) -> None:
     """Identifiant cuve principale : format CPxxx (ex. CP001, CP012)."""
-    if not CP_IDENTIFIANT_RE.match(str(value).strip()):
+    if not CP_IDENTIFIANT_RE.match(str(value).strip().upper()):
         raise ValidationError(
             'L’identifiant de cuve principale doit respecter le format CPxxx '
             '(ex. CP001, CP042).'
@@ -19,7 +19,7 @@ def validate_cp_identifiant(value: str) -> None:
 
 def validate_cj_identifiant(value: str) -> None:
     """Identifiant cuve journalière : format CJxxx (ex. CJ001, CJ012)."""
-    if not CJ_IDENTIFIANT_RE.match(str(value).strip()):
+    if not CJ_IDENTIFIANT_RE.match(str(value).strip().upper()):
         raise ValidationError(
             'L’identifiant de cuve journalière doit respecter le format CJxxx '
             '(ex. CJ001, CJ042).'
