@@ -1,0 +1,34 @@
+id_cuve_journaliere,id_cuve_principale,id_groupe,quantite_cuve_principale,quantite_cuve_journaliere,depotage,compteur_horaire,etat_fonctionnement,observations
+cj001,cp001,g1-sdmo-830,7676.0,1000.0,0.0,1877.0,F,RAS
+cj002,cp002,g2-sdmo-650,1757.0,1000.0,0.0,1003.0,F,RAS
+cj002,cp002,g3-deutz-450,1757.0,1000.0,0.0,7162.0,F,RAS
+cj003,cp003,g4-aksa-493,2860.0,588.0,0.0,1283.0,F,"La jauge de cette cuve est complètement dégradée, ce qui conduit à une lecture approximative des niveaux de carburant, il est impératif de la remplacer, pour une meilleure lecture des niveaux de carburant."
+cj004,cp004,g5-leroysommer-110,2161.0,1000.0,0.0,1185.0,F,Défaut d’inclinaison de la cuve Principale pour jauger
+cj004,cp004,g6-deutz-185,2161.0,1000.0,0.0,8982.0,HS,Défaut d’inclinaison de la cuve Principale pour jauger
+cj005,cp005,g7-aksa-220,2538.0,1000.0,0.0,6715.0,F,RAS
+cj006,cp006,g8-deutz-350,3084.0,1000.0,0.0,5336.0,F,RAS
+cj007,cp007,g9-aksa-110,580.0,192.0,0.0,4047.0,F,RAS
+cj008,cp008,g10-sdmo-33,2250.0,0.0,0.0,4038.0,F,RAS
+cj009,cp009,g11-lionrock-18,1000.0,0.0,0.0,1954.0,F,; Jauge sale ; Pupitre de lecture floue
+cj010,cp010,g12-lionrock-18,320.0,0.0,0.0,1644.0,P,EN ARRET
+cj011,cp011,g13-lionrock-18,320.0,0.0,0.0,1974.0,F,RAS
+cj012,cp012,g14-huawei-23,530.0,0.0,0.0,19.0,F,RAS
+cj013,cp013,g15-lionrock-18,650.0,0.0,0.0,1164.0,P,Batterie HS ; Pas de chargeur batterie ;
+cj014,cp014,g16-huawei-23,750.0,0.0,0.0,73.0,F,GES en défaut (en arrêt pour le moment
+cj015,cp015,g17-lionrock-18,600.0,0.0,0.0,1626.0,F,RAS
+cj016,cp016,g18-onisvisa-22,500.0,0.0,0.0,896.0,F,RAS
+cj017,cp017,g19-sdmo-22,710.0,0.0,0.0,0.0,P,Compteur horaire Illisible sur le contrôleur du GES
+cj018,cp018,g20-lionrock-18,900.0,0.0,0.0,663.0,F,"PAS D’INVERSSEUR de Sources, GES A L’ARRET"
+cj019,cp019,g21-lionrock-18,970.0,0.0,0.0,2139.0,P,RAS
+cj020,cp020,g22-lionrock-18,730.0,1000.0,0.0,1706.0,F,RAS
+cj021,cp021,g23-perkins-60,2450.0,0.0,0.0,5301.0,F,RAS
+cj022,cp022,g24-huawei-23,800.0,0.0,0.0,801.0,F,GES En arrêt défaut de l’électrovanne d’arrêt
+cj023,cp023,g25-listerpetter-12.5,0.0,0.0,0.0,0.0,HS,GE lister Peter Vétuste en arrêt
+cj024,cp024,g26-listerpetter-12.5,0.0,0.0,0.0,0.0,HS,GE lister Peter Vétuste en arrêt
+cj025,cp025,g27-noname-22,0.0,0.0,0.0,0.0,F,GES DEPLOYE A NEW BELL MAGASIN
+cj026,cp026,g28-huawei-23,800.0,0.0,0.0,1231.0,F,RAS
+cj027,cp027,g29-lionrock-18,600.0,0.0,0.0,4211.0,P,Cuve journalière: XXX L
+cj028,cp028,g30-lionrock-27,154.0,0.0,0.0,745.0,F,RAS
+cj030,cp030,g31-cummins-500,1250.0,0.0,0.0,335.0,F,RAS
+cj030,cp030,g32-cummins-500,1250.0,0.0,0.0,0.0,HS,GES Hors service (défaut carte de contrôle)
+cj029,cp029,g33-kholerr-0,0.0,0.0,0.0,601.0,NC,état non renseigné (²) ; Cuve principale: Aucun baremage sur la cuve
