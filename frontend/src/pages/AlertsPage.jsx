@@ -389,7 +389,7 @@ function AlertsPage({ onNavigate }) {
                             className="alert-more-btn"
                             onClick={() => openAlert(alert)}
                           >
-                            Ouvrir <ArrowRight size={14} aria-hidden="true" />
+                            En savoir plus <ArrowRight size={14} aria-hidden="true" />
                           </button>
                           {isAdmin && !alert.traitee && (
                             <button
