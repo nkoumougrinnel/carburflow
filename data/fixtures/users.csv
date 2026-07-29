@@ -1,7 +1,0 @@
-username,password,email,role,is_staff,is_superuser,is_active
-admin1,admin123,admin1@carburflow.com,admin,True,True,True
-admin2,admin456,admin2@carburflow.com,admin,True,False,True
-agent1,agent123,agent1@carburflow.com,agent,False,False,True
-agent2,agent456,agent2@carburflow.com,agent,False,False,True
-user1,user123,user1@carburflow.com,user,False,False,True
-user2,user456,user2@carburflow.com,user,False,False,True

@@ -1,0 +1,4 @@
+﻿username,email,password,role,first_name,last_name,site
+admin,admin@carburflow.local,admin,admin,Admin,CarburFlow,
+operateur,operateur@carburflow.local,operateur123,agent,Operateur,Terrain,BEPANDA INTERNATIONAL
+user,user@carburflow.local,user123,user,User,Lecture,
