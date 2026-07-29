@@ -1,13 +1,14 @@
 import React from 'react'
-import logoIcon from '../../../logo/logo_clair_navbar.jpeg'
-import logoLight from '../../../logo/clair.jpeg'
-import logoDark from '../../../logo/sombre.jpeg'
 import { useTheme } from '../context/ThemeContext.jsx'
 
+const logoIcon = '/assets/images/logo_clair_navbar.jpeg'
+const logoLight = '/assets/images/clair.jpeg'
+const logoDark = '/assets/images/sombre.jpeg'
+
 /**
- * Logo CarburFlow officiel (dossier /logo).
- * - icon : pastille navbar (logo_clair_navbar.jpeg)
- * - full : wordmark clair.jpeg / sombre.jpeg selon le thème
+ * Logo CarburFlow officiel (frontend/public/assets/images).
+ * - icon : pastille navbar
+ * - full : wordmark clair / sombre selon le thème
  */
 function BrandLogo({
   variant = 'icon',
