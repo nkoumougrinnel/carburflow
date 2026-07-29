@@ -2,7 +2,7 @@ import json
 import re
 import statistics
 from django.db.models import Sum
-from rest_framework import viewsets
+from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, extend_schema_view
@@ -44,10 +44,17 @@ class RapportViewSet(viewsets.ModelViewSet):
     queryset = Rapport.objects.all()
     serializer_class = RapportSerializer
 
+    def update(self, request, *args, **kwargs):
+        return Response(
+            {'detail': 'La modification de rapport n’est plus autorisée.'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    def partial_update(self, request, *args, **kwargs):
+        return self.update(request, *args, **kwargs)
+
     def destroy(self, request, *args, **kwargs):
         """Suppression réservée aux responsables (les lignes partent en CASCADE)."""
-        from rest_framework import status
-        from rest_framework.response import Response
         from dashboard.permissions import user_is_admin
 
         if not user_is_admin(request.user):
@@ -62,6 +69,14 @@ class LigneRapportViewSet(viewsets.ModelViewSet):
     queryset = LigneRapport.objects.all()
     serializer_class = LigneRapportSerializer
 
+    def update(self, request, *args, **kwargs):
+        return Response(
+            {'detail': 'La modification de rapport n’est plus autorisée.'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    def partial_update(self, request, *args, **kwargs):
+        return self.update(request, *args, **kwargs)
 
 class SitesVolumeAPIView(APIView):
     """API dédiée à la page Sites : évolution du volume total par cuve principale."""

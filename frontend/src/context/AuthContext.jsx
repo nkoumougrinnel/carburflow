@@ -8,9 +8,30 @@ import {
   meRequest,
   persistAuth,
   registerRequest,
+  updateProfileRequest,
+  changePasswordRequest,
 } from '../auth.js'
 
 const AuthContext = createContext(null)
+
+function resolveRole(user) {
+  if (!user) return null
+  if (user.role === 'admin' || user.is_staff || user.is_superuser) return 'admin'
+  if (user.role === 'operateur') return 'operateur'
+  return 'user'
+}
+
+export function homeViewForUser(userOrFlags) {
+  if (!userOrFlags) return 'login'
+  const role = userOrFlags.role
+    || (userOrFlags.isAdmin && 'admin')
+    || (userOrFlags.isOperator && 'operateur')
+    || (userOrFlags.isViewer && 'user')
+    || null
+  if (role === 'admin' || userOrFlags.is_staff) return 'dashboard'
+  if (role === 'operateur') return 'operator'
+  return 'viewer'
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => getStoredUser())
@@ -68,18 +89,57 @@ export function AuthProvider({ children }) {
     setToken(null)
   }, [])
 
-  const isAdmin = user?.role === 'admin' || Boolean(user?.is_staff)
+  const refreshUser = useCallback(async () => {
+    const me = await meRequest()
+    setUser(me)
+    persistAuth(getStoredToken(), me)
+    return me
+  }, [])
+
+  const updateProfile = useCallback(async (payload) => {
+    const me = await updateProfileRequest(payload)
+    setUser(me)
+    persistAuth(getStoredToken(), me)
+    return me
+  }, [])
+
+  const changePassword = useCallback(async (payload) => {
+    const result = await changePasswordRequest(payload)
+    if (result.token) {
+      persistAuth(result.token, result.user)
+      setToken(result.token)
+      setUser(result.user)
+    }
+    return result
+  }, [])
+
+  const isAuthenticated = Boolean(user && token)
+  const role = resolveRole(user)
+  const isAdmin = role === 'admin'
+  const isOperator = role === 'operateur'
+  const isViewer = role === 'user'
+  const canUploadReports = isAdmin || isOperator
 
   const value = useMemo(() => ({
     user,
     token,
     loading,
-    isAuthenticated: Boolean(user && token),
+    isAuthenticated,
+    role,
     isAdmin,
+    isOperator,
+    isViewer,
+    canUploadReports,
     login,
     register,
     logout,
-  }), [user, token, loading, isAdmin, login, register, logout])
+    refreshUser,
+    updateProfile,
+    changePassword,
+  }), [
+    user, token, loading, isAuthenticated, role, isAdmin, isOperator, isViewer,
+    canUploadReports, login, register, logout, refreshUser, updateProfile, changePassword,
+  ])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

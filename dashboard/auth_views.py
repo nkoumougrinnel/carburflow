@@ -8,6 +8,8 @@ from drf_spectacular.utils import extend_schema
 
 from dashboard.auth_serializers import (
     LoginSerializer,
+    PasswordChangeSerializer,
+    ProfileUpdateSerializer,
     RegisterSerializer,
     UserSerializer,
 )
@@ -32,11 +34,19 @@ def build_auth_payload(user):
     }
 
 
+def serialize_me(user):
+    ensure_profile(user)
+    user.refresh_from_db()
+    data = UserSerializer(user).data
+    data['role'] = get_user_role(user)
+    return data
+
+
 class RegisterAPIView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
 
-    @extend_schema(request=RegisterSerializer, tags=['Auth'], summary='Inscription opérateur')
+    @extend_schema(request=RegisterSerializer, tags=['Auth'], summary='Inscription utilisateur')
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -69,11 +79,32 @@ class MeAPIView(APIView):
 
     @extend_schema(responses={200: UserSerializer}, tags=['Auth'], summary='Profil courant')
     def get(self, request):
-        ensure_profile(request.user)
-        request.user.refresh_from_db()
-        data = UserSerializer(request.user).data
-        data['role'] = get_user_role(request.user)
-        return Response(data)
+        return Response(serialize_me(request.user))
+
+    @extend_schema(request=ProfileUpdateSerializer, responses={200: UserSerializer}, tags=['Auth'], summary='Mettre à jour le profil')
+    def patch(self, request):
+        serializer = ProfileUpdateSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.update(request.user, serializer.validated_data)
+        return Response(serialize_me(request.user))
+
+
+class PasswordChangeAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(request=PasswordChangeSerializer, tags=['Auth'], summary='Changer le mot de passe')
+    def post(self, request):
+        serializer = PasswordChangeSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        # Invalider les autres sessions éventuelles : régénérer le token courant
+        Token.objects.filter(user=request.user).delete()
+        token, _ = Token.objects.get_or_create(user=request.user)
+        return Response({
+            'detail': 'Mot de passe mis à jour.',
+            'token': token.key,
+            'user': serialize_me(request.user),
+        })
 
 
 class CsrfAPIView(APIView):

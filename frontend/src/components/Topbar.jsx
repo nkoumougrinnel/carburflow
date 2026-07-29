@@ -9,23 +9,34 @@ import {
   LogIn,
   Menu,
   X,
-  Fuel,
   Sun,
   Moon,
+  History,
+  UserRound,
 } from 'lucide-react'
 import BrandLogo from './BrandLogo.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useTheme } from '../context/ThemeContext.jsx'
 import { getDisplayFullName } from '../utils/userDisplay.js'
 
+function roleLabel(isAdmin, isOperator) {
+  if (isAdmin) return 'Responsable'
+  if (isOperator) return 'Opérateur'
+  return 'Utilisateur'
+}
+
+function roleChipClass(isAdmin, isOperator) {
+  if (isAdmin) return 'admin'
+  if (isOperator) return 'operateur'
+  return 'user'
+}
+
 function Topbar({ activeView, onNavigate }) {
-  const { isAuthenticated, isAdmin, logout, user } = useAuth()
+  const { isAuthenticated, isAdmin, isOperator, logout, user } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const [menuOpen, setMenuOpen] = useState(false)
 
-  useEffect(() => {
-    setMenuOpen(false)
-  }, [activeView])
+  useEffect(() => { setMenuOpen(false) }, [activeView])
 
   const go = (view) => {
     setMenuOpen(false)
@@ -38,21 +49,26 @@ function Topbar({ activeView, onNavigate }) {
     onNavigate('home')
   }
 
-  const handleThemeToggle = (event) => {
-    event.preventDefault()
-    event.stopPropagation()
-    toggleTheme()
-  }
-
   const adminLinks = [
     { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
     { id: 'sites', label: 'Sites', icon: MapPinned },
     { id: 'groups', label: 'Groupes', icon: Zap },
     { id: 'reports', label: 'Relevés', icon: Upload },
+    { id: 'profile', label: 'Profil', icon: UserRound },
   ]
 
-  const userLinks = [
-    { id: 'reports', label: 'Mes relevés', icon: Upload },
+  const operatorLinks = [
+    { id: 'operator', label: 'Accueil', icon: Home },
+    { id: 'sites', label: 'Sites', icon: MapPinned },
+    { id: 'reports', label: 'Relevé', icon: Upload },
+    { id: 'history', label: 'Historique', icon: History },
+    { id: 'profile', label: 'Profil', icon: UserRound },
+  ]
+
+  const viewerLinks = [
+    { id: 'viewer', label: 'Accueil', icon: Home },
+    { id: 'sites', label: 'Sites', icon: MapPinned },
+    { id: 'profile', label: 'Profil', icon: UserRound },
   ]
 
   const links = !isAuthenticated
@@ -62,40 +78,40 @@ function Topbar({ activeView, onNavigate }) {
       ]
     : isAdmin
       ? adminLinks
-      : userLinks
+      : isOperator
+        ? operatorLinks
+        : viewerLinks
 
   const isDark = theme === 'dark'
+  const homeView = isAuthenticated
+    ? (isAdmin ? 'dashboard' : isOperator ? 'operator' : 'viewer')
+    : 'home'
+  const subtitle = !isAuthenticated
+    ? 'Suivi carburant'
+    : isAdmin
+      ? 'Pilotage carburant'
+      : isOperator
+        ? 'Espace opérateur'
+        : 'Espace consultation'
 
   return (
     <header className="topbar">
-      <button
-        type="button"
-        className="brand-wrap brand-wrap--btn"
-        onClick={() => go(isAuthenticated ? (isAdmin ? 'dashboard' : 'reports') : 'home')}
-        aria-label="CarburFlow — accueil"
-      >
+      <button type="button" className="brand-wrap brand-wrap--btn" onClick={() => go(homeView)} aria-label="CarburFlow — accueil">
         <BrandLogo variant="icon" className="brand-logo" />
         <div className="brand-text">
           <span className="brand-name">CarburFlow</span>
-          <span className="brand-subtitle">
-            {isAuthenticated
-              ? (isAdmin ? 'Pilotage carburant' : 'Mes relevés')
-              : 'Suivi carburant'}
-          </span>
+          <span className="brand-subtitle">{subtitle}</span>
         </div>
       </button>
 
       <div className="topbar-right">
-        <nav
-          className={`topbar-actions ${menuOpen ? 'is-open' : ''}`}
-          aria-label="Navigation principale"
-        >
+        <nav className={`topbar-actions ${menuOpen ? 'is-open' : ''}`} aria-label="Navigation principale">
           {links.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               type="button"
-              className={`nav-link ${activeView === id || (id === 'home' && activeView === 'presentation') ? 'active' : ''}`}
-              onClick={() => go(id === 'home' ? 'home' : id)}
+              className={`nav-link ${activeView === id ? 'active' : ''}`}
+              onClick={() => go(id)}
             >
               <Icon size={16} aria-hidden="true" />
               <span>{label}</span>
@@ -106,15 +122,11 @@ function Topbar({ activeView, onNavigate }) {
             <div className="topbar-user">
               <div className="topbar-user-meta">
                 <span className="topbar-user-name">{getDisplayFullName(user)}</span>
-                <span className={`role-chip ${isAdmin ? 'admin' : 'user'}`}>
-                  {isAdmin ? 'Responsable' : 'Opérateur'}
+                <span className={`role-chip ${roleChipClass(isAdmin, isOperator)}`}>
+                  {roleLabel(isAdmin, isOperator)}
                 </span>
               </div>
-              <button
-                type="button"
-                className="nav-link nav-link-logout"
-                onClick={handleLogout}
-              >
+              <button type="button" className="nav-link nav-link-logout" onClick={handleLogout}>
                 <LogOut size={16} aria-hidden="true" />
                 <span>Déconnexion</span>
               </button>
@@ -125,9 +137,8 @@ function Topbar({ activeView, onNavigate }) {
         <button
           type="button"
           className="theme-toggle"
-          onClick={handleThemeToggle}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleTheme() }}
           aria-label={isDark ? 'Passer en mode clair' : 'Passer en mode sombre'}
-          title={isDark ? 'Mode clair' : 'Mode sombre'}
         >
           {isDark ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
         </button>

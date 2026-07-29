@@ -12,6 +12,7 @@ from dashboard.auth_views import (
     LoginAPIView,
     LogoutAPIView,
     MeAPIView,
+    PasswordChangeAPIView,
     RegisterAPIView,
 )
 from dashboard.rapport_views import (
@@ -53,6 +54,7 @@ urlpatterns = [
     path('auth/login', LoginAPIView.as_view(), name='api-auth-login'),
     path('auth/logout', LogoutAPIView.as_view(), name='api-auth-logout'),
     path('auth/me', MeAPIView.as_view(), name='api-auth-me'),
+    path('auth/password', PasswordChangeAPIView.as_view(), name='api-auth-password'),
     path('auth/csrf', CsrfAPIView.as_view(), name='api-auth-csrf'),
 
     path('rapports/norme', NormeMetaAPIView.as_view(), name='api-norme-meta'),
