@@ -1905,6 +1905,10 @@ button.alert-item--link {
   background: color-mix(in srgb, var(--primary) 14%, var(--panel));
   color: var(--primary);
 }
+.role-chip.operateur {
+  background: color-mix(in srgb, var(--accent-warm) 16%, var(--panel));
+  color: var(--accent-warm);
+}
 .role-chip.user {
   background: color-mix(in srgb, var(--accent-amber) 16%, var(--panel));
   color: var(--accent-amber);

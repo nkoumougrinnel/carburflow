@@ -13,8 +13,12 @@ import { ThemeProvider } from './context/ThemeContext.jsx'
 import InteractionShell from './components/InteractionShell.jsx'
 import PageLoader from './components/PageLoader.jsx'
 
-/** Vues accessibles à l’opérateur (rôle user). */
+/** Admin : pilotage complet. */
+const ADMIN_VIEWS = new Set(['home', 'dashboard', 'sites', 'cuves', 'groups', 'reports', 'history'])
+/** Opérateur : accueil + sites + relevé + historique. */
 const OPERATOR_VIEWS = new Set(['operator', 'sites', 'reports', 'history'])
+/** Utilisateur : consultation sites uniquement. */
+const VIEWER_VIEWS = new Set(['sites'])
 const PUBLIC_VIEWS = new Set(['home', 'login', 'register'])
 
 function resolveViewFromPath(pathname) {
@@ -30,9 +34,40 @@ function resolveViewFromPath(pathname) {
   return 'home'
 }
 
+function allowedViews({ isAdmin, isOperator, isViewer }) {
+  if (isAdmin) return ADMIN_VIEWS
+  if (isOperator) return OPERATOR_VIEWS
+  if (isViewer) return VIEWER_VIEWS
+  return new Set()
+}
+
+function defaultView({ isAdmin, isOperator, isViewer }) {
+  if (isAdmin) return 'dashboard'
+  if (isOperator) return 'operator'
+  if (isViewer) return 'sites'
+  return 'login'
+}
+
+function pathForView(view) {
+  const pathMap = {
+    home: '/',
+    operator: '/operateur/',
+    dashboard: '/dashboard/',
+    sites: '/sites/',
+    cuves: '/cuves/',
+    groups: '/groupes/',
+    reports: '/rapports/',
+    history: '/historique/',
+    login: '/login/',
+    register: '/register/',
+  }
+  return pathMap[view] || '/'
+}
+
 function AppRoutes() {
-  const { isAuthenticated, isAdmin, loading } = useAuth()
+  const { isAuthenticated, isAdmin, isOperator, isViewer, loading } = useAuth()
   const [view, setView] = useState(() => resolveViewFromPath(window.location.pathname))
+  const roleFlags = { isAdmin, isOperator, isViewer }
 
   const navigate = (nextView, options = {}) => {
     if (typeof nextView === 'object' && nextView !== null) {
@@ -40,30 +75,17 @@ function AppRoutes() {
       nextView = nextView.view
     }
 
-    const pathMap = {
-      home: '/',
-      operator: '/operateur/',
-      dashboard: '/dashboard/',
-      sites: '/sites/',
-      cuves: '/cuves/',
-      groups: '/groupes/',
-      reports: '/rapports/',
-      history: '/historique/',
-      login: '/login/',
-      register: '/register/',
-    }
-
     if (!nextView || nextView === 'presentation') nextView = 'home'
 
     if (!loading) {
       if (!isAuthenticated && !PUBLIC_VIEWS.has(nextView)) {
         nextView = 'login'
-      } else if (isAuthenticated && !isAdmin && !OPERATOR_VIEWS.has(nextView) && nextView !== 'login' && nextView !== 'register') {
-        nextView = 'operator'
+      } else if (isAuthenticated && !allowedViews(roleFlags).has(nextView) && nextView !== 'login' && nextView !== 'register') {
+        nextView = defaultView(roleFlags)
       }
     }
 
-    let nextPath = pathMap[nextView] || '/'
+    let nextPath = pathForView(nextView)
     if (nextView === 'sites') {
       const params = []
       if (options.siteId != null && options.siteId !== '') params.push(`siteId=${encodeURIComponent(options.siteId)}`)
@@ -97,11 +119,12 @@ function AppRoutes() {
       setView('login')
       return
     }
-    if (isAuthenticated && !isAdmin && !OPERATOR_VIEWS.has(view) && view !== 'login' && view !== 'register') {
-      window.history.replaceState({}, '', '/operateur/')
-      setView('operator')
+    if (isAuthenticated && !allowedViews(roleFlags).has(view) && view !== 'login' && view !== 'register') {
+      const fallback = defaultView(roleFlags)
+      window.history.replaceState({}, '', pathForView(fallback))
+      setView(fallback)
     }
-  }, [loading, view, isAuthenticated, isAdmin])
+  }, [loading, view, isAuthenticated, isAdmin, isOperator, isViewer])
 
   if (loading) {
     return <PageLoader label="Ouverture de votre session…" />
@@ -118,7 +141,11 @@ function AppRoutes() {
     return <AuthPage onNavigate={navigate} initialMode="login" />
   }
 
-  if (!isAdmin) {
+  if (isViewer) {
+    return <SitesPage onNavigate={navigate} />
+  }
+
+  if (isOperator) {
     if (view === 'operator') return <OperatorHomePage onNavigate={navigate} />
     if (view === 'sites') return <SitesPage onNavigate={navigate} />
     if (view === 'reports') return <ReportsPage onNavigate={navigate} />

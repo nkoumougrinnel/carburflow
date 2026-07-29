@@ -12,6 +12,13 @@ import {
 
 const AuthContext = createContext(null)
 
+function resolveRole(user) {
+  if (!user) return null
+  if (user.role === 'admin' || user.is_staff || user.is_superuser) return 'admin'
+  if (user.role === 'operateur') return 'operateur'
+  return 'user'
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => getStoredUser())
   const [token, setToken] = useState(() => getStoredToken())
@@ -69,20 +76,39 @@ export function AuthProvider({ children }) {
   }, [])
 
   const isAuthenticated = Boolean(user && token)
-  const isAdmin = user?.role === 'admin' || Boolean(user?.is_staff)
-  const isOperator = isAuthenticated && !isAdmin
+  const role = resolveRole(user)
+  const isAdmin = role === 'admin'
+  const isOperator = role === 'operateur'
+  const isViewer = role === 'user'
+  const canUploadReports = isAdmin || isOperator
 
   const value = useMemo(() => ({
     user,
     token,
     loading,
     isAuthenticated,
+    role,
     isAdmin,
     isOperator,
+    isViewer,
+    canUploadReports,
     login,
     register,
     logout,
-  }), [user, token, loading, isAuthenticated, isAdmin, isOperator, login, register, logout])
+  }), [
+    user,
+    token,
+    loading,
+    isAuthenticated,
+    role,
+    isAdmin,
+    isOperator,
+    isViewer,
+    canUploadReports,
+    login,
+    register,
+    logout,
+  ])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
@@ -91,4 +117,12 @@ export function useAuth() {
   const ctx = useContext(AuthContext)
   if (!ctx) throw new Error('useAuth doit être utilisé dans AuthProvider')
   return ctx
+}
+
+/** Destination post-login selon le rôle. */
+export function homeViewForUser(userOrFlags) {
+  if (!userOrFlags) return 'login'
+  if (userOrFlags.isAdmin || userOrFlags.role === 'admin' || userOrFlags.is_staff) return 'dashboard'
+  if (userOrFlags.isOperator || userOrFlags.role === 'operateur') return 'operator'
+  return 'sites'
 }

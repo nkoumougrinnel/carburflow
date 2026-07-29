@@ -3,11 +3,15 @@ from django.db import models
 
 
 class UserProfile(models.Model):
+    """Hiérarchie : admin > operateur > user (consultation sites)."""
+
     ROLE_ADMIN = 'admin'
+    ROLE_OPERATEUR = 'operateur'
     ROLE_USER = 'user'
     ROLE_CHOICES = [
         (ROLE_ADMIN, 'Administrateur'),
-        (ROLE_USER, 'Opérateur'),
+        (ROLE_OPERATEUR, 'Opérateur'),
+        (ROLE_USER, 'Utilisateur'),
     ]
 
     user = models.OneToOneField(
@@ -34,6 +38,10 @@ class UserProfile(models.Model):
     @property
     def is_admin(self):
         return self.role == self.ROLE_ADMIN or self.user.is_superuser or self.user.is_staff
+
+    @property
+    def is_operateur(self):
+        return self.role == self.ROLE_OPERATEUR
 
 
 # Alias de compatibilité

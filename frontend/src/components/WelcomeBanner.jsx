@@ -17,7 +17,7 @@ function WelcomeBanner({
   subtitle,
   className = '',
 }) {
-  const { user, isAdmin } = useAuth()
+  const { user, isAdmin, isOperator } = useAuth()
   const ref = useRef(null)
   const firstName = getDisplayFirstName(user)
 
@@ -39,10 +39,12 @@ function WelcomeBanner({
   )
   const sub = subtitle || (
     isAdminImport
-      ? 'Téléchargez, corrigez et suivez les fichiers envoyés par les opérateurs.'
+      ? 'Téléchargez et suivez les fichiers envoyés par les opérateurs.'
       : isAdmin
         ? 'Voici votre tableau de bord CarburFlow. Tout est prêt pour piloter vos sites.'
-        : 'Bienvenue dans votre espace opérateur. Sites, relevé et historique sont à portée de main.'
+        : isOperator
+          ? 'Bienvenue dans votre espace opérateur. Sites, relevé et historique sont à portée de main.'
+          : 'Bienvenue. Consultez les sites et l’autonomie des cuves.'
   )
 
   return (

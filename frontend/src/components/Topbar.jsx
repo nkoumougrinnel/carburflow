@@ -18,8 +18,20 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { useTheme } from '../context/ThemeContext.jsx'
 import { getDisplayFullName } from '../utils/userDisplay.js'
 
+function roleLabel(isAdmin, isOperator) {
+  if (isAdmin) return 'Responsable'
+  if (isOperator) return 'Opérateur'
+  return 'Utilisateur'
+}
+
+function roleChipClass(isAdmin, isOperator) {
+  if (isAdmin) return 'admin'
+  if (isOperator) return 'operateur'
+  return 'user'
+}
+
 function Topbar({ activeView, onNavigate }) {
-  const { isAuthenticated, isAdmin, logout, user } = useAuth()
+  const { isAuthenticated, isAdmin, isOperator, logout, user } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const [menuOpen, setMenuOpen] = useState(false)
 
@@ -58,6 +70,10 @@ function Topbar({ activeView, onNavigate }) {
     { id: 'history', label: 'Historique', icon: History },
   ]
 
+  const viewerLinks = [
+    { id: 'sites', label: 'Sites', icon: MapPinned },
+  ]
+
   const links = !isAuthenticated
     ? [
         { id: 'home', label: 'Accueil', icon: Home },
@@ -65,10 +81,22 @@ function Topbar({ activeView, onNavigate }) {
       ]
     : isAdmin
       ? adminLinks
-      : operatorLinks
+      : isOperator
+        ? operatorLinks
+        : viewerLinks
 
   const isDark = theme === 'dark'
-  const homeView = isAuthenticated ? (isAdmin ? 'dashboard' : 'operator') : 'home'
+  const homeView = isAuthenticated
+    ? (isAdmin ? 'dashboard' : isOperator ? 'operator' : 'sites')
+    : 'home'
+
+  const subtitle = !isAuthenticated
+    ? 'Suivi carburant'
+    : isAdmin
+      ? 'Pilotage carburant'
+      : isOperator
+        ? 'Espace opérateur'
+        : 'Consultation sites'
 
   return (
     <header className="topbar">
@@ -81,11 +109,7 @@ function Topbar({ activeView, onNavigate }) {
         <BrandLogo variant="icon" className="brand-logo" />
         <div className="brand-text">
           <span className="brand-name">CarburFlow</span>
-          <span className="brand-subtitle">
-            {isAuthenticated
-              ? (isAdmin ? 'Pilotage carburant' : 'Espace opérateur')
-              : 'Suivi carburant'}
-          </span>
+          <span className="brand-subtitle">{subtitle}</span>
         </div>
       </button>
 
@@ -110,8 +134,8 @@ function Topbar({ activeView, onNavigate }) {
             <div className="topbar-user">
               <div className="topbar-user-meta">
                 <span className="topbar-user-name">{getDisplayFullName(user)}</span>
-                <span className={`role-chip ${isAdmin ? 'admin' : 'user'}`}>
-                  {isAdmin ? 'Responsable' : 'Opérateur'}
+                <span className={`role-chip ${roleChipClass(isAdmin, isOperator)}`}>
+                  {roleLabel(isAdmin, isOperator)}
                 </span>
               </div>
               <button

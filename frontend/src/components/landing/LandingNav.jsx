@@ -7,7 +7,7 @@ import { useTheme } from '@/context/ThemeContext.jsx'
 import { cn } from '@/lib/utils'
 
 function LandingNav({ onNavigate }) {
-  const { isAuthenticated, isAdmin, logout } = useAuth()
+  const { isAuthenticated, isAdmin, isOperator, isViewer, logout } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const [open, setOpen] = useState(false)
 
@@ -53,9 +53,13 @@ function LandingNav({ onNavigate }) {
                     Relevés
                   </Button>
                 </>
-              ) : (
+              ) : isOperator ? (
                 <Button variant="ghost" onClick={() => go('operator')}>
                   Mon espace
+                </Button>
+              ) : (
+                <Button variant="ghost" onClick={() => go('sites')}>
+                  Sites
                 </Button>
               )}
               <Button
@@ -118,9 +122,13 @@ function LandingNav({ onNavigate }) {
                     Relevés
                   </Button>
                 </>
-              ) : (
+              ) : isOperator ? (
                 <Button variant="ghost" className="justify-start" onClick={() => go('operator')}>
                   Mon espace
+                </Button>
+              ) : (
+                <Button variant="ghost" className="justify-start" onClick={() => go('sites')}>
+                  Sites
                 </Button>
               )}
               <Button

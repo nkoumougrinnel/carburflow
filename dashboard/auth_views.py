@@ -36,7 +36,7 @@ class RegisterAPIView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
 
-    @extend_schema(request=RegisterSerializer, tags=['Auth'], summary='Inscription opérateur')
+    @extend_schema(request=RegisterSerializer, tags=['Auth'], summary='Inscription utilisateur (consultation)')
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

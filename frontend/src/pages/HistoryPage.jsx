@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import Topbar from '../components/Topbar.jsx'
 import WelcomeBanner from '../components/WelcomeBanner.jsx'
-import RapportEditModal from '../components/RapportEditModal.jsx'
 import PageEnter from '../components/PageEnter.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import {
@@ -18,7 +17,6 @@ function HistoryPage({ onNavigate }) {
   const [query, setQuery] = useState('')
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
-  const [editingRapportId, setEditingRapportId] = useState(null)
   const [deletingRapportId, setDeletingRapportId] = useState(null)
   const [downloadingRapport, setDownloadingRapport] = useState('')
 
@@ -113,8 +111,8 @@ function HistoryPage({ onNavigate }) {
             title={isAdmin ? 'Historique des relevés' : 'Mes relevés envoyés'}
             subtitle={
               isAdmin
-                ? 'Tous les fichiers reçus des équipes. Téléchargez, modifiez ou retirez un envoi.'
-                : 'Retrouvez vos envois, re-téléchargez-les ou corrigez une fiche déjà déposée.'
+                ? 'Tous les fichiers reçus des équipes. Téléchargez ou retirez un envoi.'
+                : 'Retrouvez vos envois et re-téléchargez-les si besoin.'
             }
           />
 
@@ -252,13 +250,6 @@ function HistoryPage({ onNavigate }) {
                                 CSV
                               </LoadingButton>
                               <LoadingButton
-                                className="reports-btn--edit"
-                                disabled={busy}
-                                onClick={() => setEditingRapportId(r.id)}
-                              >
-                                Modifier
-                              </LoadingButton>
-                              <LoadingButton
                                 className="reports-btn--danger"
                                 loading={deletingRapportId === r.id}
                                 loadingText="Suppression…"
@@ -310,13 +301,6 @@ function HistoryPage({ onNavigate }) {
                         >
                           CSV
                         </LoadingButton>
-                        <LoadingButton
-                          className="reports-btn--edit"
-                          disabled={busy}
-                          onClick={() => setEditingRapportId(r.id)}
-                        >
-                          Modifier
-                        </LoadingButton>
                       </div>
                     </article>
                   )
@@ -324,14 +308,6 @@ function HistoryPage({ onNavigate }) {
               </div>
             )}
           </section>
-
-          {editingRapportId != null && (
-            <RapportEditModal
-              rapportId={editingRapportId}
-              onClose={() => setEditingRapportId(null)}
-              onSaved={() => refresh({ silent: true })}
-            />
-          )}
         </main>
       </PageEnter>
     </div>
