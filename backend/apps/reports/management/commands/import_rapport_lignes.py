@@ -14,8 +14,8 @@ import json
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 
-from dashboard.norme import ImportValidationError
-from dashboard.rapport_pipeline import import_rapport_file
+from apps.reports.norme import ImportValidationError
+from apps.reports.pipeline import import_rapport_file
 
 
 class Command(BaseCommand):

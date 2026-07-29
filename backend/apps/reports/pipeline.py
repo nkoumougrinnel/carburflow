@@ -6,9 +6,9 @@ Pipeline d'import de rapports CarburFlow (3 étapes) — fiches de suivi.
 3. import_rapport_lignes : Rapport + LigneRapport
 
 Identifiants terrain :
-- id_cuve_principale = nom du site (string), une cuve principale = un site
+- id_cuve_principale = nom du site (string) → Site.nom + CuvePrincipale CPxxx
 - id_cuve_journaliere = nom de la cuve journalière (string)
-- id_groupe = numéro (int)
+- id_groupe = numéro / identifiant groupe
 """
 
 from __future__ import annotations
@@ -19,14 +19,8 @@ from pathlib import Path
 
 from django.db import transaction
 
-from dashboard.models import (
-    CuveJournaliere,
-    CuvePrincipale,
-    GroupeElectrogene,
-    LigneRapport,
-    Rapport,
-)
-from dashboard.norme import (
+from apps.reports.models import LigneRapport, Rapport
+from apps.reports.norme import (
     ImportValidationError,
     _friendly_error,
     _parse_date,
@@ -38,6 +32,7 @@ from dashboard.norme import (
     rows_from_csv,
     rows_from_xlsx,
 )
+from apps.sites.models import CuveJournaliere, CuvePrincipale, GroupeElectrogene, Site
 
 
 @dataclass
@@ -161,10 +156,49 @@ def load_rapport_rows_from_bytes(filename: str, raw: bytes) -> list[dict]:
     )
 
 
+def _next_cp_identifiant() -> str:
+    """Prochain identifiant CPxxx libre."""
+    import re
+
+    max_n = 0
+    for ident in CuvePrincipale.objects.values_list('identifiant', flat=True):
+        match = re.match(r'^CP(\d+)$', str(ident or ''), re.IGNORECASE)
+        if match:
+            max_n = max(max_n, int(match.group(1)))
+    return f'CP{max_n + 1:03d}'
+
+
 def _lookup_cp(name: str | None) -> CuvePrincipale | None:
+    """
+    Résout une CP depuis le nom terrain (Site.nom) ou l'identifiant CPxxx.
+    """
     if not name:
         return None
-    return CuvePrincipale.objects.filter(identifiant__iexact=name.strip()).first()
+    key = name.strip()
+    cp = CuvePrincipale.objects.filter(identifiant__iexact=key).select_related('site').first()
+    if cp:
+        return cp
+    site = Site.objects.filter(nom__iexact=key).first()
+    if site:
+        return site.cuves_principales.order_by('id').first()
+    return None
+
+
+def _get_or_create_cp_for_site_name(name: str, capacite: float) -> CuvePrincipale:
+    """Crée Site + première CP (CPxxx) pour un nom de site terrain."""
+    site_name = name.strip()
+    site, _ = Site.objects.get_or_create(
+        nom=site_name,
+        defaults={'localisation': '', 'statut': Site.STATUT_ACTIF},
+    )
+    existing = site.cuves_principales.order_by('id').first()
+    if existing:
+        return existing
+    return CuvePrincipale.objects.create(
+        identifiant=_next_cp_identifiant(),
+        capacite=capacite,
+        site=site,
+    )
 
 
 def _lookup_cj(name: str | None) -> CuveJournaliere | None:
@@ -401,14 +435,23 @@ def generate_rapport_template_xlsx(
         cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
 
     cuves = (
-        CuveJournaliere.objects.select_related('cuve_principale', 'groupe_electrogene')
+        CuveJournaliere.objects.select_related(
+            'cuve_principale__site',
+            'groupe_electrogene',
+        )
         .all()
-        .order_by('cuve_principale__identifiant', 'identifiant', 'id')
+        .order_by('cuve_principale__site__nom', 'identifiant', 'id')
     )
 
     current_row = 2
     for cj in cuves:
-        cp_name = cj.cuve_principale.identifiant if cj.cuve_principale else '—'
+        # Le fichier terrain utilise le nom du site, pas l'identifiant CPxxx.
+        if cj.cuve_principale and cj.cuve_principale.site_id:
+            cp_name = cj.cuve_principale.site.nom
+        elif cj.cuve_principale:
+            cp_name = cj.cuve_principale.identifiant
+        else:
+            cp_name = '—'
         g_str = (
             f'{cj.groupe_electrogene.identifiant} ({cj.groupe_electrogene.marque})'
             if cj.groupe_electrogene
@@ -758,12 +801,17 @@ def analyze_rapport_rows(rows: list[dict], *, create_missing: bool = False) -> A
     existing_cp = {}
     if cp_names:
         wanted = {n.strip().upper() for n in cp_names}
-        for obj in CuvePrincipale.objects.exclude(identifiant='').only('identifiant'):
+        for obj in CuvePrincipale.objects.select_related('site').exclude(identifiant=''):
             if not obj.identifiant:
                 continue
             key = obj.identifiant.strip().upper()
             if key in wanted:
                 existing_cp[key] = obj.identifiant
+            site_nom = getattr(obj.site, 'nom', None) if obj.site_id else None
+            if site_nom:
+                skey = site_nom.strip().upper()
+                if skey in wanted:
+                    existing_cp[skey] = site_nom
 
     existing_cj = {}
     if cj_names:
@@ -919,11 +967,11 @@ def create_entities_from_analysis(
         if _lookup_cp(ref.key):
             result.skipped_existing.append(f'site:{ref.key}')
             continue
-        CuvePrincipale.objects.create(
-            identifiant=ref.key.strip(),
-            capacite=_capacity_for_site(analysis, ref.key, default_cp_capacity),
+        cp = _get_or_create_cp_for_site_name(
+            ref.key,
+            _capacity_for_site(analysis, ref.key, default_cp_capacity),
         )
-        result.created_cuves_principales.append(ref.key)
+        result.created_cuves_principales.append(f'{ref.key}→{cp.identifiant}')
 
     for ref in analysis.new_groupes:
         pending = _parse_pending_groupe_key(ref.key)
@@ -993,12 +1041,13 @@ def create_entities_from_analysis(
         g_key = link.get('groupe_key') or link.get('groupe_id')
 
         if site_name and not _lookup_cp(site_name):
-            CuvePrincipale.objects.create(
-                identifiant=site_name.strip(),
-                capacite=_capacity_for_site(analysis, site_name, default_cp_capacity),
+            cp_new = _get_or_create_cp_for_site_name(
+                site_name,
+                _capacity_for_site(analysis, site_name, default_cp_capacity),
             )
-            if site_name not in result.created_cuves_principales:
-                result.created_cuves_principales.append(site_name)
+            label = f'{site_name}→{cp_new.identifiant}'
+            if label not in result.created_cuves_principales:
+                result.created_cuves_principales.append(label)
 
         cp = _lookup_cp(site_name) if site_name else None
         if not cp:
@@ -1114,7 +1163,10 @@ def delete_rapport_and_orphans(rapport: Rapport) -> dict:
         if not cp:
             continue
         deleted['cuves_principales'].append(cp.identifiant)
+        site = cp.site
         cp.delete()
+        if site and not site.cuves_principales.exists():
+            site.delete()
 
     return deleted
 
@@ -1238,6 +1290,29 @@ def import_rapport_lignes(
         groupe = _lookup_groupe_by_identifiant(g_key) if g_key else None
         if groupe is None and (marque or puissance):
             groupe = _lookup_groupe_by_marque_puissance(marque, puissance)
+        if groupe is None and cj is not None:
+            groupe = cj.groupe_electrogene
+
+        if not cp or not cj or not groupe:
+            if require_entities:
+                raise ImportValidationError(
+                    f'Ligne {excel_row} : site, cuve journalière ou groupe manquant.',
+                    [
+                        _friendly_error(
+                            row=excel_row,
+                            column='id_cuve_principale',
+                            message=(
+                                f'Impossible de résoudre toutes les entités '
+                                f'(site={cp_name!r}, cj={cj_name!r}, groupe={g_key!r}).'
+                            ),
+                            how_to_fix=(
+                                'Vérifiez les identifiants ou lancez '
+                                'create_rapport_entities / --create-missing.'
+                            ),
+                        )
+                    ],
+                )
+            continue
 
         LigneRapport.objects.create(
             rapport=rapport,

@@ -1,2 +1,6 @@
-Django>=4.2,<5.0
+Django>=5.0,<6.0
+djangorestframework>=3.14.0
+drf-spectacular>=0.27.0
 psycopg[binary]>=3.0
+# Optionnel si réseau dispo — CORS custom dans core.middleware sinon
+# django-cors-headers>=4.0

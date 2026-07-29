@@ -1,141 +1,152 @@
-from django.conf import settings
+import re
+
+from django.core.exceptions import ValidationError
 from django.db import models
 
 
-class UserProfile(models.Model):
-    ROLE_ADMIN = 'admin'
-    ROLE_USER = 'user'
-    ROLE_CHOICES = [
-        (ROLE_ADMIN, 'Administrateur'),
-        (ROLE_USER, 'Opérateur'),
+CP_IDENTIFIANT_RE = re.compile(r'^CP\d{3,}$')
+CJ_IDENTIFIANT_RE = re.compile(r'^CJ\d{3,}$')
+
+
+def validate_cp_identifiant(value: str) -> None:
+    """Identifiant cuve principale : format CPxxx (ex. CP001, CP012)."""
+    if not CP_IDENTIFIANT_RE.match(str(value).strip()):
+        raise ValidationError(
+            'L’identifiant de cuve principale doit respecter le format CPxxx '
+            '(ex. CP001, CP042).'
+        )
+
+
+def validate_cj_identifiant(value: str) -> None:
+    """Identifiant cuve journalière : format CJxxx (ex. CJ001, CJ012)."""
+    if not CJ_IDENTIFIANT_RE.match(str(value).strip()):
+        raise ValidationError(
+            'L’identifiant de cuve journalière doit respecter le format CJxxx '
+            '(ex. CJ001, CJ042).'
+        )
+
+
+class Site(models.Model):
+    """Agrégation de cuves principales (référentiel métier)."""
+
+    STATUT_ACTIF = 'actif'
+    STATUT_INACTIF = 'inactif'
+    STATUT_CHOICES = [
+        (STATUT_ACTIF, 'Actif'),
+        (STATUT_INACTIF, 'Inactif'),
     ]
 
-    user = models.OneToOneField(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='profile',
-        verbose_name='Utilisateur',
-    )
-    role = models.CharField(
-        max_length=20,
-        choices=ROLE_CHOICES,
-        default=ROLE_USER,
-        verbose_name='Rôle',
-    )
+    nom = models.CharField(max_length=150, unique=True)
+    localisation = models.CharField(max_length=255, blank=True, default='')
+    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default=STATUT_ACTIF)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = 'Profil utilisateur'
-        verbose_name_plural = 'Profils utilisateurs'
+        db_table = 'site'
+        verbose_name = 'Site'
+        verbose_name_plural = 'Sites'
+        ordering = ['nom']
 
     def __str__(self):
-        return f'{self.user.username} ({self.get_role_display()})'
-
-    @property
-    def is_admin(self):
-        return self.role == self.ROLE_ADMIN or self.user.is_superuser or self.user.is_staff
-
-
-# Alias de compatibilité
-ProfilUtilisateur = UserProfile
+        return self.nom
 
 
 class CuvePrincipale(models.Model):
-    identifiant = models.CharField(max_length=100, unique=True)
+    identifiant = models.CharField(
+        max_length=100,
+        unique=True,
+        validators=[validate_cp_identifiant],
+        help_text='Format CPxxx (ex. CP001)',
+    )
     capacite = models.FloatField()
+    site = models.ForeignKey(
+        Site,
+        on_delete=models.CASCADE,
+        related_name='cuves_principales',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'cuve_principale'
+        verbose_name = 'Cuve principale'
+        verbose_name_plural = 'Cuves principales'
+        ordering = ['identifiant']
 
     def __str__(self):
-        return f'CuvePrincipale {self.identifiant}'
+        return f'{self.identifiant} - {self.site.nom}'
+
+    def clean(self):
+        super().clean()
+        if self.identifiant:
+            self.identifiant = self.identifiant.strip().upper()
+            validate_cp_identifiant(self.identifiant)
+
+    def save(self, *args, **kwargs):
+        if self.identifiant:
+            self.identifiant = self.identifiant.strip().upper()
+        self.full_clean()
+        return super().save(*args, **kwargs)
 
 
 class GroupeElectrogene(models.Model):
     identifiant = models.CharField(max_length=100, unique=True)
     marque = models.CharField(max_length=100)
     puissance = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'groupe_electrogene'
+        verbose_name = 'Groupe électrogène'
+        verbose_name_plural = 'Groupes électrogènes'
+        ordering = ['identifiant']
 
     def __str__(self):
-        return f'Groupe {self.identifiant}'
+        return self.identifiant
 
 
 class CuveJournaliere(models.Model):
-    # Nom terrain (fiche de suivi), ex. "BEPANDA NATIONAL 1"
-    identifiant = models.CharField(max_length=100, unique=True)
+    identifiant = models.CharField(
+        max_length=100,
+        unique=True,
+        validators=[validate_cj_identifiant],
+        help_text='Format CJxxx (ex. CJ001)',
+    )
     capacite = models.FloatField()
     cuve_principale = models.ForeignKey(
         CuvePrincipale,
         on_delete=models.CASCADE,
-        related_name='cuves_journaliere',
+        related_name='cuves_journalieres',
     )
     groupe_electrogene = models.OneToOneField(
         GroupeElectrogene,
-        on_delete=models.SET_NULL,
+        on_delete=models.PROTECT,
         null=True,
         blank=True,
         related_name='cuve_journaliere',
     )
-
-    def __str__(self):
-        if self.identifiant:
-            return f'CuveJournaliere {self.identifiant}'
-        if self.groupe_electrogene:
-            return f'CuveJournaliere liée à {self.groupe_electrogene.identifiant}'
-        return f'CuveJournaliere {self.id}'
-
-
-class Rapport(models.Model):
-    date_debut = models.DateField(verbose_name='Date de début')
-    date_fin = models.DateField(verbose_name='Date de fin')
-    created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        verbose_name='Créé par',
-    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = 'Rapport'
-        verbose_name_plural = 'Rapports'
-        ordering = ['date_debut', 'date_fin', 'id']
+        db_table = 'cuve_journaliere'
+        verbose_name = 'Cuve journalière'
+        verbose_name_plural = 'Cuves journalières'
+        ordering = ['identifiant']
 
     def __str__(self):
-        return f'Rapport du {self.date_debut} au {self.date_fin}'
+        return self.identifiant
 
+    def clean(self):
+        super().clean()
+        if self.identifiant:
+            self.identifiant = self.identifiant.strip().upper()
+            validate_cj_identifiant(self.identifiant)
 
-class LigneRapport(models.Model):
-    rapport = models.ForeignKey(
-        Rapport,
-        on_delete=models.CASCADE,
-        related_name='lignes',
-    )
-    cuve_principale = models.ForeignKey(
-        CuvePrincipale,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='lignes_rapport',
-    )
-    cuve_journaliere = models.ForeignKey(
-        CuveJournaliere,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='lignes_rapport',
-    )
-    groupe_electrogene = models.ForeignKey(
-        GroupeElectrogene,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='lignes_rapport',
-    )
-
-    quantite_gasoil_cuve_principale = models.FloatField(null=True, blank=True)
-    quantite_gasoil_cuve_journaliere = models.FloatField(null=True, blank=True)
-    compteur_horaire = models.FloatField(null=True, blank=True)
-    depotage = models.FloatField(null=True, blank=True)
-    etat_fonctionnement = models.CharField(max_length=100, null=True, blank=True)
-    observations = models.TextField(null=True, blank=True)
-
-    def __str__(self):
-        return f'Ligne #{self.id} du Rapport #{self.rapport_id}'
+    def save(self, *args, **kwargs):
+        if self.identifiant:
+            self.identifiant = self.identifiant.strip().upper()
+        self.full_clean()
+        return super().save(*args, **kwargs)

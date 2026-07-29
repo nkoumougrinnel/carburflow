@@ -10,7 +10,7 @@ from typing import Any
 
 from django.db import transaction
 
-from dashboard.models import Rapport
+from apps.reports.models import Rapport
 
 # Colonnes du modèle téléchargeable = fiche de suivi + période.
 # Ordre et libellés volontairement proches de data/ligne_rapport.csv.
@@ -310,7 +310,7 @@ def rapport_to_rows(rapport: Rapport) -> list[dict]:
     """Reconstitue les lignes au format de la fiche de saisie pour export."""
     rows = []
     lignes = rapport.lignes.select_related(
-        'cuve_principale',
+        'cuve_principale__site',
         'cuve_journaliere',
         'groupe_electrogene',
     ).all()
@@ -325,13 +325,18 @@ def rapport_to_rows(rapport: Rapport) -> list[dict]:
                 else ge.identifiant
             )
 
+        if ligne.cuve_principale_id and ligne.cuve_principale.site_id:
+            site_name = ligne.cuve_principale.site.nom
+        elif ligne.cuve_principale_id:
+            site_name = ligne.cuve_principale.identifiant
+        else:
+            site_name = ''
+
         rows.append({
             'id_cuve_journaliere': (
                 ligne.cuve_journaliere.identifiant if ligne.cuve_journaliere_id else ''
             ),
-            'site': (
-                ligne.cuve_principale.identifiant if ligne.cuve_principale_id else ''
-            ),
+            'site': site_name,
             'groupe_marque': groupe_display,
             'quantite_cuve_principale': ligne.quantite_gasoil_cuve_principale
             if ligne.quantite_gasoil_cuve_principale is not None
@@ -793,7 +798,7 @@ def import_report_rows(rows: list[dict], user, *, create_missing: bool = False) 
     Import web / API : délègue au pipeline (analyse + insertion).
     Par défaut refuse les IDs inconnus (create_missing=False).
     """
-    from dashboard.rapport_pipeline import import_rapport_lignes
+    from apps.reports.pipeline import import_rapport_lignes
 
     normalized = [normalize_row_keys(r) for r in rows]
     result = import_rapport_lignes(

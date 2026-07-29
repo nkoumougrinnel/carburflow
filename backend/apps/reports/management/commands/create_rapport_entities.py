@@ -13,8 +13,8 @@ import json
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from dashboard.norme import ImportValidationError
-from dashboard.rapport_pipeline import (
+from apps.reports.norme import ImportValidationError
+from apps.reports.pipeline import (
     analyze_rapport_file,
     create_entities_from_analysis,
 )
