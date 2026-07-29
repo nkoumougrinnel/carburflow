@@ -13,6 +13,7 @@ import {
   Moon,
   History,
   UserRound,
+  Bell,
 } from 'lucide-react'
 import BrandLogo from './BrandLogo.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -51,6 +52,7 @@ function Topbar({ activeView, onNavigate }) {
 
   const adminLinks = [
     { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
+    { id: 'alerts', label: 'Alertes', icon: Bell },
     { id: 'sites', label: 'Sites', icon: MapPinned },
     { id: 'groups', label: 'Groupes', icon: Zap },
     { id: 'reports', label: 'Relevés', icon: Upload },

@@ -4487,3 +4487,173 @@ button.alert-item--link {
   .op-home-stats, .op-home-columns, .profile-grid, .profile-row { grid-template-columns: 1fr; }
   .profile-summary { flex-direction: column; align-items: stretch; }
 }
+
+/* ——— Alertes dashboard + page ——— */
+.dashboard-alerts--preview {
+  order: -1;
+}
+.dashboard-alerts-lead {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  font-weight: 500;
+}
+.dashboard-alerts-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+.alert-legend--static {
+  pointer-events: none;
+}
+.dashboard-alerts-more {
+  margin-top: 0.85rem;
+  display: flex;
+  justify-content: center;
+}
+.alerts-page {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 1.25rem 1.25rem 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.alerts-priority-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.alerts-priority-card {
+  text-align: left;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: 14px;
+  padding: 0.95rem 1rem;
+  cursor: pointer;
+  color: inherit;
+  box-shadow: var(--shadow-soft);
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.alerts-priority-card:hover { transform: translateY(-1px); }
+.alerts-priority-card.is-active {
+  border-color: color-mix(in srgb, var(--primary) 50%, var(--border));
+  box-shadow: var(--shadow);
+}
+.alerts-priority-card--critical.is-active { border-color: color-mix(in srgb, var(--danger) 55%, var(--border)); }
+.alerts-priority-card--medium.is-active { border-color: color-mix(in srgb, var(--accent-warm) 55%, var(--border)); }
+.alerts-priority-card--low.is-active { border-color: color-mix(in srgb, var(--accent-amber) 55%, var(--border)); }
+.alerts-priority-label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.alerts-priority-count {
+  display: block;
+  margin-top: 0.25rem;
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  line-height: 1;
+}
+.alerts-filters {
+  padding: 1rem 1.15rem 1.1rem;
+}
+.alerts-filters-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+}
+.alerts-filters-head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+}
+.alerts-filters-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.alerts-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.alerts-filter-field span {
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: var(--muted);
+}
+.alerts-filter-field select {
+  border: 1px solid var(--border);
+  background: var(--panel-soft);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+  font: inherit;
+}
+.alerts-filters-meta {
+  margin: 0.85rem 0 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.alerts-reset {
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.alert-type-chip {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 0.45rem;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: var(--panel-soft);
+  color: var(--muted);
+}
+.alert-meta-row {
+  margin-top: 0.55rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+.alert-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--primary);
+  font-weight: 650;
+}
+
+@media (max-width: 900px) {
+  .alerts-priority-strip,
+  .alerts-filters-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .dashboard-alerts-actions {
+    justify-content: flex-start;
+  }
+}
+@media (max-width: 560px) {
+  .alerts-priority-strip,
+  .alerts-filters-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -10,12 +10,13 @@ import HistoryPage from './pages/HistoryPage.jsx'
 import OperatorHomePage from './pages/OperatorHomePage.jsx'
 import UserHomePage from './pages/UserHomePage.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
+import AlertsPage from './pages/AlertsPage.jsx'
 import { AuthProvider, useAuth } from './context/AuthContext.jsx'
 import { ThemeProvider } from './context/ThemeContext.jsx'
 import InteractionShell from './components/InteractionShell.jsx'
 import PageLoader from './components/PageLoader.jsx'
 
-const ADMIN_VIEWS = new Set(['home', 'dashboard', 'sites', 'cuves', 'groups', 'reports', 'history', 'profile'])
+const ADMIN_VIEWS = new Set(['home', 'dashboard', 'sites', 'cuves', 'groups', 'reports', 'history', 'profile', 'alerts'])
 const OPERATOR_VIEWS = new Set(['operator', 'sites', 'reports', 'history', 'profile'])
 const VIEWER_VIEWS = new Set(['viewer', 'sites', 'profile'])
 const PUBLIC_VIEWS = new Set(['home', 'login', 'register'])
@@ -25,6 +26,7 @@ function resolveViewFromPath(pathname) {
   if (pathname.startsWith('/sites')) return 'sites'
   if (pathname.startsWith('/cuves')) return 'cuves'
   if (pathname.startsWith('/dashboard')) return 'dashboard'
+  if (pathname.startsWith('/alertes')) return 'alerts'
   if (pathname.startsWith('/historique')) return 'history'
   if (pathname.startsWith('/operateur')) return 'operator'
   if (pathname.startsWith('/espace')) return 'viewer'
@@ -61,6 +63,7 @@ function pathForView(view) {
     groups: '/groupes/',
     reports: '/rapports/',
     history: '/historique/',
+    alerts: '/alertes/',
     login: '/login/',
     register: '/register/',
   })[view] || '/'
@@ -99,6 +102,19 @@ function AppRoutes() {
       if (options.groupId != null && options.groupId !== '') params.push(`groupId=${encodeURIComponent(options.groupId)}`)
       if (options.groupLabel != null && options.groupLabel !== '') params.push(`groupLabel=${encodeURIComponent(options.groupLabel)}`)
       if (options.mode != null && options.mode !== '') params.push(`mode=${encodeURIComponent(options.mode)}`)
+      if (params.length) nextPath += `?${params.join('&')}`
+    }
+    if (nextView === 'alerts') {
+      const params = []
+      if (options.priority != null && options.priority !== '' && options.priority !== 'all') {
+        params.push(`priority=${encodeURIComponent(options.priority)}`)
+      }
+      if (options.type != null && options.type !== '' && options.type !== 'all') {
+        params.push(`type=${encodeURIComponent(options.type)}`)
+      }
+      if (options.date != null && options.date !== '' && options.date !== 'all') {
+        params.push(`date=${encodeURIComponent(options.date)}`)
+      }
       if (params.length) nextPath += `?${params.join('&')}`
     }
 
@@ -151,6 +167,7 @@ function AppRoutes() {
   }
 
   if (view === 'dashboard') return <DashboardPage onNavigate={navigate} />
+  if (view === 'alerts') return <AlertsPage onNavigate={navigate} />
   if (view === 'sites') return <SitesPage onNavigate={navigate} />
   if (view === 'cuves') return <CuvesPage onNavigate={navigate} />
   if (view === 'groups') return <GroupsPage onNavigate={navigate} />

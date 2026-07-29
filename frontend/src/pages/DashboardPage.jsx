@@ -5,41 +5,18 @@ import { apiFetch } from '../auth.js'
 import AutonomyBadge from '../components/AutonomyBadge.jsx'
 import PageLoader from '../components/PageLoader.jsx'
 import PageEnter from '../components/PageEnter.jsx'
-import { formatAutonomy, getAutonomySeverity } from '../utils/format.js'
-
-const SEVERITY_META = {
-  critical: { label: 'Urgent', level: 'critical', rank: 3 },
-  medium: { label: 'À surveiller', level: 'medium', rank: 2 },
-  low: { label: 'Attention', level: 'low', rank: 1 },
-}
-
-function normalizeAlertSeverity(alert) {
-  const raw = String(alert.priority_level || alert.severity || '').toLowerCase()
-  const label = String(alert.priority || '').toLowerCase()
-  if (
-    raw === 'urgent'
-    || raw === 'critical'
-    || label.includes('critique')
-  ) return SEVERITY_META.critical
-  if (
-    raw === 'high'
-    || raw === 'medium'
-    || label.includes('moyen')
-  ) return SEVERITY_META.medium
-  if (
-    raw === 'warning'
-    || raw === 'low'
-    || raw === 'attention'
-    || label.includes('faible')
-    || label.includes('attention')
-  ) return SEVERITY_META.low
-  return SEVERITY_META.medium
-}
+import { getAutonomySeverity } from '../utils/format.js'
+import {
+  SEVERITY_META,
+  buildDashboardAlerts,
+  countAlertsBySeverity,
+  pickPreviewAlerts,
+  splitAlertSubtitle,
+} from '../utils/alerts.js'
 
 function DashboardPage({ onNavigate }) {
   const [dashboardData, setDashboardData] = useState(null)
   const [loadError, setLoadError] = useState('')
-  const [alertFilter, setAlertFilter] = useState('all')
 
   const formatValue = (value, suffix = '') => {
     if (value == null || Number.isNaN(value)) return '—'
@@ -330,175 +307,26 @@ function DashboardPage({ onNavigate }) {
       .slice(0, 6)
   }, [siteRows])
 
-  const alertItems = useMemo(() => {
-    // --- CAS 1 : Sites à autonomie critique ou sous surveillance ---
-    const autonomyAlerts = siteRows
-      .flatMap((site) => {
-        if (site.is_infinite_autonomy) return []
+  const alerts = useMemo(
+    () => buildDashboardAlerts(siteRows, groupRows),
+    [siteRows, groupRows],
+  )
+  const alertCounts = useMemo(() => countAlertsBySeverity(alerts), [alerts])
+  const previewAlerts = useMemo(() => pickPreviewAlerts(alerts), [alerts])
 
-        if (site.is_infinite_consumption) {
-          return [{
-            id: `site-critique-0h-${site.id}`,
-            type: 'critique',
-            target: 'site',
-            priority: 'Critique',
-            priority_level: 'critical',
-            severity: 'critical',
-            site_id: site.id,
-            site_name: site.site_name,
-            title: `Site ${site.site_name} — autonomie critique : 0 h`,
-            subtitle: `Consommation de carburant détectée (moy. ${site.avg_consumption.toFixed(1)} L) mais aucun delta horaire enregistré — temps restant indéterminé.`,
-            is_infinite_consumption: true,
-          }]
-        }
-
-        if (site.autonomie_hours == null) return []
-
-        if (site.autonomie_hours < 48) {
-          return [{
-            id: `site-critique-${site.id}`,
-            type: 'critique',
-            target: 'site',
-            priority: 'Critique',
-            priority_level: 'critical',
-            severity: 'critical',
-            site_id: site.id,
-            site_name: site.site_name,
-            title: `Site ${site.site_name} — autonomie critique : ${site.formatted_autonomy || formatAutonomy(site.autonomie_hours)}`,
-            subtitle: `Moins de 48 h de carburant restant (${site.formatted_autonomy || formatAutonomy(site.autonomie_hours)}). Stock actuel : ${site.latest_volume.toFixed(0)} L. Réapprovisionner de toute urgence.`,
-            is_infinite_consumption: false,
-          }]
-        }
-
-        if (site.autonomie_hours < 120) {
-          return [{
-            id: `site-faible-${site.id}`,
-            type: 'alerte',
-            target: 'site',
-            priority: 'À surveiller',
-            priority_level: 'medium',
-            severity: 'medium',
-            site_id: site.id,
-            site_name: site.site_name,
-            title: `Site ${site.site_name} — autonomie sous surveillance : ${site.formatted_autonomy || formatAutonomy(site.autonomie_hours)}`,
-            subtitle: `Autonomie sous 5 jours (${site.formatted_autonomy || formatAutonomy(site.autonomie_hours)}). Stock actuel : ${site.latest_volume.toFixed(0)} L. Planifier un réapprovisionnement.`,
-            is_infinite_consumption: false,
-          }]
-        }
-
-        return []
-      })
-
-    // --- CAS 2 : Delta horaire sans consommation → Attention ---
-    const groupWithHoursNoConsumption = groupRows
-      .filter((g) => g.latest_hours > 0 && !(g.latest_consumption > 0))
-      .map((g) => ({
-        id: `group-hours-no-cons-${g.id}`,
-        type: 'anomalie',
-        target: 'groups',
-        priority: 'Attention',
-        priority_level: 'low',
-        severity: 'low',
-        group_id: g.id,
-        group_label: g.label,
-        site_name: g.site_name,
-        title: `Groupe ${g.label} — delta horaire sans consommation (semaine N)`,
-        subtitle: `Delta horaire semaine N : ${g.latest_hours.toFixed(1)} h — aucune consommation de carburant enregistrée (0 L). Vérifier la jauge et la saisie des consommations.`,
-        is_infinite_consumption: false,
-        ecart_pct: 0,
-      }))
-
-    // --- CAS 3 : Consommation sans fonctionnement → Urgent ---
-    const groupWithConsNoHours = groupRows
-      .filter((g) => isConsSansDelta(g))
-      .map((g) => ({
-        id: `group-cons-no-hours-${g.id}`,
-        type: 'anomalie',
-        target: 'groups',
-        priority: 'Urgent',
-        priority_level: 'critical',
-        severity: 'critical',
-        group_id: g.id,
-        group_label: g.label,
-        site_name: g.site_name,
-        title: `Groupe ${g.label} — consommation sans fonctionnement (semaine N)`,
-        subtitle: `Consommation enregistrée en semaine N : ${g.latest_consumption.toFixed(1)} L — mais aucun delta horaire (0 h). Le groupe a consommé du carburant sans tourner.`,
-        is_infinite_consumption: true,
-        ecart_pct: 0,
-      }))
-
-    // --- CAS 4 : Écarts de conso horaire > 15% — triés par |écart| décroissant ---
-    const groupWithHighVariance = groupRows
-      .filter((g) => isEcartConso(g))
-      .map((g) => {
-        const signedEcart = ((g.latest_hourly_consumption - g.mean_hourly_consumption_deduite) / g.mean_hourly_consumption_deduite) * 100
-        const sign = signedEcart >= 0 ? '▲' : '▼'
-        const absEcart = Math.abs(signedEcart).toFixed(1)
-        return {
-          id: `group-variance-${g.id}`,
-          type: 'ecart',
-          target: 'groups',
-          priority: 'À surveiller',
-          priority_level: 'medium',
-          severity: 'medium',
-          group_id: g.id,
-          group_label: g.label,
-          site_name: g.site_name,
-          title: `Groupe ${g.label} — écart consommation horaire ${sign}${absEcart}% (semaine N)`,
-          subtitle: `Consommation horaire semaine N : ${g.latest_hourly_consumption.toFixed(2)} L/h — Moyenne habituelle : ${g.mean_hourly_consumption_deduite.toFixed(2)} L/h — Écart : ${sign}${absEcart}%.`,
-          is_infinite_consumption: false,
-          ecart_pct: Math.abs(signedEcart),
-        }
-      })
-      .sort((a, b) => (b.ecart_pct || 0) - (a.ecart_pct || 0))
-
-    // Éliminer d'éventuels doublons par ID
-    const alertMap = new Map()
-    ;[...autonomyAlerts, ...groupWithConsNoHours, ...groupWithHoursNoConsumption, ...groupWithHighVariance].forEach((item) => {
-      if (!alertMap.has(item.id)) alertMap.set(item.id, item)
-    })
-
-    const combined = Array.from(alertMap.values())
-
-    return combined.sort((a, b) => {
-      const rank = { critical: 3, medium: 2, low: 1 }
-      const bySeverity = (rank[b.severity] || 0) - (rank[a.severity] || 0)
-      if (bySeverity !== 0) return bySeverity
-      // À sévérité égale : écarts du plus grand au plus petit
-      return (b.ecart_pct || 0) - (a.ecart_pct || 0)
-    })
-  }, [siteRows, groupRows, dashboardData])
-
-  const alerts = alertItems
-  const alertCounts = useMemo(() => ({
-    critical: alerts.filter((a) => a.severity === 'critical').length,
-    medium: alerts.filter((a) => a.severity === 'medium').length,
-    low: alerts.filter((a) => a.severity === 'low').length,
-  }), [alerts])
-
-  const visibleAlerts = useMemo(() => {
-    if (alertFilter === 'all') return alerts
-    return alerts.filter((a) => a.severity === alertFilter)
-  }, [alerts, alertFilter])
 
   const renderAlertSubtitle = (subtitle) => {
-    if (!subtitle) return null
-    // Colorisation des flèches ▲/▼ :
-    // ▲ (augmentation de consommation) = rouge (#dc2626)
-    // ▼ (diminution de consommation) = vert (#16a34a)
-    const parts = subtitle.split(/(▲[\d.,]+%|▼[\d.,]+%)/)
-    return parts.map((part, i) => {
-      const arrowMatch = part.match(/^(▲|▼)([\d.,]+%)$/)
-      if (arrowMatch) {
-        const isUp = arrowMatch[1] === '▲'
-        return (
-          <span key={i} style={{ color: isUp ? '#dc2626' : '#16a34a', fontWeight: 700 }}>
-            {arrowMatch[1]}{arrowMatch[2]}
-          </span>
-        )
-      }
-      return <span key={i}>{part}</span>
-    })
+    const parts = splitAlertSubtitle(subtitle)
+    if (!parts.length) return null
+    return parts.map((part, i) => (
+      part.kind === 'arrow' ? (
+        <span key={i} style={{ color: part.up ? '#dc2626' : '#16a34a', fontWeight: 700 }}>
+          {part.text}
+        </span>
+      ) : (
+        <span key={i}>{part.text}</span>
+      )
+    ))
   }
 
   if (!dashboardData) {
@@ -528,8 +356,102 @@ function DashboardPage({ onNavigate }) {
       <PageEnter>
       <main className="dashboard-grid dashboard-grid-4col">
         <WelcomeBanner
-          subtitle="Stocks, alertes et consommations — l’essentiel pour décider vite."
+          subtitle="Alertes d’abord, puis stocks et consommations — l’essentiel pour décider vite."
         />
+
+        {/* Alertes en premier — aperçu prioritaire */}
+        <section className="dashboard-alerts metric-panel dashboard-alerts--preview" style={{ gridColumn: '1 / -1' }}>
+          <div className="metric-title-row alert-section-head">
+            <div>
+              <span className="metric-label">Priorité</span>
+              <h3>
+                {alerts.length
+                  ? (alertCounts.critical > 0 ? 'Alertes à traiter en premier' : 'Points à surveiller')
+                  : 'Aucune alerte majeure'}
+              </h3>
+              <p className="dashboard-alerts-lead">
+                {alerts.length
+                  ? `${alertCounts.critical} urgent · ${alertCounts.medium} à surveiller · ${alertCounts.low} attention — aperçu des plus critiques.`
+                  : 'Tout est sous contrôle pour le moment.'}
+              </p>
+            </div>
+            <div className="dashboard-alerts-actions">
+              {alerts.length > 0 && (
+                <div className="alert-legend alert-legend--static" aria-label="Répartition des alertes">
+                  <span className="alert-legend-item alert-legend--critical is-active">Urgent <strong>{alertCounts.critical}</strong></span>
+                  <span className="alert-legend-item alert-legend--medium is-active">À surveiller <strong>{alertCounts.medium}</strong></span>
+                  <span className="alert-legend-item alert-legend--low is-active">Attention <strong>{alertCounts.low}</strong></span>
+                </div>
+              )}
+              <button
+                type="button"
+                className="dashboard-section-link"
+                onClick={() => onNavigate?.({ view: 'alerts', priority: alertCounts.critical > 0 ? 'critical' : 'all' })}
+              >
+                Voir toutes les alertes →
+              </button>
+            </div>
+          </div>
+          <div className="alert-list">
+            {previewAlerts.length ? previewAlerts.map((alert) => {
+              const severity = alert.severity || 'medium'
+              const label = alert.priority || SEVERITY_META[severity]?.label || 'Moyen'
+              const openAlert = () => {
+                if (!onNavigate) return
+                if (alert.target === 'groups') {
+                  goGroups({ id: alert.group_id, label: alert.group_label })
+                } else {
+                  goSites({ id: alert.site_id, site_name: alert.site_name })
+                }
+              }
+              return (
+                <button
+                  key={alert.id}
+                  type="button"
+                  className={`alert-item alert-${severity} alert-item--link`}
+                  data-severity={severity}
+                  onClick={openAlert}
+                >
+                  <div className="alert-severity-bar" aria-hidden="true" />
+                  <div className="alert-header">
+                    <div className="alert-title-wrap">
+                      <span className={`alert-level-tag alert-level-tag--${severity}`}>
+                        {label}
+                      </span>
+                      <strong>{alert.title}</strong>
+                    </div>
+                    <span className={`alert-badge alert-badge-${severity}`}>
+                      <span className="alert-badge-text">{label}</span>
+                    </span>
+                  </div>
+                  <p>
+                    {alert.is_infinite_consumption && (
+                      <span className="alert-anomaly-prefix">Anomalie :</span>
+                    )}
+                    {renderAlertSubtitle(alert.subtitle)}
+                    <span className="alert-more">Ouvrir →</span>
+                  </p>
+                </button>
+              )
+            }) : (
+              <div className="alert-empty">
+                Aucune alerte majeure détectée pour le moment.
+              </div>
+            )}
+          </div>
+          {alerts.length > previewAlerts.length && (
+            <div className="dashboard-alerts-more">
+              <button
+                type="button"
+                className="reports-btn reports-btn--primary"
+                onClick={() => onNavigate?.('alerts')}
+              >
+                Afficher les {alerts.length - previewAlerts.length} autres alertes
+              </button>
+            </div>
+          )}
+        </section>
+
         <div className="dashboard-summary-grid">
           {summaryCards.map((card) => (
             <button
@@ -786,114 +708,6 @@ function DashboardPage({ onNavigate }) {
           </div>
         </section>
 
-        {/* Notifications d'alertes en bas */}
-        <section className="dashboard-alerts metric-panel" style={{ gridColumn: '1 / -1' }}>
-          <div className="metric-title-row alert-section-head">
-            <div>
-              <span className="metric-label">À traiter</span>
-              <h3>
-                {alerts.length
-                  ? (alertCounts.critical > 0 ? 'Des actions sont nécessaires' : 'Points à surveiller')
-                  : 'Tout est sous contrôle'}
-              </h3>
-            </div>
-            {alerts.length > 0 && (
-              <div className="alert-legend" role="tablist" aria-label="Filtrer les alertes">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={alertFilter === 'all'}
-                  className={`alert-legend-item alert-legend--all${alertFilter === 'all' ? ' is-active' : ''}`}
-                  onClick={() => setAlertFilter('all')}
-                >
-                  Tous <strong>{alerts.length}</strong>
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={alertFilter === 'critical'}
-                  className={`alert-legend-item alert-legend--critical${alertFilter === 'critical' ? ' is-active' : ''}`}
-                  onClick={() => setAlertFilter('critical')}
-                >
-                  Urgent <strong>{alertCounts.critical}</strong>
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={alertFilter === 'medium'}
-                  className={`alert-legend-item alert-legend--medium${alertFilter === 'medium' ? ' is-active' : ''}`}
-                  onClick={() => setAlertFilter('medium')}
-                >
-                  À surveiller <strong>{alertCounts.medium}</strong>
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={alertFilter === 'low'}
-                  className={`alert-legend-item alert-legend--low${alertFilter === 'low' ? ' is-active' : ''}`}
-                  onClick={() => setAlertFilter('low')}
-                >
-                  Attention <strong>{alertCounts.low}</strong>
-                </button>
-              </div>
-            )}
-          </div>
-          <div className="alert-list">
-            {visibleAlerts.length ? visibleAlerts.map((alert) => {
-              const severity = alert.severity || normalizeAlertSeverity(alert).level
-              const label = alert.priority || SEVERITY_META[severity]?.label || 'Moyen'
-              const openAlert = () => {
-                if (!onNavigate) return
-                if (alert.target === 'groups') {
-                  goGroups({
-                    id: alert.group_id,
-                    label: alert.group_label,
-                  })
-                } else {
-                  goSites({
-                    id: alert.site_id,
-                    site_name: alert.site_name,
-                  })
-                }
-              }
-              return (
-                <button
-                  key={alert.id}
-                  type="button"
-                  className={`alert-item alert-${severity} alert-item--link`}
-                  data-severity={severity}
-                  onClick={openAlert}
-                >
-                  <div className="alert-severity-bar" aria-hidden="true" />
-                  <div className="alert-header">
-                    <div className="alert-title-wrap">
-                      <span className={`alert-level-tag alert-level-tag--${severity}`}>
-                        Niveau {label}
-                      </span>
-                      <strong>{alert.title}</strong>
-                    </div>
-                    <span className={`alert-badge alert-badge-${severity}`}>
-                      <span className="alert-badge-text">{label}</span>
-                    </span>
-                  </div>
-                  <p>
-                    {alert.is_infinite_consumption && (
-                      <span className="alert-anomaly-prefix">Anomalie :</span>
-                    )}
-                    {renderAlertSubtitle(alert.subtitle, alert.type)}
-                    <span className="alert-more">Ouvrir →</span>
-                  </p>
-                </button>
-              )
-            }) : (
-              <div className="alert-empty">
-                {alerts.length
-                  ? 'Aucune alerte pour ce niveau.'
-                  : 'Aucune alerte majeure détectée pour le moment.'}
-              </div>
-            )}
-          </div>
-        </section>
       </main>
       </PageEnter>
     </div>
