@@ -44,14 +44,20 @@ function LandingNav({ onNavigate }) {
           </Button>
           {isAuthenticated ? (
             <>
-              {isAdmin && (
-                <Button variant="ghost" onClick={() => go('dashboard')}>
-                  Tableau de bord
+              {isAdmin ? (
+                <>
+                  <Button variant="ghost" onClick={() => go('dashboard')}>
+                    Tableau de bord
+                  </Button>
+                  <Button variant="ghost" onClick={() => go('reports')}>
+                    Relevés
+                  </Button>
+                </>
+              ) : (
+                <Button variant="ghost" onClick={() => go('operator')}>
+                  Mon espace
                 </Button>
               )}
-              <Button variant="ghost" onClick={() => go('reports')}>
-                Relevés
-              </Button>
               <Button
                 variant="outline"
                 onClick={async () => {
@@ -103,14 +109,20 @@ function LandingNav({ onNavigate }) {
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-4">
           {isAuthenticated ? (
             <>
-              {isAdmin && (
-                <Button variant="ghost" className="justify-start" onClick={() => go('dashboard')}>
-                  Tableau de bord
+              {isAdmin ? (
+                <>
+                  <Button variant="ghost" className="justify-start" onClick={() => go('dashboard')}>
+                    Tableau de bord
+                  </Button>
+                  <Button variant="ghost" className="justify-start" onClick={() => go('reports')}>
+                    Relevés
+                  </Button>
+                </>
+              ) : (
+                <Button variant="ghost" className="justify-start" onClick={() => go('operator')}>
+                  Mon espace
                 </Button>
               )}
-              <Button variant="ghost" className="justify-start" onClick={() => go('reports')}>
-                Relevés
-              </Button>
               <Button
                 variant="outline"
                 className="justify-start"

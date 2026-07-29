@@ -41,7 +41,7 @@ function AuthPage({ onNavigate, initialMode = 'login' }) {
 
   useEffect(() => {
     if (isAuthenticated) {
-      onNavigate(isAdmin ? 'dashboard' : 'reports')
+      onNavigate(isAdmin ? 'dashboard' : 'operator')
     }
   }, [isAuthenticated, isAdmin, onNavigate])
 
@@ -72,7 +72,7 @@ function AuthPage({ onNavigate, initialMode = 'login' }) {
       const username = String(formData.get('username') || '').trim()
       const password = String(formData.get('password') || '')
       const user = await login(username, password)
-      onNavigate(user.role === 'admin' || user.is_staff ? 'dashboard' : 'reports')
+      onNavigate(user.role === 'admin' || user.is_staff ? 'dashboard' : 'operator')
     } catch (err) {
       setError(err.message || 'Impossible de se connecter.')
     } finally {
@@ -98,7 +98,7 @@ function AuthPage({ onNavigate, initialMode = 'login' }) {
         password_confirm: form.password_confirm,
         site_id: form.site_id ? Number(form.site_id) : null,
       })
-      onNavigate('reports')
+      onNavigate('operator')
     } catch (err) {
       setError(err.message || 'Impossible de continuer.')
     } finally {
@@ -188,6 +188,14 @@ function AuthPage({ onNavigate, initialMode = 'login' }) {
                 onClick={() => fillDemoInputs('user', 'user123')}
               >
                 Démo opérateur
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fillDemoInputs('operateur', 'operateur123')}
+              >
+                Démo Marie
               </Button>
             </div>
           }

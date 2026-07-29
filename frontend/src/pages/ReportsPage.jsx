@@ -10,135 +10,9 @@ import {
   downloadNorme,
   downloadRapport,
   listMesRapports,
-  normeMeta,
   uploadRapport,
 } from '../auth.js'
-
-const SIMPLE_COLUMNS = [
-  {
-    name: 'date_debut',
-    label: 'Date de début',
-    required: true,
-    example: '13/07/2026',
-    help: 'Premier jour de votre période de relevé (identique sur toutes les lignes).',
-  },
-  {
-    name: 'date_fin',
-    label: 'Date de fin',
-    required: true,
-    example: '17/07/2026',
-    help: 'Dernier jour de votre période de relevé (identique sur toutes les lignes).',
-  },
-  {
-    name: 'id_cuve_principale',
-    label: 'Cuve principale (site)',
-    required: false,
-    example: 'BEPANDA INTERNATIONAL',
-    help: 'Nom du site, comme sur la fiche de suivi (une cuve principale = un site).',
-  },
-  {
-    name: 'id_cuve_journaliere',
-    label: 'Cuve journalière',
-    required: false,
-    example: 'BEPANDA INTERNATIONAL',
-    help: 'Nom de la cuve journalière, comme sur la fiche de suivi.',
-  },
-  {
-    name: 'id_groupe',
-    label: 'N° groupe électrogène',
-    required: false,
-    example: '1',
-    help: 'Numéro du groupe, comme sur la fiche de suivi.',
-  },
-  {
-    name: 'quantités_cuve_principale',
-    label: 'Quantité cuve principale (L)',
-    required: false,
-    example: '8448',
-    help: 'Litres mesurés dans la cuve principale.',
-  },
-  {
-    name: 'quantite_cuve_journaliere',
-    label: 'Quantité cuve journalière (L)',
-    required: false,
-    example: '1000',
-    help: 'Litres mesurés dans la cuve journalière.',
-  },
-  {
-    name: 'depotage',
-    label: 'Dépotage (L)',
-    required: false,
-    example: '0',
-    help: 'Litres ajoutés pendant la période. Mettez 0 s’il n’y en a pas.',
-  },
-  {
-    name: 'compteur_horaire',
-    label: 'Compteur horaire',
-    required: false,
-    example: '1864',
-    help: 'Le chiffre lu sur le compteur du groupe.',
-  },
-  {
-    name: 'état_fonctionnement',
-    label: 'État de fonctionnement',
-    required: false,
-    example: 'F',
-    help: 'En général : F (fonctionne).',
-  },
-  {
-    name: 'observations',
-    label: 'Observations',
-    required: false,
-    example: 'RAS',
-    help: 'Un court commentaire si besoin (panne, RAS…).',
-  },
-]
-
-function formatDate(value) {
-  if (!value) return '—'
-  try {
-    return new Date(value).toLocaleDateString('fr-FR')
-  } catch {
-    return String(value)
-  }
-}
-
-function Spinner({ size = 18, label }) {
-  return (
-    <span className="reports-spinner" style={{ width: size, height: size }} role="status" aria-label={label || 'Chargement'}>
-      <span className="reports-spinner-ring" />
-      {label ? <span className="sr-only">{label}</span> : null}
-    </span>
-  )
-}
-
-function LoadingButton({
-  children,
-  loading = false,
-  loadingText,
-  className = '',
-  disabled,
-  ...props
-}) {
-  return (
-    <button
-      type="button"
-      className={`reports-btn ${className}`.trim()}
-      disabled={disabled || loading}
-      aria-busy={loading}
-      {...props}
-    >
-      {loading ? (
-        <span className="reports-btn-loading">
-          <Spinner size={16} />
-          <span>{loadingText || 'Patientez…'}</span>
-        </span>
-      ) : (
-        children
-      )}
-    </button>
-  )
-}
+import { formatDate, LoadingButton, Spinner } from '../components/reports/ReportsUi.jsx'
 
 function ReportsPage({ onNavigate }) {
   const { isAdmin } = useAuth()
@@ -153,10 +27,8 @@ function ReportsPage({ onNavigate }) {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [importErrors, setImportErrors] = useState([])
-  const [meta, setMeta] = useState(null)
   const [rapports, setRapports] = useState([])
   const [loadingList, setLoadingList] = useState(true)
-  const [showAllColumns, setShowAllColumns] = useState(false)
   const [query, setQuery] = useState('')
   const [editingRapportId, setEditingRapportId] = useState(null)
   const [deletingRapportId, setDeletingRapportId] = useState(null)
@@ -167,32 +39,10 @@ function ReportsPage({ onNavigate }) {
     || Boolean(downloadingRapport)
     || deletingRapportId != null
 
-  const columns = useMemo(() => {
-    const byName = Object.fromEntries(SIMPLE_COLUMNS.map((c) => [c.name, c]))
-    if (Array.isArray(meta?.columns) && meta.columns.length) {
-      return meta.columns.map((col) => {
-        const simple = byName[col.name] || {}
-        return {
-          name: col.name,
-          label: simple.label || col.label || col.name,
-          required: Boolean(col.required),
-          example: simple.example || col.example || '',
-          help: simple.help || col.help || '',
-        }
-      })
-    }
-    return SIMPLE_COLUMNS
-  }, [meta])
-
-  const visibleColumns = showAllColumns ? columns : columns.filter((c) => c.required).concat(
-    columns.filter((c) => !c.required).slice(0, 3),
-  )
-
   const refresh = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoadingList(true)
     try {
-      const [m, r] = await Promise.all([normeMeta(), listMesRapports()])
-      setMeta(m)
+      const r = await listMesRapports()
       setRapports(Array.isArray(r) ? r : [])
     } catch (err) {
       setError(err.message || 'Impossible de charger la page pour le moment.')
@@ -458,6 +308,16 @@ function ReportsPage({ onNavigate }) {
         {message && (
           <div className="reports-success" role="status">
             <strong>C’est bon.</strong> {message}
+            {!isAdmin && (
+              <button
+                type="button"
+                className="reports-btn reports-btn--ghost"
+                style={{ marginLeft: 12 }}
+                onClick={() => onNavigate('history')}
+              >
+                Voir l’historique
+              </button>
+            )}
           </div>
         )}
 
@@ -493,31 +353,45 @@ function ReportsPage({ onNavigate }) {
           </div>
         )}
 
-        <section className={`reports-history ${isAdmin ? 'reports-history--admin' : ''}`}>
-          <div className="reports-history-head">
+        {!isAdmin && (
+          <section className="reports-history-link">
             <div>
-              <h2>
-                {isAdmin
-                  ? 'Télécharger les rapports des équipes'
-                  : 'Mes rapports envoyés'}
-              </h2>
-              <p className="reports-history-sub">
-                {isAdmin
-                  ? 'Chaque ligne = un fichier déjà reçu. Cliquez sur « Télécharger » pour l’ouvrir sur votre ordinateur.'
-                  : 'Retrouvez ici vos envois. Vous pouvez les re-télécharger si besoin.'}
+              <h2>Après l’envoi</h2>
+              <p>
+                Vos fichiers déjà déposés se trouvent dans l’historique.
+                {rapports.length > 0
+                  ? ` Vous avez ${rapports.length} relevé${rapports.length > 1 ? 's' : ''} enregistré${rapports.length > 1 ? 's' : ''}.`
+                  : ''}
               </p>
             </div>
-            <div className="reports-history-tools">
-              <LoadingButton
-                className="reports-btn--ghost"
-                loading={loadingList}
-                loadingText="Actualisation…"
-                onClick={() => refresh()}
-                disabled={busy && !loadingList}
-              >
-                Actualiser la liste
-              </LoadingButton>
-              {isAdmin && (
+            <LoadingButton
+              className="reports-btn--primary"
+              onClick={() => onNavigate('history')}
+            >
+              Ouvrir l’historique
+            </LoadingButton>
+          </section>
+        )}
+
+        {isAdmin && (
+          <section className="reports-history reports-history--admin">
+            <div className="reports-history-head">
+              <div>
+                <h2>Télécharger les rapports des équipes</h2>
+                <p className="reports-history-sub">
+                  Chaque ligne = un fichier déjà reçu. Cliquez sur « Télécharger » pour l’ouvrir sur votre ordinateur.
+                </p>
+              </div>
+              <div className="reports-history-tools">
+                <LoadingButton
+                  className="reports-btn--ghost"
+                  loading={loadingList}
+                  loadingText="Actualisation…"
+                  onClick={() => refresh()}
+                  disabled={busy && !loadingList}
+                >
+                  Actualiser la liste
+                </LoadingButton>
                 <label className="reports-search">
                   <span className="sr-only">Rechercher</span>
                   <input
@@ -527,161 +401,120 @@ function ReportsPage({ onNavigate }) {
                     onChange={(e) => setQuery(e.target.value)}
                   />
                 </label>
-              )}
+                <LoadingButton
+                  className="reports-btn--ghost"
+                  onClick={() => onNavigate('history')}
+                >
+                  Historique complet
+                </LoadingButton>
+              </div>
             </div>
-          </div>
 
-          {isAdmin && !loadingList && filteredRapports.length > 0 && (
-            <div className="reports-admin-banner">
-              <strong>Zone responsable</strong>
-              <span>
-                Téléchargez un rapport avec <em>Télécharger Excel</em>,
-                corrigez-le avec <em>Modifier</em>, ou retirez-le avec <em>Supprimer</em>.
-              </span>
-            </div>
-          )}
+            {!loadingList && filteredRapports.length > 0 && (
+              <div className="reports-admin-banner">
+                <strong>Zone responsable</strong>
+                <span>
+                  Téléchargez un rapport avec <em>Télécharger Excel</em>,
+                  corrigez-le avec <em>Modifier</em>, ou retirez-le avec <em>Supprimer</em>.
+                </span>
+              </div>
+            )}
 
-          {loadingList ? (
-            <div className="reports-skeleton" aria-busy="true" aria-label="Chargement">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="reports-skeleton-row">
-                  <span />
-                  <span />
-                  <span />
-                  <span />
-                </div>
-              ))}
-            </div>
-          ) : filteredRapports.length === 0 ? (
-            <p className="reports-empty">
-              {query
-                ? 'Aucun résultat pour cette recherche.'
-                : 'Aucun rapport pour l’instant. Commencez par l’étape 1 ci-dessus.'}
-            </p>
-          ) : isAdmin ? (
-            <div className="reports-table-wrap">
-              <table className="reports-table">
-                <thead>
-                  <tr>
-                    <th>Rapport</th>
-                    <th>Période</th>
-                    <th>Lignes</th>
-                    <th>Importé par</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredRapports.map((r) => {
-                    const keyX = `${r.id}:xlsx`
-                    const keyC = `${r.id}:csv`
-                    const importer = r.created_by_username || 'Non indiqué'
-                    return (
-                      <tr key={r.id}>
-                        <td>
-                          <strong className="reports-table-id">n°{r.id}</strong>
-                        </td>
-                        <td>
-                          {formatDate(r.date_debut)} → {formatDate(r.date_fin)}
-                        </td>
-                        <td>{r.lignes_count ?? 0}</td>
-                        <td>
-                          <span className="reports-importer" title={importer}>
-                            {importer}
-                          </span>
-                        </td>
-                        <td>
-                          <div className="reports-card-actions reports-table-actions">
-                            <LoadingButton
-                              className="reports-btn--primary reports-btn--download"
-                              loading={downloadingRapport === keyX}
-                              loadingText="Téléchargement…"
-                              disabled={busy && downloadingRapport !== keyX}
-                              onClick={() => handleDownloadRapport(r.id, 'xlsx')}
-                            >
-                              Télécharger Excel
-                            </LoadingButton>
-                            <LoadingButton
-                              className="reports-btn--ghost"
-                              loading={downloadingRapport === keyC}
-                              loadingText="Téléchargement…"
-                              disabled={busy && downloadingRapport !== keyC}
-                              onClick={() => handleDownloadRapport(r.id, 'csv')}
-                            >
-                              Télécharger CSV
-                            </LoadingButton>
-                            <LoadingButton
-                              className="reports-btn--edit"
-                              disabled={busy}
-                              onClick={() => setEditingRapportId(r.id)}
-                            >
-                              Modifier
-                            </LoadingButton>
-                            <LoadingButton
-                              className="reports-btn--danger"
-                              loading={deletingRapportId === r.id}
-                              loadingText="Suppression…"
-                              disabled={busy && deletingRapportId !== r.id}
-                              onClick={() => handleDeleteRapport(r)}
-                            >
-                              Supprimer
-                            </LoadingButton>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="reports-cards">
-              {filteredRapports.map((r) => {
-                const keyX = `${r.id}:xlsx`
-                const keyC = `${r.id}:csv`
-                return (
-                  <article key={r.id} className="reports-card">
-                    <div className="reports-card-main">
-                      <div className="reports-card-title">Rapport n°{r.id}</div>
-                      <div className="reports-card-meta">
-                        Période : <strong>{formatDate(r.date_debut)} → {formatDate(r.date_fin)}</strong>
-                      </div>
-                      <div className="reports-card-meta">
-                        {r.lignes_count ?? 0} ligne(s) de relevé
-                      </div>
-                    </div>
-                    <div className="reports-card-actions">
-                      <LoadingButton
-                        className="reports-btn--primary reports-btn--download"
-                        loading={downloadingRapport === keyX}
-                        loadingText="Téléchargement…"
-                        disabled={busy && downloadingRapport !== keyX}
-                        onClick={() => handleDownloadRapport(r.id, 'xlsx')}
-                      >
-                        Télécharger Excel
-                      </LoadingButton>
-                      <LoadingButton
-                        className="reports-btn--ghost"
-                        loading={downloadingRapport === keyC}
-                        loadingText="Téléchargement…"
-                        disabled={busy && downloadingRapport !== keyC}
-                        onClick={() => handleDownloadRapport(r.id, 'csv')}
-                      >
-                        CSV
-                      </LoadingButton>
-                      <LoadingButton
-                        className="reports-btn--edit"
-                        disabled={busy}
-                        onClick={() => setEditingRapportId(r.id)}
-                      >
-                        Modifier
-                      </LoadingButton>
-                    </div>
-                  </article>
-                )
-              })}
-            </div>
-          )}
-        </section>
+            {loadingList ? (
+              <div className="reports-skeleton" aria-busy="true" aria-label="Chargement">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="reports-skeleton-row">
+                    <span />
+                    <span />
+                    <span />
+                    <span />
+                  </div>
+                ))}
+              </div>
+            ) : filteredRapports.length === 0 ? (
+              <p className="reports-empty">
+                {query
+                  ? 'Aucun résultat pour cette recherche.'
+                  : 'Aucun rapport pour l’instant. Commencez par l’étape 1 ci-dessus.'}
+              </p>
+            ) : (
+              <div className="reports-table-wrap">
+                <table className="reports-table">
+                  <thead>
+                    <tr>
+                      <th>Rapport</th>
+                      <th>Période</th>
+                      <th>Lignes</th>
+                      <th>Importé par</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredRapports.map((r) => {
+                      const keyX = `${r.id}:xlsx`
+                      const keyC = `${r.id}:csv`
+                      const importer = r.created_by_username || 'Non indiqué'
+                      return (
+                        <tr key={r.id}>
+                          <td>
+                            <strong className="reports-table-id">n°{r.id}</strong>
+                          </td>
+                          <td>
+                            {formatDate(r.date_debut)} → {formatDate(r.date_fin)}
+                          </td>
+                          <td>{r.lignes_count ?? 0}</td>
+                          <td>
+                            <span className="reports-importer" title={importer}>
+                              {importer}
+                            </span>
+                          </td>
+                          <td>
+                            <div className="reports-card-actions reports-table-actions">
+                              <LoadingButton
+                                className="reports-btn--primary reports-btn--download"
+                                loading={downloadingRapport === keyX}
+                                loadingText="Téléchargement…"
+                                disabled={busy && downloadingRapport !== keyX}
+                                onClick={() => handleDownloadRapport(r.id, 'xlsx')}
+                              >
+                                Télécharger Excel
+                              </LoadingButton>
+                              <LoadingButton
+                                className="reports-btn--ghost"
+                                loading={downloadingRapport === keyC}
+                                loadingText="Téléchargement…"
+                                disabled={busy && downloadingRapport !== keyC}
+                                onClick={() => handleDownloadRapport(r.id, 'csv')}
+                              >
+                                Télécharger CSV
+                              </LoadingButton>
+                              <LoadingButton
+                                className="reports-btn--edit"
+                                disabled={busy}
+                                onClick={() => setEditingRapportId(r.id)}
+                              >
+                                Modifier
+                              </LoadingButton>
+                              <LoadingButton
+                                className="reports-btn--danger"
+                                loading={deletingRapportId === r.id}
+                                loadingText="Suppression…"
+                                disabled={busy && deletingRapportId !== r.id}
+                                onClick={() => handleDeleteRapport(r)}
+                              >
+                                Supprimer
+                              </LoadingButton>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        )}
 
         {editingRapportId != null && (
           <RapportEditModal

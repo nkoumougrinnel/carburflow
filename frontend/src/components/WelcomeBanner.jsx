@@ -42,7 +42,7 @@ function WelcomeBanner({
       ? 'Téléchargez, corrigez et suivez les fichiers envoyés par les opérateurs.'
       : isAdmin
         ? 'Voici votre tableau de bord CarburFlow. Tout est prêt pour piloter vos sites.'
-        : 'Bienvenue dans votre espace. Suivez les étapes pour envoyer votre relevé.'
+        : 'Bienvenue dans votre espace opérateur. Sites, relevé et historique sont à portée de main.'
   )
 
   return (

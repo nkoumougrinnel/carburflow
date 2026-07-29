@@ -9,9 +9,9 @@ import {
   LogIn,
   Menu,
   X,
-  Fuel,
   Sun,
   Moon,
+  History,
 } from 'lucide-react'
 import BrandLogo from './BrandLogo.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -51,8 +51,11 @@ function Topbar({ activeView, onNavigate }) {
     { id: 'reports', label: 'Relevés', icon: Upload },
   ]
 
-  const userLinks = [
-    { id: 'reports', label: 'Mes relevés', icon: Upload },
+  const operatorLinks = [
+    { id: 'operator', label: 'Accueil', icon: Home },
+    { id: 'sites', label: 'Sites', icon: MapPinned },
+    { id: 'reports', label: 'Relevé', icon: Upload },
+    { id: 'history', label: 'Historique', icon: History },
   ]
 
   const links = !isAuthenticated
@@ -62,16 +65,17 @@ function Topbar({ activeView, onNavigate }) {
       ]
     : isAdmin
       ? adminLinks
-      : userLinks
+      : operatorLinks
 
   const isDark = theme === 'dark'
+  const homeView = isAuthenticated ? (isAdmin ? 'dashboard' : 'operator') : 'home'
 
   return (
     <header className="topbar">
       <button
         type="button"
         className="brand-wrap brand-wrap--btn"
-        onClick={() => go(isAuthenticated ? (isAdmin ? 'dashboard' : 'reports') : 'home')}
+        onClick={() => go(homeView)}
         aria-label="CarburFlow — accueil"
       >
         <BrandLogo variant="icon" className="brand-logo" />
@@ -79,7 +83,7 @@ function Topbar({ activeView, onNavigate }) {
           <span className="brand-name">CarburFlow</span>
           <span className="brand-subtitle">
             {isAuthenticated
-              ? (isAdmin ? 'Pilotage carburant' : 'Mes relevés')
+              ? (isAdmin ? 'Pilotage carburant' : 'Espace opérateur')
               : 'Suivi carburant'}
           </span>
         </div>
