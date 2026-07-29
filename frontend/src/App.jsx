@@ -6,12 +6,18 @@ import CuvesPage from './pages/CuvesPage.jsx'
 import GroupsPage from './pages/GroupsPage.jsx'
 import AuthPage from './pages/AuthPage.jsx'
 import ReportsPage from './pages/ReportsPage.jsx'
+import HistoryPage from './pages/HistoryPage.jsx'
+import OperatorHomePage from './pages/OperatorHomePage.jsx'
+import UserHomePage from './pages/UserHomePage.jsx'
+import ProfilePage from './pages/ProfilePage.jsx'
 import { AuthProvider, useAuth } from './context/AuthContext.jsx'
 import { ThemeProvider } from './context/ThemeContext.jsx'
 import InteractionShell from './components/InteractionShell.jsx'
 import PageLoader from './components/PageLoader.jsx'
 
-const USER_VIEWS = new Set(['reports'])
+const ADMIN_VIEWS = new Set(['home', 'dashboard', 'sites', 'cuves', 'groups', 'reports', 'history', 'profile'])
+const OPERATOR_VIEWS = new Set(['operator', 'sites', 'reports', 'history', 'profile'])
+const VIEWER_VIEWS = new Set(['viewer', 'sites', 'profile'])
 const PUBLIC_VIEWS = new Set(['home', 'login', 'register'])
 
 function resolveViewFromPath(pathname) {
@@ -19,44 +25,68 @@ function resolveViewFromPath(pathname) {
   if (pathname.startsWith('/sites')) return 'sites'
   if (pathname.startsWith('/cuves')) return 'cuves'
   if (pathname.startsWith('/dashboard')) return 'dashboard'
+  if (pathname.startsWith('/historique')) return 'history'
+  if (pathname.startsWith('/operateur')) return 'operator'
+  if (pathname.startsWith('/espace')) return 'viewer'
+  if (pathname.startsWith('/profil')) return 'profile'
   if (pathname.startsWith('/rapports')) return 'reports'
   if (pathname.startsWith('/register')) return 'register'
   if (pathname.startsWith('/login')) return 'login'
   return 'home'
 }
 
+function allowedViews({ isAdmin, isOperator, isViewer }) {
+  if (isAdmin) return ADMIN_VIEWS
+  if (isOperator) return OPERATOR_VIEWS
+  if (isViewer) return VIEWER_VIEWS
+  return new Set()
+}
+
+function defaultView({ isAdmin, isOperator, isViewer }) {
+  if (isAdmin) return 'dashboard'
+  if (isOperator) return 'operator'
+  if (isViewer) return 'viewer'
+  return 'login'
+}
+
+function pathForView(view) {
+  return ({
+    home: '/',
+    operator: '/operateur/',
+    viewer: '/espace/',
+    profile: '/profil/',
+    dashboard: '/dashboard/',
+    sites: '/sites/',
+    cuves: '/cuves/',
+    groups: '/groupes/',
+    reports: '/rapports/',
+    history: '/historique/',
+    login: '/login/',
+    register: '/register/',
+  })[view] || '/'
+}
+
 function AppRoutes() {
-  const { isAuthenticated, isAdmin, loading } = useAuth()
+  const { isAuthenticated, isAdmin, isOperator, isViewer, loading } = useAuth()
   const [view, setView] = useState(() => resolveViewFromPath(window.location.pathname))
+  const roleFlags = { isAdmin, isOperator, isViewer }
 
   const navigate = (nextView, options = {}) => {
     if (typeof nextView === 'object' && nextView !== null) {
       options = { ...options, ...nextView }
       nextView = nextView.view
     }
-
-    const pathMap = {
-      home: '/',
-      dashboard: '/dashboard/',
-      sites: '/sites/',
-      cuves: '/cuves/',
-      groups: '/groupes/',
-      reports: '/rapports/',
-      login: '/login/',
-      register: '/register/',
-    }
-
     if (!nextView || nextView === 'presentation') nextView = 'home'
 
     if (!loading) {
       if (!isAuthenticated && !PUBLIC_VIEWS.has(nextView)) {
         nextView = 'login'
-      } else if (isAuthenticated && !isAdmin && !USER_VIEWS.has(nextView) && nextView !== 'login' && nextView !== 'register') {
-        nextView = 'reports'
+      } else if (isAuthenticated && !allowedViews(roleFlags).has(nextView) && nextView !== 'login' && nextView !== 'register') {
+        nextView = defaultView(roleFlags)
       }
     }
 
-    let nextPath = pathMap[nextView] || '/'
+    let nextPath = pathForView(nextView)
     if (nextView === 'sites') {
       const params = []
       if (options.siteId != null && options.siteId !== '') params.push(`siteId=${encodeURIComponent(options.siteId)}`)
@@ -90,40 +120,42 @@ function AppRoutes() {
       setView('login')
       return
     }
-    if (isAuthenticated && !isAdmin && !USER_VIEWS.has(view) && view !== 'login' && view !== 'register') {
-      window.history.replaceState({}, '', '/rapports/')
-      setView('reports')
+    if (isAuthenticated && !allowedViews(roleFlags).has(view) && view !== 'login' && view !== 'register') {
+      const fallback = defaultView(roleFlags)
+      window.history.replaceState({}, '', pathForView(fallback))
+      setView(fallback)
     }
-  }, [loading, view, isAuthenticated, isAdmin])
+  }, [loading, view, isAuthenticated, isAdmin, isOperator, isViewer])
 
-  if (loading) {
-    return <PageLoader label="Ouverture de votre session…" />
-  }
-
-  if (view === 'login' || view === 'register') {
-    return <AuthPage onNavigate={navigate} initialMode={view} />
-  }
-
+  if (loading) return <PageLoader label="Ouverture de votre session…" />
+  if (view === 'login' || view === 'register') return <AuthPage onNavigate={navigate} initialMode={view} />
   if (!isAuthenticated) {
-    if (view === 'home') {
-      return <HomePage onNavigate={navigate} />
-    }
+    if (view === 'home') return <HomePage onNavigate={navigate} />
     return <AuthPage onNavigate={navigate} initialMode="login" />
   }
 
-  if (!isAdmin) {
-    if (view === 'home') {
-      return <HomePage onNavigate={navigate} />
-    }
-    return <ReportsPage onNavigate={navigate} />
+  if (view === 'profile') return <ProfilePage onNavigate={navigate} />
+
+  if (isViewer) {
+    if (view === 'viewer') return <UserHomePage onNavigate={navigate} />
+    if (view === 'sites') return <SitesPage onNavigate={navigate} />
+    return <UserHomePage onNavigate={navigate} />
   }
 
-  // Une seule vue à la fois — éviter d’empiler HomePage sous Rapports / Dashboard
+  if (isOperator) {
+    if (view === 'operator') return <OperatorHomePage onNavigate={navigate} />
+    if (view === 'sites') return <SitesPage onNavigate={navigate} />
+    if (view === 'reports') return <ReportsPage onNavigate={navigate} />
+    if (view === 'history') return <HistoryPage onNavigate={navigate} />
+    return <OperatorHomePage onNavigate={navigate} />
+  }
+
   if (view === 'dashboard') return <DashboardPage onNavigate={navigate} />
   if (view === 'sites') return <SitesPage onNavigate={navigate} />
   if (view === 'cuves') return <CuvesPage onNavigate={navigate} />
   if (view === 'groups') return <GroupsPage onNavigate={navigate} />
   if (view === 'reports') return <ReportsPage onNavigate={navigate} />
+  if (view === 'history') return <HistoryPage onNavigate={navigate} />
   return <HomePage onNavigate={navigate} />
 }
 

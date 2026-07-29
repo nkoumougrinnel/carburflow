@@ -88,3 +88,41 @@ class LoginSerializer(serializers.Serializer):
             raise serializers.ValidationError('Ce compte est désactivé.')
         attrs['user'] = user
         return attrs
+
+
+class ProfileUpdateSerializer(serializers.Serializer):
+    first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    email = serializers.EmailField(required=False, allow_blank=True)
+
+    def update(self, instance, validated_data):
+        for field in ('first_name', 'last_name', 'email'):
+            if field in validated_data:
+                setattr(instance, field, validated_data[field].strip() if isinstance(validated_data[field], str) else validated_data[field])
+        instance.save()
+        return instance
+
+
+class PasswordChangeSerializer(serializers.Serializer):
+    current_password = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(write_only=True, min_length=6)
+    new_password_confirm = serializers.CharField(write_only=True, min_length=6)
+
+    def validate(self, attrs):
+        user = self.context['request'].user
+        if not user.check_password(attrs['current_password']):
+            raise serializers.ValidationError({'current_password': 'Mot de passe actuel incorrect.'})
+        if attrs['new_password'] != attrs['new_password_confirm']:
+            raise serializers.ValidationError({'new_password_confirm': 'Les mots de passe ne correspondent pas.'})
+        try:
+            validate_password(attrs['new_password'], user=user)
+        except Exception:
+            if len(attrs['new_password']) < 6:
+                raise serializers.ValidationError({'new_password': 'Mot de passe trop court (min. 6).'})
+        return attrs
+
+    def save(self, **kwargs):
+        user = self.context['request'].user
+        user.set_password(self.validated_data['new_password'])
+        user.save()
+        return user

@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Topbar from '../components/Topbar.jsx'
 import WelcomeBanner from '../components/WelcomeBanner.jsx'
-import RapportEditModal from '../components/RapportEditModal.jsx'
 import PageEnter from '../components/PageEnter.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import {
@@ -158,7 +157,6 @@ function ReportsPage({ onNavigate }) {
   const [loadingList, setLoadingList] = useState(true)
   const [showAllColumns, setShowAllColumns] = useState(false)
   const [query, setQuery] = useState('')
-  const [editingRapportId, setEditingRapportId] = useState(null)
   const [deletingRapportId, setDeletingRapportId] = useState(null)
 
   const busy = uploading
@@ -536,7 +534,7 @@ function ReportsPage({ onNavigate }) {
               <strong>Zone responsable</strong>
               <span>
                 Téléchargez un rapport avec <em>Télécharger Excel</em>,
-                corrigez-le avec <em>Modifier</em>, ou retirez-le avec <em>Supprimer</em>.
+                ou retirez-le avec <em>Supprimer</em>.
               </span>
             </div>
           )}
@@ -610,13 +608,6 @@ function ReportsPage({ onNavigate }) {
                               Télécharger CSV
                             </LoadingButton>
                             <LoadingButton
-                              className="reports-btn--edit"
-                              disabled={busy}
-                              onClick={() => setEditingRapportId(r.id)}
-                            >
-                              Modifier
-                            </LoadingButton>
-                            <LoadingButton
                               className="reports-btn--danger"
                               loading={deletingRapportId === r.id}
                               loadingText="Suppression…"
@@ -668,13 +659,6 @@ function ReportsPage({ onNavigate }) {
                       >
                         CSV
                       </LoadingButton>
-                      <LoadingButton
-                        className="reports-btn--edit"
-                        disabled={busy}
-                        onClick={() => setEditingRapportId(r.id)}
-                      >
-                        Modifier
-                      </LoadingButton>
                     </div>
                   </article>
                 )
@@ -682,14 +666,6 @@ function ReportsPage({ onNavigate }) {
             </div>
           )}
         </section>
-
-        {editingRapportId != null && (
-          <RapportEditModal
-            rapportId={editingRapportId}
-            onClose={() => setEditingRapportId(null)}
-            onSaved={() => refresh({ silent: true })}
-          />
-        )}
       </main>
       </PageEnter>
     </div>

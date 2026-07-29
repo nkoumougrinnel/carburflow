@@ -6,7 +6,7 @@ from dashboard.models import UserProfile
 
 
 class Command(BaseCommand):
-    help = 'Crée les comptes démo admin/admin (superuser) et user/user123.'
+    help = 'Crée les comptes démo admin, operateur et user.'
 
     def handle(self, *args, **options):
         accounts = [
@@ -21,11 +21,21 @@ class Command(BaseCommand):
                 'is_superuser': True,
             },
             {
+                'username': 'operateur',
+                'email': 'operateur@carburflow.local',
+                'password': 'operateur123',
+                'first_name': 'Marie',
+                'last_name': 'Nguema',
+                'role': UserProfile.ROLE_OPERATEUR,
+                'is_staff': False,
+                'is_superuser': False,
+            },
+            {
                 'username': 'user',
                 'email': 'user@carburflow.local',
                 'password': 'user123',
-                'first_name': 'Agent',
-                'last_name': 'Terrain',
+                'first_name': 'Paul',
+                'last_name': 'Mballa',
                 'role': UserProfile.ROLE_USER,
                 'is_staff': False,
                 'is_superuser': False,

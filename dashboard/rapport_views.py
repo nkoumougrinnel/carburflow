@@ -20,14 +20,16 @@ from dashboard.norme import (
     rows_from_csv,
     rows_from_xlsx,
 )
-from dashboard.permissions import user_is_admin
+from dashboard.permissions import user_is_admin, user_can_upload_rapports, user_is_operateur
 from dashboard.serializers import RapportSerializer
 
 
 def _user_can_access_rapport(user, rapport: Rapport) -> bool:
     if user_is_admin(user):
         return True
-    return rapport.created_by_id == getattr(user, 'id', None)
+    if user_is_operateur(user):
+        return rapport.created_by_id == getattr(user, 'id', None)
+    return False
 
 
 class NormeMetaAPIView(APIView):
@@ -93,6 +95,11 @@ class RapportUploadAPIView(APIView):
 
     @extend_schema(tags=['Rapports'], summary='Déposer un rapport (.xlsx ou .csv)')
     def post(self, request):
+        if not user_can_upload_rapports(request.user):
+            return Response(
+                {'detail': 'Seul un responsable ou un opérateur peut déposer un relevé.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         upload = request.FILES.get('file') or request.FILES.get('rapport')
         if not upload:
             return Response({'detail': 'Fichier manquant (champ file).'}, status=status.HTTP_400_BAD_REQUEST)
@@ -169,6 +176,11 @@ class MesRapportsAPIView(APIView):
 
     @extend_schema(tags=['Rapports'], summary='Rapports visibles selon le rôle')
     def get(self, request):
+        if not user_can_upload_rapports(request.user):
+            return Response(
+                {'detail': 'Accès réservé aux responsables et opérateurs.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         qs = (
             Rapport.objects.all()
             .select_related('created_by')
@@ -185,6 +197,11 @@ class SoumissionsAPIView(APIView):
 
     @extend_schema(tags=['Rapports'], summary='Historique des soumissions de rapports')
     def get(self, request):
+        if not user_can_upload_rapports(request.user):
+            return Response(
+                {'detail': 'Accès réservé aux responsables et opérateurs.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         qs = (
             Rapport.objects.all()
             .select_related('created_by')

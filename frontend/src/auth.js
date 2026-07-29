@@ -144,6 +144,20 @@ export async function meRequest() {
   return apiFetch('/api/v1/auth/me')
 }
 
+export async function updateProfileRequest(payload) {
+  return apiFetch('/api/v1/auth/me', {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function changePasswordRequest(payload) {
+  return apiFetch('/api/v1/auth/password', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
 export async function logoutRequest() {
   try {
     await apiFetch('/api/v1/auth/logout', { method: 'POST' })

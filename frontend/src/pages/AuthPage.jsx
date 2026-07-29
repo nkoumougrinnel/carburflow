@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Moon, Sun } from 'lucide-react'
-import { useAuth } from '@/context/AuthContext.jsx'
+import { useAuth, homeViewForUser } from '@/context/AuthContext.jsx'
 import { useTheme } from '@/context/ThemeContext.jsx'
 import { publicSitesRequest } from '@/auth.js'
 import { SignInPage } from '@/components/ui/sign-in'
@@ -19,7 +19,7 @@ const REGISTER_HERO =
   'https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?auto=format&fit=crop&w=2160&q=80'
 
 function AuthPage({ onNavigate, initialMode = 'login' }) {
-  const { login, register, isAuthenticated, isAdmin } = useAuth()
+  const { login, register, isAuthenticated, isAdmin, isOperator, isViewer } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const [mode, setMode] = useState(initialMode === 'register' ? 'register' : 'login')
   const [sites, setSites] = useState([])
@@ -41,9 +41,9 @@ function AuthPage({ onNavigate, initialMode = 'login' }) {
 
   useEffect(() => {
     if (isAuthenticated) {
-      onNavigate(isAdmin ? 'dashboard' : 'reports')
+      onNavigate(homeViewForUser({ isAdmin, isOperator, isViewer }))
     }
-  }, [isAuthenticated, isAdmin, onNavigate])
+  }, [isAuthenticated, isAdmin, isOperator, isViewer, onNavigate])
 
   useEffect(() => {
     if (mode !== 'register') return
@@ -72,7 +72,7 @@ function AuthPage({ onNavigate, initialMode = 'login' }) {
       const username = String(formData.get('username') || '').trim()
       const password = String(formData.get('password') || '')
       const user = await login(username, password)
-      onNavigate(user.role === 'admin' || user.is_staff ? 'dashboard' : 'reports')
+      onNavigate(homeViewForUser(user))
     } catch (err) {
       setError(err.message || 'Impossible de se connecter.')
     } finally {
@@ -98,7 +98,7 @@ function AuthPage({ onNavigate, initialMode = 'login' }) {
         password_confirm: form.password_confirm,
         site_id: form.site_id ? Number(form.site_id) : null,
       })
-      onNavigate('reports')
+      onNavigate('viewer')
     } catch (err) {
       setError(err.message || 'Impossible de continuer.')
     } finally {
@@ -185,9 +185,17 @@ function AuthPage({ onNavigate, initialMode = 'login' }) {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => fillDemoInputs('user', 'user123')}
+                onClick={() => fillDemoInputs('operateur', 'operateur123')}
               >
                 Démo opérateur
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fillDemoInputs('user', 'user123')}
+              >
+                Démo utilisateur
               </Button>
             </div>
           }
