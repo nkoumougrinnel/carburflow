@@ -7,6 +7,7 @@ from .models import Alerte
 class AlerteAdmin(admin.ModelAdmin):
     list_display = (
         'id',
+        'cle',
         'type_alerte',
         'priorite',
         'etat',
@@ -15,5 +16,6 @@ class AlerteAdmin(admin.ModelAdmin):
         'traite_par',
     )
     list_filter = ('priorite', 'type_alerte', 'etat')
-    search_fields = ('message',)
+    search_fields = ('message', 'cle', 'justification')
     date_hierarchy = 'date_apparition'
+    readonly_fields = ('date_traitement',)

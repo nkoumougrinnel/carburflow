@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import Topbar from '../components/Topbar.jsx'
 import WelcomeBanner from '../components/WelcomeBanner.jsx'
-import { apiFetch } from '../auth.js'
+import { apiFetch, listAlertTreatments } from '../auth.js'
 import AutonomyBadge from '../components/AutonomyBadge.jsx'
 import PageLoader from '../components/PageLoader.jsx'
 import PageEnter from '../components/PageEnter.jsx'
@@ -10,12 +10,14 @@ import {
   SEVERITY_META,
   buildDashboardAlerts,
   countAlertsBySeverity,
+  mergeAlertTreatments,
   pickPreviewAlerts,
   splitAlertSubtitle,
 } from '../utils/alerts.js'
 
 function DashboardPage({ onNavigate }) {
   const [dashboardData, setDashboardData] = useState(null)
+  const [treatments, setTreatments] = useState([])
   const [loadError, setLoadError] = useState('')
 
   const formatValue = (value, suffix = '') => {
@@ -78,8 +80,12 @@ function DashboardPage({ onNavigate }) {
     const loadDashboardData = async () => {
       try {
         setLoadError('')
-        const payload = await apiFetch('/api/v1/dashboard/overview')
+        const [payload, treated] = await Promise.all([
+          apiFetch('/api/v1/dashboard/overview'),
+          listAlertTreatments().catch(() => []),
+        ])
         setDashboardData(payload)
+        setTreatments(Array.isArray(treated) ? treated : [])
       } catch (error) {
         console.warn('Dashboard API unavailable.', error)
         setDashboardData(null)
@@ -307,10 +313,10 @@ function DashboardPage({ onNavigate }) {
       .slice(0, 6)
   }, [siteRows])
 
-  const alerts = useMemo(
-    () => buildDashboardAlerts(siteRows, groupRows),
-    [siteRows, groupRows],
-  )
+  const alerts = useMemo(() => {
+    const computed = buildDashboardAlerts(siteRows, groupRows)
+    return mergeAlertTreatments(computed, treatments).filter((a) => !a.traitee)
+  }, [siteRows, groupRows, treatments])
   const alertCounts = useMemo(() => countAlertsBySeverity(alerts), [alerts])
   const previewAlerts = useMemo(() => pickPreviewAlerts(alerts), [alerts])
 

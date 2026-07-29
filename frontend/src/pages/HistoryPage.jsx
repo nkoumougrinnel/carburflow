@@ -3,7 +3,7 @@ import Topbar from '../components/Topbar.jsx'
 import WelcomeBanner from '../components/WelcomeBanner.jsx'
 import PageEnter from '../components/PageEnter.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
-import { deleteRapport, downloadRapport, listMesRapports } from '../auth.js'
+import { downloadRapport, listMesRapports } from '../auth.js'
 import { formatDate, LoadingButton, Spinner } from '../components/reports/ReportsUi.jsx'
 
 function HistoryPage({ onNavigate }) {
@@ -13,10 +13,9 @@ function HistoryPage({ onNavigate }) {
   const [query, setQuery] = useState('')
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
-  const [deletingRapportId, setDeletingRapportId] = useState(null)
   const [downloadingRapport, setDownloadingRapport] = useState('')
 
-  const busy = Boolean(downloadingRapport) || deletingRapportId != null
+  const busy = Boolean(downloadingRapport)
 
   const refresh = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoadingList(true)
@@ -53,21 +52,6 @@ function HistoryPage({ onNavigate }) {
       setError(err.message || 'Impossible de télécharger ce rapport.')
     } finally {
       setDownloadingRapport('')
-    }
-  }
-
-  const handleDeleteRapport = async (rapport) => {
-    if (!isAdmin) return
-    if (!window.confirm(`Supprimer le rapport n°${rapport.id} ?`)) return
-    setDeletingRapportId(rapport.id)
-    try {
-      const result = await deleteRapport(rapport.id)
-      setMessage(result.detail || `Rapport n°${rapport.id} supprimé.`)
-      await refresh({ silent: true })
-    } catch (err) {
-      setError(err.message || 'Impossible de supprimer.')
-    } finally {
-      setDeletingRapportId(null)
     }
   }
 
@@ -126,9 +110,8 @@ function HistoryPage({ onNavigate }) {
                         <td>{r.created_by_username || '—'}</td>
                         <td>
                           <div className="reports-card-actions reports-table-actions">
-                            <LoadingButton className="reports-btn--primary" loading={downloadingRapport === `${r.id}:xlsx`} onClick={() => handleDownloadRapport(r.id, 'xlsx')}>Excel</LoadingButton>
-                            <LoadingButton className="reports-btn--ghost" loading={downloadingRapport === `${r.id}:csv`} onClick={() => handleDownloadRapport(r.id, 'csv')}>CSV</LoadingButton>
-                            <LoadingButton className="reports-btn--danger" loading={deletingRapportId === r.id} onClick={() => handleDeleteRapport(r)}>Supprimer</LoadingButton>
+                            <LoadingButton className="reports-btn--primary" loading={downloadingRapport === `${r.id}:xlsx`} disabled={busy && downloadingRapport !== `${r.id}:xlsx`} onClick={() => handleDownloadRapport(r.id, 'xlsx')}>Excel</LoadingButton>
+                            <LoadingButton className="reports-btn--ghost" loading={downloadingRapport === `${r.id}:csv`} disabled={busy && downloadingRapport !== `${r.id}:csv`} onClick={() => handleDownloadRapport(r.id, 'csv')}>CSV</LoadingButton>
                           </div>
                         </td>
                       </tr>
@@ -146,8 +129,8 @@ function HistoryPage({ onNavigate }) {
                       <div className="reports-card-meta">{r.lignes_count ?? 0} ligne(s)</div>
                     </div>
                     <div className="reports-card-actions">
-                      <LoadingButton className="reports-btn--primary" loading={downloadingRapport === `${r.id}:xlsx`} onClick={() => handleDownloadRapport(r.id, 'xlsx')}>Excel</LoadingButton>
-                      <LoadingButton className="reports-btn--ghost" loading={downloadingRapport === `${r.id}:csv`} onClick={() => handleDownloadRapport(r.id, 'csv')}>CSV</LoadingButton>
+                      <LoadingButton className="reports-btn--primary" loading={downloadingRapport === `${r.id}:xlsx`} disabled={busy && downloadingRapport !== `${r.id}:xlsx`} onClick={() => handleDownloadRapport(r.id, 'xlsx')}>Excel</LoadingButton>
+                      <LoadingButton className="reports-btn--ghost" loading={downloadingRapport === `${r.id}:csv`} disabled={busy && downloadingRapport !== `${r.id}:csv`} onClick={() => handleDownloadRapport(r.id, 'csv')}>CSV</LoadingButton>
                     </div>
                   </article>
                 ))}

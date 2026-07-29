@@ -238,45 +238,15 @@ class SoumissionsAPIView(APIView):
 
 
 class RapportDeleteAPIView(APIView):
-    """Suppression d'un rapport — réservée aux responsables.
+    """Suppression de rapports désactivée — conservation des historiques."""
 
-    Respecte le modèle Grinnel : LigneRapport.rapport est en CASCADE,
-    donc les lignes liées sont retirées avec le rapport (pas de migration).
-    """
     permission_classes = [IsAuthenticated]
 
-    @extend_schema(tags=['Rapports'], summary='Supprimer un rapport (admin)')
+    @extend_schema(tags=['Rapports'], summary='Supprimer un rapport (désactivé)')
     def delete(self, request, rapport_id):
-        if not user_is_admin(request.user):
-            return Response(
-                {'detail': 'Seul un responsable peut supprimer un rapport.'},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-        rapport = get_object_or_404(Rapport, pk=rapport_id)
-        from apps.reports.pipeline import delete_rapport_and_orphans
-
-        deleted = delete_rapport_and_orphans(rapport)
-        parts = [f'{deleted["lignes"]} ligne(s)']
-        if deleted['cuves_principales']:
-            parts.append(f'{len(deleted["cuves_principales"])} site(s)')
-        if deleted['cuves_journalieres']:
-            parts.append(f'{len(deleted["cuves_journalieres"])} cuve(s) journalière(s)')
-        if deleted['groupes']:
-            parts.append(f'{len(deleted["groupes"])} groupe(s)')
         return Response(
-            {
-                'detail': (
-                    f'Le rapport n°{deleted["rapport_id"]} a été supprimé '
-                    f'({", ".join(parts)} retiré(s)).'
-                ),
-                'id': deleted['rapport_id'],
-                'orphans_removed': {
-                    'cuves_principales': deleted['cuves_principales'],
-                    'cuves_journalieres': deleted['cuves_journalieres'],
-                    'groupes': deleted['groupes'],
-                },
-            },
-            status=status.HTTP_200_OK,
+            {'detail': 'La suppression de rapports n’est plus autorisée.'},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED,
         )
 
 

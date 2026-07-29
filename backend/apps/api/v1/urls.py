@@ -24,6 +24,7 @@ urlpatterns = [
     path('auth/', include('apps.authentication.urls')),
     path('', include('apps.sites.urls')),
     path('', include('apps.reports.urls')),
+    path('', include('apps.alerts.urls')),
     # Dashboard analytique (payloads compatibles frontend)
     path('dashboard/sites', SitesDashboardAPIView.as_view(), name='dashboard-sites'),
     path('dashboard/overview', DashboardOverviewAPIView.as_view(), name='dashboard-overview'),

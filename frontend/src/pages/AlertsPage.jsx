@@ -1,16 +1,18 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import { Bell, Filter, ArrowRight } from 'lucide-react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { Bell, Filter, ArrowRight, CheckCircle2 } from 'lucide-react'
 import Topbar from '../components/Topbar.jsx'
 import WelcomeBanner from '../components/WelcomeBanner.jsx'
 import PageEnter from '../components/PageEnter.jsx'
 import PageLoader from '../components/PageLoader.jsx'
-import { apiFetch } from '../auth.js'
+import { useAuth } from '../context/AuthContext.jsx'
+import { apiFetch, listAlertTreatments, treatAlert } from '../auth.js'
 import {
   ALERT_TYPE_META,
   SEVERITY_META,
   buildDashboardAlerts,
   countAlertsBySeverity,
   filterAlerts,
+  mergeAlertTreatments,
   splitAlertSubtitle,
 } from '../utils/alerts.js'
 
@@ -32,36 +34,119 @@ function AlertSubtitle({ subtitle }) {
   )
 }
 
+function TreatAlertModal({ alert, onClose, onConfirm }) {
+  const [justification, setJustification] = useState('')
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const submit = async (e) => {
+    e.preventDefault()
+    const text = justification.trim()
+    if (text.length < 5) {
+      setError('Indiquez une justification d’au moins 5 caractères.')
+      return
+    }
+    setSaving(true)
+    setError('')
+    try {
+      await onConfirm(text)
+    } catch (err) {
+      setError(err.message || 'Impossible d’enregistrer le traitement.')
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div
+      className="rapport-modal-backdrop"
+      role="presentation"
+      onClick={onClose}
+    >
+      <div
+        className="rapport-modal alert-treat-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="alert-treat-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="rapport-modal-head">
+          <div>
+            <p className="rapport-modal-kicker">Validation admin</p>
+            <h2 id="alert-treat-title">Marquer comme traitée</h2>
+            <p>{alert.title}</p>
+          </div>
+          <button type="button" className="rapport-modal-close" onClick={onClose} aria-label="Fermer">
+            ×
+          </button>
+        </div>
+
+        <form className="rapport-modal-form" onSubmit={submit}>
+          <label className="alert-treat-field">
+            <span>Justification du traitement</span>
+            <textarea
+              value={justification}
+              onChange={(e) => setJustification(e.target.value)}
+              rows={5}
+              placeholder="Expliquez pourquoi cette alerte est considérée comme traitée…"
+              required
+              minLength={5}
+              autoFocus
+            />
+          </label>
+          {error && <p className="alert-treat-error" role="alert">{error}</p>}
+          <div className="rapport-modal-actions">
+            <button type="button" className="reports-btn reports-btn--ghost" onClick={onClose} disabled={saving}>
+              Annuler
+            </button>
+            <button type="submit" className="reports-btn reports-btn--primary" disabled={saving}>
+              {saving ? 'Enregistrement…' : 'Confirmer le traitement'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 function AlertsPage({ onNavigate }) {
+  const { isAdmin } = useAuth()
   const [dashboardData, setDashboardData] = useState(null)
+  const [treatments, setTreatments] = useState([])
   const [loadError, setLoadError] = useState('')
+  const [message, setMessage] = useState('')
   const [priority, setPriority] = useState(() => new URLSearchParams(window.location.search).get('priority') || 'all')
   const [type, setType] = useState(() => new URLSearchParams(window.location.search).get('type') || 'all')
   const [dateRange, setDateRange] = useState(() => new URLSearchParams(window.location.search).get('date') || 'all')
+  const [status, setStatus] = useState(() => new URLSearchParams(window.location.search).get('status') || 'active')
+  const [pendingTreat, setPendingTreat] = useState(null)
+
+  const loadAll = useCallback(async () => {
+    const [overview, treated] = await Promise.all([
+      apiFetch('/api/v1/dashboard/overview'),
+      listAlertTreatments().catch(() => []),
+    ])
+    setDashboardData(overview)
+    setTreatments(Array.isArray(treated) ? treated : [])
+    setLoadError('')
+  }, [])
 
   useEffect(() => {
     let cancelled = false
-    apiFetch('/api/v1/dashboard/overview')
-      .then((data) => {
-        if (!cancelled) {
-          setDashboardData(data)
-          setLoadError('')
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) setLoadError(err.message || 'Impossible de charger les alertes.')
-      })
+    loadAll().catch((err) => {
+      if (!cancelled) setLoadError(err.message || 'Impossible de charger les alertes.')
+    })
     return () => { cancelled = true }
-  }, [])
+  }, [loadAll])
 
   useEffect(() => {
     const params = new URLSearchParams()
     if (priority !== 'all') params.set('priority', priority)
     if (type !== 'all') params.set('type', type)
     if (dateRange !== 'all') params.set('date', dateRange)
+    if (status !== 'active') params.set('status', status)
     const qs = params.toString()
     window.history.replaceState({}, '', qs ? `/alertes/?${qs}` : '/alertes/')
-  }, [priority, type, dateRange])
+  }, [priority, type, dateRange, status])
 
   const siteRows = useMemo(() => {
     if (!dashboardData?.sites?.length) return []
@@ -87,11 +172,16 @@ function AlertsPage({ onNavigate }) {
     }))
   }, [dashboardData])
 
-  const alerts = useMemo(() => buildDashboardAlerts(siteRows, groupRows), [siteRows, groupRows])
-  const counts = useMemo(() => countAlertsBySeverity(alerts), [alerts])
+  const alerts = useMemo(() => {
+    const computed = buildDashboardAlerts(siteRows, groupRows)
+    return mergeAlertTreatments(computed, treatments)
+  }, [siteRows, groupRows, treatments])
+
+  const activeAlerts = useMemo(() => alerts.filter((a) => !a.traitee), [alerts])
+  const counts = useMemo(() => countAlertsBySeverity(activeAlerts), [activeAlerts])
   const visible = useMemo(
-    () => filterAlerts(alerts, { priority, type, dateRange }),
-    [alerts, priority, type, dateRange],
+    () => filterAlerts(alerts, { priority, type, dateRange, status }),
+    [alerts, priority, type, dateRange, status],
   )
 
   const openAlert = (alert) => {
@@ -100,6 +190,30 @@ function AlertsPage({ onNavigate }) {
     } else {
       onNavigate({ view: 'sites', siteId: alert.site_id, siteName: alert.site_name, mode: 'details' })
     }
+  }
+
+  const confirmTreat = async (justification) => {
+    const alert = pendingTreat
+    if (!alert) return
+    const result = await treatAlert({
+      cle: alert.id,
+      justification,
+      title: alert.title,
+      subtitle: alert.subtitle,
+      type: alert.type,
+      severity: alert.severity,
+      site_id: alert.site_id || null,
+      group_id: alert.group_id || null,
+    })
+    const saved = result?.alerte
+    setTreatments((prev) => {
+      const next = prev.filter((t) => t.cle !== alert.id)
+      if (saved) next.unshift(saved)
+      return next
+    })
+    setPendingTreat(null)
+    setMessage('Alerte marquée comme traitée.')
+    setStatus('treated')
   }
 
   if (!dashboardData && !loadError) {
@@ -118,8 +232,14 @@ function AlertsPage({ onNavigate }) {
         <main className="alerts-page">
           <WelcomeBanner
             title="Centre d’alertes"
-            subtitle="Filtrez par priorité, type et date. Cliquez une alerte pour ouvrir le site ou le groupe."
+            subtitle={
+              isAdmin
+                ? 'Filtrez, ouvrez un site/groupe, et validez le traitement avec une justification.'
+                : 'Filtrez par priorité, type et date. Cliquez une alerte pour ouvrir le site ou le groupe.'
+            }
           />
+
+          {message && <div className="reports-success" role="status">{message}</div>}
 
           {loadError && (
             <div className="reports-error-panel" role="alert">
@@ -141,7 +261,7 @@ function AlertsPage({ onNavigate }) {
                 key={item.id}
                 type="button"
                 className={`alerts-priority-card alerts-priority-card--${item.tone}${priority === item.id ? ' is-active' : ''}`}
-                onClick={() => setPriority(item.id)}
+                onClick={() => { setPriority(item.id); setStatus('active') }}
               >
                 <span className="alerts-priority-label">{item.label}</span>
                 <strong className="alerts-priority-count">{item.count}</strong>
@@ -155,6 +275,14 @@ function AlertsPage({ onNavigate }) {
               <h2>Filtres</h2>
             </div>
             <div className="alerts-filters-grid">
+              <label className="alerts-filter-field">
+                <span>Statut</span>
+                <select value={status} onChange={(e) => setStatus(e.target.value)}>
+                  <option value="active">À traiter</option>
+                  <option value="treated">Traitées</option>
+                  <option value="all">Toutes</option>
+                </select>
+              </label>
               <label className="alerts-filter-field">
                 <span>Priorité</span>
                 <select value={priority} onChange={(e) => setPriority(e.target.value)}>
@@ -185,11 +313,16 @@ function AlertsPage({ onNavigate }) {
             </div>
             <p className="alerts-filters-meta">
               {visible.length} alerte{visible.length > 1 ? 's' : ''} affichée{visible.length > 1 ? 's' : ''}
-              {(priority !== 'all' || type !== 'all' || dateRange !== 'all') && (
+              {(priority !== 'all' || type !== 'all' || dateRange !== 'all' || status !== 'active') && (
                 <button
                   type="button"
                   className="alerts-reset"
-                  onClick={() => { setPriority('all'); setType('all'); setDateRange('all') }}
+                  onClick={() => {
+                    setPriority('all')
+                    setType('all')
+                    setDateRange('all')
+                    setStatus('active')
+                  }}
                 >
                   Réinitialiser
                 </button>
@@ -220,18 +353,17 @@ function AlertsPage({ onNavigate }) {
                   ? new Date(alert.detected_at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
                   : '—'
                 return (
-                  <button
+                  <div
                     key={alert.id}
-                    type="button"
-                    className={`alert-item alert-${severity} alert-item--link`}
+                    className={`alert-item alert-${severity}${alert.traitee ? ' alert-item--treated' : ''}`}
                     data-severity={severity}
-                    onClick={() => openAlert(alert)}
                   >
-                    <div className="alert-severity-bar" aria-hidden="true" />
+                    <div className="alert-priority-bar" aria-hidden="true" />
                     <div className="alert-header">
                       <div className="alert-title-wrap">
                         <span className={`alert-level-tag alert-level-tag--${severity}`}>{label}</span>
                         <span className="alert-type-chip">{typeLabel}</span>
+                        {alert.traitee && <span className="alert-type-chip alert-type-chip--treated">Traitée</span>}
                         <strong>{alert.title}</strong>
                       </div>
                       <span className={`alert-badge alert-badge-${severity}`}>
@@ -243,12 +375,36 @@ function AlertsPage({ onNavigate }) {
                         <span className="alert-anomaly-prefix">Anomalie :</span>
                       )}
                       <AlertSubtitle subtitle={alert.subtitle} />
+                      {alert.traitee && alert.justification && (
+                        <p className="alert-justification">
+                          <strong>Justification :</strong> {alert.justification}
+                          {alert.traite_par ? ` — ${alert.traite_par}` : ''}
+                        </p>
+                      )}
                       <div className="alert-meta-row">
                         <span>{when}</span>
-                        <span className="alert-more">Ouvrir <ArrowRight size={14} aria-hidden="true" /></span>
+                        <div className="alert-item-actions">
+                          <button
+                            type="button"
+                            className="alert-more-btn"
+                            onClick={() => openAlert(alert)}
+                          >
+                            Ouvrir <ArrowRight size={14} aria-hidden="true" />
+                          </button>
+                          {isAdmin && !alert.traitee && (
+                            <button
+                              type="button"
+                              className="reports-btn reports-btn--primary alert-treat-btn"
+                              onClick={() => { setMessage(''); setPendingTreat(alert) }}
+                            >
+                              <CheckCircle2 size={15} aria-hidden="true" />
+                              Marquer traitée
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </button>
+                  </div>
                 )
               }) : (
                 <div className="alert-empty">
@@ -261,6 +417,14 @@ function AlertsPage({ onNavigate }) {
           </section>
         </main>
       </PageEnter>
+
+      {pendingTreat && (
+        <TreatAlertModal
+          alert={pendingTreat}
+          onClose={() => setPendingTreat(null)}
+          onConfirm={confirmTreat}
+        />
+      )}
     </div>
   )
 }

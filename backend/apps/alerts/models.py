@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 
 class Alerte(models.Model):
@@ -25,11 +26,15 @@ class Alerte(models.Model):
         ('ignoree', 'Ignorée'),
     ]
 
+    # Clé stable des alertes calculées (ex. site-critique-12)
+    cle = models.CharField(max_length=120, unique=True, null=True, blank=True, db_index=True)
+
     date_apparition = models.DateField(auto_now_add=True)
     priorite = models.CharField(max_length=20, choices=PRIORITE_CHOICES, default='moyenne')
     type_alerte = models.CharField(max_length=50, choices=TYPE_CHOICES, default='autre')
     message = models.TextField()
     etat = models.CharField(max_length=20, choices=ETAT_CHOICES, default='nouvelle')
+    justification = models.TextField(blank=True, default='')
 
     site = models.ForeignKey(
         'sites.Site',
@@ -77,3 +82,17 @@ class Alerte(models.Model):
 
     def __str__(self):
         return f'Alerte {self.id} - {self.get_type_alerte_display()}'
+
+    def marquer_traitee(self, user, justification):
+        self.etat = 'traitee'
+        self.justification = justification.strip()
+        self.traite_par = user
+        self.date_traitement = timezone.now()
+        self.save(
+            update_fields=[
+                'etat',
+                'justification',
+                'traite_par',
+                'date_traitement',
+            ]
+        )
