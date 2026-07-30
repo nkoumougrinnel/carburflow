@@ -33,6 +33,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'core.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -73,6 +74,8 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = 'static/'
+# Répertoire où collectstatic place les fichiers statiques en production
+STATIC_ROOT = PROJECT_ROOT / 'staticfiles'
 MEDIA_URL = 'media/'
 MEDIA_ROOT = PROJECT_ROOT / 'data' / 'media'
 

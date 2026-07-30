@@ -8,13 +8,27 @@ services:
       POSTGRES_PASSWORD: carburflow
     ports:
       - "5432:5432"
-  web:
+  backend:
     build:
       context: ..
-      dockerfile: docker/Dockerfile
+      dockerfile: docker/backend/Dockerfile
     depends_on:
       - db
     environment:
+      # base database URL utilisé par l'application
       DATABASE_URL: postgresql://carburflow:carburflow@db:5432/carburflow
+      # pour les tests locaux, utiliser les settings de développement
+      DJANGO_SETTINGS_MODULE: core.settings.dev
+      # autorise les hôtes locaux (ne PAS laisser '*' en production)
+      ALLOWED_HOSTS: localhost,127.0.0.1
     ports:
       - "8001:8001"
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/frontend/Dockerfile
+    depends_on:
+      - backend
+    ports:
+      - "5174:5174" 
