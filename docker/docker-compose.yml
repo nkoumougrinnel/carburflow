@@ -17,4 +17,4 @@ services:
     environment:
       DATABASE_URL: postgresql://carburflow:carburflow@db:5432/carburflow
     ports:
-      - "8000:8000"
+      - "8001:8001"

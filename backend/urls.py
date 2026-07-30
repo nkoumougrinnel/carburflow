@@ -6,3 +6,4 @@ urlpatterns = [
     path('', include('dashboard.urls')),
     path('api/v1/', include('dashboard.urls')),
 ]
+""

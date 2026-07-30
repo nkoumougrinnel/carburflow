@@ -19,3 +19,5 @@ class AlerteAdmin(admin.ModelAdmin):
     search_fields = ('message', 'cle', 'justification')
     date_hierarchy = 'date_apparition'
     readonly_fields = ('date_traitement',)
+
+"""Admin class for managing Alertes in the Django admin interface."""
