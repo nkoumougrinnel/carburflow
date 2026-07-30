@@ -41,6 +41,25 @@ function extractErrorMessage(data) {
   return null
 }
 
+/**
+ * En local Vite : chemins relatifs `/api/v1/...` (proxy).
+ * En Docker (`serve` sans proxy) : VITE_API_BASE_URL pointe vers le backend hôte
+ * (ex. http://localhost:8001/api/v1) pour éviter de recevoir le HTML du SPA.
+ */
+export function resolveApiUrl(path) {
+  if (!path || /^https?:\/\//i.test(path)) return path
+  const base = String(import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
+  if (!base) return path
+
+  const [pathname, query = ''] = path.split('?')
+  let suffix = pathname || '/'
+  if (base.endsWith('/api/v1') && suffix.startsWith('/api/v1')) {
+    suffix = suffix.slice('/api/v1'.length) || '/'
+  }
+  if (!suffix.startsWith('/')) suffix = `/${suffix}`
+  return `${base}${suffix}${query ? `?${query}` : ''}`
+}
+
 export async function apiFetch(path, options = {}) {
   const headers = { ...(options.headers || {}) }
   if (!(options.body instanceof FormData)) {
@@ -58,9 +77,10 @@ export async function apiFetch(path, options = {}) {
     headers.Authorization = `Token ${token}`
   }
 
+  const url = resolveApiUrl(path)
   let response
   try {
-    response = await fetch(path, { ...options, headers })
+    response = await fetch(url, { ...options, headers })
   } catch {
     throw new Error(
       'Impossible de joindre le serveur pour le moment. Réessayez dans un instant.',
@@ -93,8 +113,9 @@ export async function apiFetch(path, options = {}) {
     try {
       data = JSON.parse(text)
     } catch {
-      // Réponse non-JSON (souvent HTML d’erreur proxy Vite si Django est down)
-      if (!response.ok || text.includes('ECONNREFUSED') || text.includes('proxy error')) {
+      // Réponse non-JSON (HTML SPA `serve -s`, proxy Vite down, page d’erreur…)
+      const looksLikeHtml = /^\s*</.test(text) || text.includes('<!DOCTYPE')
+      if (!response.ok || looksLikeHtml || text.includes('ECONNREFUSED') || text.includes('proxy error')) {
         throw new Error(
           'Le service est temporairement indisponible. Réessayez dans un instant.',
         )
@@ -123,7 +144,7 @@ export function authFetch(path, options = {}) {
   const headers = { ...(options.headers || {}) }
   const token = getStoredToken()
   if (token) headers.Authorization = `Token ${token}`
-  return fetch(path, { ...options, headers })
+  return fetch(resolveApiUrl(path), { ...options, headers })
 }
 
 export async function loginRequest(username, password) {

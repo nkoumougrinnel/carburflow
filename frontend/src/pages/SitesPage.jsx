@@ -113,7 +113,9 @@ function SitesPage({ onNavigate }) {
         setLoadError('')
         const data = await apiFetch('/api/v1/dashboard/sites');
         if (!data?.labels || !Array.isArray(data.labels)) {
-          throw new Error('Labels non valides dans les données de l\'API site')
+          throw new Error(
+            'Réponse API sites inattendue (pas de séries). Vérifiez que le backend répond sur /api/v1/dashboard/sites.',
+          )
         }
         const rawHours = data.hoursSeries || [];
         const hoursList = Array.isArray(rawHours) ? rawHours : Object.values(rawHours);

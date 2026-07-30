@@ -33,5 +33,8 @@ REST_FRAMEWORK = {
 }
 
 SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'true').lower() == 'true'
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
+# En Docker HTTP local, laisser SECURE_SSL_REDIRECT=false (compose) suffit ;
+# les cookies sécurisés suivent le même flag pour éviter les sessions cassées.
+_secure = SECURE_SSL_REDIRECT
+SESSION_COOKIE_SECURE = _secure
+CSRF_COOKIE_SECURE = _secure
