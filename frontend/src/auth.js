@@ -226,12 +226,65 @@ export async function normeMeta() {
   return apiFetch('/api/v1/rapports/norme')
 }
 
+export async function listAlertes(params = {}) {
+  const query = new URLSearchParams()
+  Object.entries(params).forEach(([key, value]) => {
+    if (value != null && value !== '') query.set(key, String(value))
+  })
+  const qs = query.toString()
+  return apiFetch(`/api/v1/alertes/${qs ? `?${qs}` : ''}`)
+}
+
 export async function listAlertTreatments() {
   return apiFetch('/api/v1/alertes/traitements')
 }
 
 export async function treatAlert(payload) {
   return apiFetch('/api/v1/alertes/traiter', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function listStaffUsers() {
+  return apiFetch('/api/v1/auth/users/staff')
+}
+
+export async function searchUsersByEmail(email) {
+  const query = new URLSearchParams({ email: String(email || '').trim() })
+  return apiFetch(`/api/v1/auth/users/search?${query.toString()}`)
+}
+
+export async function setUserRole({ email, role }) {
+  return apiFetch('/api/v1/auth/users/set-role', {
+    method: 'POST',
+    body: JSON.stringify({ email, role }),
+  })
+}
+
+export async function listNotifications(params = {}) {
+  const query = new URLSearchParams()
+  Object.entries(params).forEach(([key, value]) => {
+    if (value != null && value !== '') query.set(key, String(value))
+  })
+  const qs = query.toString()
+  return apiFetch(`/api/v1/notifications/${qs ? `?${qs}` : ''}`)
+}
+
+export async function notificationsUnreadCount() {
+  return apiFetch('/api/v1/notifications/unread-count')
+}
+
+export async function markNotificationRead(id) {
+  return apiFetch(`/api/v1/notifications/${id}/read`, { method: 'POST' })
+}
+
+export async function markAllNotificationsRead() {
+  return apiFetch('/api/v1/notifications/read-all', { method: 'POST' })
+}
+
+export async function sendNotificationMessage(payload) {
+  return apiFetch('/api/v1/notifications/send', {
     method: 'POST',
     body: JSON.stringify(payload),
   })

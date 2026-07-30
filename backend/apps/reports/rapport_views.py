@@ -84,7 +84,25 @@ class GenererRapportHebdoAPIView(APIView):
         from apps.reports.pipeline import generate_rapport_template_xlsx
         date_debut = request.query_params.get('date_debut')
         date_fin = request.query_params.get('date_fin')
-        content = generate_rapport_template_xlsx(date_debut, date_fin)
+        try:
+            content = generate_rapport_template_xlsx(date_debut, date_fin)
+        except ModuleNotFoundError as exc:
+            if 'openpyxl' in str(exc):
+                return Response(
+                    {
+                        'detail': (
+                            'La génération Excel nécessite le paquet openpyxl. '
+                            'Installez-le : pip install openpyxl'
+                        ),
+                    },
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+            raise
+        except Exception as exc:
+            return Response(
+                {'detail': f'Impossible de générer la fiche : {exc}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
         filename = 'carburflow_fiche_hebdo.xlsx'
         response = HttpResponse(
             content,

@@ -37,19 +37,19 @@ const FadeContent = ({
 
     gsap.set(el, {
       autoAlpha: initialOpacity,
-      filter: blur ? 'blur(10px)' : 'blur(0px)',
-      willChange: 'opacity, filter, transform'
+      ...(blur ? { filter: 'blur(10px)' } : {}),
     });
 
     const tl = gsap.timeline({
       paused: true,
       delay: getSeconds(delay),
       onComplete: () => {
+        gsap.set(el, { clearProps: blur ? 'filter' : '' });
         if (onComplete) onComplete();
         if (disappearAfter > 0) {
           gsap.to(el, {
             autoAlpha: initialOpacity,
-            filter: blur ? 'blur(10px)' : 'blur(0px)',
+            ...(blur ? { filter: 'blur(10px)' } : {}),
             delay: getSeconds(disappearAfter),
             duration: getSeconds(disappearDuration),
             ease: disappearEase,
@@ -61,7 +61,7 @@ const FadeContent = ({
 
     tl.to(el, {
       autoAlpha: 1,
-      filter: 'blur(0px)',
+      ...(blur ? { filter: 'blur(0px)' } : {}),
       duration: getSeconds(duration),
       ease: ease
     });

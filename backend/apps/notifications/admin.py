@@ -5,7 +5,23 @@ from .models import Notification
 
 @admin.register(Notification)
 class NotificationAdmin(admin.ModelAdmin):
-    list_display = ('id', 'destinataire', 'canal', 'lu', 'date_envoi', 'alerte')
+    list_display = (
+        'id',
+        'destinataire',
+        'expediteur',
+        'sujet',
+        'canal',
+        'lu',
+        'date_envoi',
+        'alerte',
+    )
     list_filter = ('canal', 'lu')
-    search_fields = ('contenu', 'destinataire__username')
+    search_fields = (
+        'sujet',
+        'contenu',
+        'destinataire__username',
+        'destinataire__email',
+        'expediteur__username',
+    )
     date_hierarchy = 'date_envoi'
+    raw_id_fields = ('destinataire', 'expediteur', 'alerte')

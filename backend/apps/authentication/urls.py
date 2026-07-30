@@ -1,6 +1,9 @@
 from django.urls import path
 
 from .views import (
+    AdminSetRoleAPIView,
+    AdminStaffUsersAPIView,
+    AdminUserSearchAPIView,
     CsrfAPIView,
     LoginAPIView,
     LogoutAPIView,
@@ -18,4 +21,7 @@ urlpatterns = [
     path('password', PasswordChangeAPIView.as_view(), name='api-auth-password'),
     path('csrf', CsrfAPIView.as_view(), name='api-auth-csrf'),
     path('sites', PublicSitesAPIView.as_view(), name='api-auth-sites'),
+    path('users/staff', AdminStaffUsersAPIView.as_view(), name='api-auth-users-staff'),
+    path('users/search', AdminUserSearchAPIView.as_view(), name='api-auth-users-search'),
+    path('users/set-role', AdminSetRoleAPIView.as_view(), name='api-auth-users-set-role'),
 ]

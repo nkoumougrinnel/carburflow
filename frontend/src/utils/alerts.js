@@ -1,37 +1,94 @@
 import { formatAutonomy } from './format.js'
 
+/** Libellés / rangs des 4 priorités métier (alignés backend). */
+export const PRIORITE_META = {
+  critique: { label: 'Critique', level: 'critical', rank: 4, key: 'critique' },
+  haute: { label: 'Haute', level: 'high', rank: 3, key: 'haute' },
+  moyenne: { label: 'Moyenne', level: 'medium', rank: 2, key: 'moyenne' },
+  basse: { label: 'Basse', level: 'low', rank: 1, key: 'basse' },
+}
+
+/** @deprecated alias — préférer PRIORITE_META */
 export const SEVERITY_META = {
-  critical: { label: 'Urgent', level: 'critical', rank: 3 },
-  medium: { label: 'À surveiller', level: 'medium', rank: 2 },
-  low: { label: 'Attention', level: 'low', rank: 1 },
+  critical: PRIORITE_META.critique,
+  high: PRIORITE_META.haute,
+  medium: PRIORITE_META.moyenne,
+  low: PRIORITE_META.basse,
 }
 
 export const ALERT_TYPE_META = {
+  autonomie_critique: { label: 'Autonomie critique' },
+  autonomie_preventive: { label: 'Autonomie préventive' },
+  conso_sans_horaire: { label: 'Conso. sans horaire' },
+  ecart_conso: { label: 'Écart consommation' },
+  // alias historiques (compat)
   critique: { label: 'Autonomie critique' },
   alerte: { label: 'Autonomie faible' },
   anomalie: { label: 'Anomalie saisie' },
   ecart: { label: 'Écart conso' },
 }
 
+const PRIORITE_ALIASES = {
+  critique: 'critique',
+  critical: 'critique',
+  urgent: 'critique',
+  haute: 'haute',
+  high: 'haute',
+  moyenne: 'moyenne',
+  medium: 'moyenne',
+  warning: 'moyenne',
+  basse: 'basse',
+  low: 'basse',
+  attention: 'basse',
+}
+
+export function resolvePrioriteKey(alert) {
+  const raw = String(
+    alert?.priorite || alert?.priority_level || alert?.severity || '',
+  ).toLowerCase()
+  if (PRIORITE_ALIASES[raw]) return PRIORITE_ALIASES[raw]
+
+  const label = String(alert?.priority || '').toLowerCase()
+  if (label.includes('critique')) return 'critique'
+  if (label.includes('haute') || label.includes('urgent')) return 'haute'
+  if (label.includes('moyenne') || label.includes('moyen') || label.includes('surveiller')) {
+    return 'moyenne'
+  }
+  if (label.includes('basse') || label.includes('attention') || label.includes('faible')) {
+    return 'basse'
+  }
+  return 'moyenne'
+}
+
 export function normalizeAlertSeverity(alert) {
-  const raw = String(alert.priority_level || alert.severity || '').toLowerCase()
-  const label = String(alert.priority || '').toLowerCase()
-  if (raw === 'urgent' || raw === 'critical' || label.includes('critique')) {
-    return SEVERITY_META.critical
+  const key = resolvePrioriteKey(alert)
+  return PRIORITE_META[key] || PRIORITE_META.moyenne
+}
+
+/** Normalise une alerte API BD vers le format UI. */
+export function normalizePersistedAlert(alert) {
+  if (!alert) return null
+  const prioriteKey = resolvePrioriteKey(alert)
+  const meta = PRIORITE_META[prioriteKey] || PRIORITE_META.moyenne
+  const priorityLabel = (
+    alert.priority
+    || PRIORITE_META[alert.priorite]?.label
+    || meta.label
+  )
+  return {
+    ...alert,
+    id: alert.id || alert.cle || `alerte-${alert.db_id}`,
+    type: alert.type || alert.type_alerte,
+    priorite: alert.priorite || prioriteKey,
+    priority: priorityLabel,
+    priority_level: meta.level,
+    severity: meta.level,
+    title: alert.title || alert.message || 'Alerte',
+    subtitle: alert.subtitle || '',
+    traitee: alert.traitee === true || alert.etat === 'traitee',
+    detected_at: alert.detected_at || alert.date_apparition || null,
+    target: alert.target || (alert.group_id ? 'groups' : 'site'),
   }
-  if (raw === 'high' || raw === 'medium' || label.includes('moyen')) {
-    return SEVERITY_META.medium
-  }
-  if (
-    raw === 'warning'
-    || raw === 'low'
-    || raw === 'attention'
-    || label.includes('faible')
-    || label.includes('attention')
-  ) {
-    return SEVERITY_META.low
-  }
-  return SEVERITY_META.medium
 }
 
 function isConsSansDelta(g) {
@@ -181,7 +238,7 @@ export function buildDashboardAlerts(siteRows = [], groupRows = [], detectedAt =
     })
 
   return Array.from(alertMap.values()).sort((a, b) => {
-    const bySeverity = (SEVERITY_META[b.severity]?.rank || 0) - (SEVERITY_META[a.severity]?.rank || 0)
+    const bySeverity = (normalizeAlertSeverity(b).rank || 0) - (normalizeAlertSeverity(a).rank || 0)
     if (bySeverity !== 0) return bySeverity
     return (b.ecart_pct || 0) - (a.ecart_pct || 0)
   })
@@ -189,22 +246,29 @@ export function buildDashboardAlerts(siteRows = [], groupRows = [], detectedAt =
 
 export function countAlertsBySeverity(alerts = []) {
   return {
-    critical: alerts.filter((a) => a.severity === 'critical').length,
-    medium: alerts.filter((a) => a.severity === 'medium').length,
-    low: alerts.filter((a) => a.severity === 'low').length,
+    critique: alerts.filter((a) => resolvePrioriteKey(a) === 'critique').length,
+    haute: alerts.filter((a) => resolvePrioriteKey(a) === 'haute').length,
+    moyenne: alerts.filter((a) => resolvePrioriteKey(a) === 'moyenne').length,
+    basse: alerts.filter((a) => resolvePrioriteKey(a) === 'basse').length,
+    // alias UI (compat)
+    critical: alerts.filter((a) => resolvePrioriteKey(a) === 'critique').length,
+    high: alerts.filter((a) => resolvePrioriteKey(a) === 'haute').length,
+    medium: alerts.filter((a) => resolvePrioriteKey(a) === 'moyenne').length,
+    low: alerts.filter((a) => resolvePrioriteKey(a) === 'basse').length,
     total: alerts.length,
   }
 }
 
 /** Aperçu dashboard : max par priorité, plafonné. */
 export function pickPreviewAlerts(alerts = [], { perSeverity = 2, maxTotal = 6 } = {}) {
-  const buckets = { critical: [], medium: [], low: [] }
+  const buckets = { critique: [], haute: [], moyenne: [], basse: [] }
   alerts.forEach((a) => {
-    if (buckets[a.severity] && buckets[a.severity].length < perSeverity) {
-      buckets[a.severity].push(a)
+    const key = resolvePrioriteKey(a)
+    if (buckets[key] && buckets[key].length < perSeverity) {
+      buckets[key].push(a)
     }
   })
-  return [...buckets.critical, ...buckets.medium, ...buckets.low].slice(0, maxTotal)
+  return [...buckets.critique, ...buckets.haute, ...buckets.moyenne, ...buckets.basse].slice(0, maxTotal)
 }
 
 export function filterAlerts(
@@ -213,14 +277,19 @@ export function filterAlerts(
 ) {
   const now = Date.now()
   const dayMs = 24 * 60 * 60 * 1000
+  const priorityKey = priority === 'all' ? null : (PRIORITE_ALIASES[priority] || priority)
 
   return alerts.filter((a) => {
-    if (status === 'active' && a.traitee) return false
+    if (status === 'active' && (a.traitee || a.etat === 'ignoree')) return false
     if (status === 'treated' && !a.traitee) return false
-    if (priority !== 'all' && a.severity !== priority) return false
+    if (status === 'history' && !(a.traitee || a.etat === 'ignoree' || a.etat === 'traitee')) return false
+    if (priorityKey && resolvePrioriteKey(a) !== priorityKey) return false
     if (type !== 'all' && a.type !== type) return false
     if (dateRange !== 'all') {
-      const ts = a.detected_at ? new Date(a.detected_at).getTime() : now
+      const dateSource = status === 'history'
+        ? (a.date_traitement || a.detected_at)
+        : a.detected_at
+      const ts = dateSource ? new Date(dateSource).getTime() : now
       if (dateRange === 'today' && now - ts > dayMs) return false
       if (dateRange === 'week' && now - ts > 7 * dayMs) return false
       if (dateRange === 'month' && now - ts > 30 * dayMs) return false

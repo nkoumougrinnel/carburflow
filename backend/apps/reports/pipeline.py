@@ -1340,6 +1340,20 @@ def import_rapport_lignes(
         )
         imported += 1
 
+    # Détection / persistance des alertes métier après dépôt de fiche
+    try:
+        from apps.alerts.services import detecter_et_persister_alertes
+
+        detecter_et_persister_alertes()
+    except Exception:
+        # Ne pas faire échouer l’import si la détection plante
+        import logging
+
+        logging.getLogger(__name__).exception(
+            'Échec de la détection d’alertes après import du rapport %s',
+            rapport.id,
+        )
+
     return ImportResult(
         rapport_id=rapport.id,
         imported_lines=imported,

@@ -14,10 +14,12 @@ import {
   History,
   UserRound,
   Bell,
+  Inbox,
 } from 'lucide-react'
 import BrandLogo from './BrandLogo.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useTheme } from '../context/ThemeContext.jsx'
+import { listAlertes, notificationsUnreadCount } from '../auth.js'
 import { getDisplayFullName } from '../utils/userDisplay.js'
 
 function roleLabel(isAdmin, isOperator) {
@@ -36,8 +38,42 @@ function Topbar({ activeView, onNavigate }) {
   const { isAuthenticated, isAdmin, isOperator, logout, user } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [activeAlertsCount, setActiveAlertsCount] = useState(0)
+  const [unreadMessages, setUnreadMessages] = useState(0)
 
   useEffect(() => { setMenuOpen(false) }, [activeView])
+
+  useEffect(() => {
+    if (!isAuthenticated || !isAdmin) {
+      setActiveAlertsCount(0)
+      return undefined
+    }
+    let cancelled = false
+    listAlertes({ etat: 'actives' })
+      .then((rows) => {
+        if (!cancelled) setActiveAlertsCount(Array.isArray(rows) ? rows.length : 0)
+      })
+      .catch(() => {
+        if (!cancelled) setActiveAlertsCount(0)
+      })
+    return () => { cancelled = true }
+  }, [isAuthenticated, isAdmin, activeView])
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setUnreadMessages(0)
+      return undefined
+    }
+    let cancelled = false
+    notificationsUnreadCount()
+      .then((data) => {
+        if (!cancelled) setUnreadMessages(Number(data?.unread) || 0)
+      })
+      .catch(() => {
+        if (!cancelled) setUnreadMessages(0)
+      })
+    return () => { cancelled = true }
+  }, [isAuthenticated, activeView])
 
   const go = (view) => {
     setMenuOpen(false)
@@ -53,14 +89,16 @@ function Topbar({ activeView, onNavigate }) {
   const adminLinks = [
     { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
     { id: 'alerts', label: 'Alertes', icon: Bell },
+    { id: 'notifications', label: 'Notifications', icon: Inbox },
     { id: 'sites', label: 'Sites', icon: MapPinned },
     { id: 'groups', label: 'Groupes', icon: Zap },
     { id: 'reports', label: 'Relevés', icon: Upload },
-    { id: 'profile', label: 'Profil', icon: UserRound },
+    { id: 'profile', label: 'Comptes', icon: UserRound },
   ]
 
   const operatorLinks = [
     { id: 'operator', label: 'Accueil', icon: Home },
+    { id: 'notifications', label: 'Notifications', icon: Inbox },
     { id: 'sites', label: 'Sites', icon: MapPinned },
     { id: 'reports', label: 'Relevé', icon: Upload },
     { id: 'history', label: 'Historique', icon: History },
@@ -69,6 +107,7 @@ function Topbar({ activeView, onNavigate }) {
 
   const viewerLinks = [
     { id: 'viewer', label: 'Accueil', icon: Home },
+    { id: 'notifications', label: 'Notifications', icon: Inbox },
     { id: 'sites', label: 'Sites', icon: MapPinned },
     { id: 'profile', label: 'Profil', icon: UserRound },
   ]
@@ -117,6 +156,16 @@ function Topbar({ activeView, onNavigate }) {
             >
               <Icon size={16} aria-hidden="true" />
               <span>{label}</span>
+              {id === 'alerts' && activeAlertsCount > 0 && (
+                <span className="nav-link-badge" aria-label={`${activeAlertsCount} alertes non traitées`}>
+                  {activeAlertsCount}
+                </span>
+              )}
+              {id === 'notifications' && unreadMessages > 0 && (
+                <span className="nav-link-badge" aria-label={`${unreadMessages} messages non lus`}>
+                  {unreadMessages}
+                </span>
+              )}
             </button>
           ))}
 

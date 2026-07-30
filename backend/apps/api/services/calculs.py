@@ -8,6 +8,13 @@ Règles importantes :
   on pose null et on ne met pas à jour la référence précédente (évite les faux pics).
 - Le premier point présent sert de baseline (delta conso / heures = 0).
 - La série volume d’un groupe est le stock pondéré réel, pas la somme des deltas.
+
+Consommation :
+- Stock global période = volume_CP + Σ volumes_CJ.
+- Conso période = stock_global_prev − stock_global_curr + dépotage.
+  Les prélèvements CP→CJ s’annulent (pas de fausse conso attributée aux groupes).
+- Avant proportionnalité puissance : on répartit uniquement cette conso réelle.
+- Conso site (cuve principale) = somme des consos des groupes agrégés.
 """
 
 import re
@@ -89,6 +96,11 @@ def _site_volume_from_lines(lines) -> float:
     return max(cp_values)
 
 
+def _site_cj_volume_from_lines(lines) -> float:
+    """Somme des stocks des cuves journalières présentes sur les lignes du site."""
+    return sum(float(getattr(l, 'quantite_gasoil_cuve_journaliere', None) or 0.0) for l in lines)
+
+
 def _site_depotage_from_lines(lines) -> float:
     """
     Dépotage site : si la même valeur est répétée sur chaque ligne groupe,
@@ -104,15 +116,53 @@ def _site_depotage_from_lines(lines) -> float:
     return sum(nonzero)
 
 
+def _consommation_periode(
+    previous_cp: float,
+    previous_cj: float,
+    current_cp: float,
+    current_cj: float,
+    depotage: float,
+) -> float:
+    """
+    Consommation réelle sur la période.
+
+    Stock global = CP + Σ CJ. Un prélèvement CP→CJ ne change pas ce total,
+    donc n’est plus compté à tort comme conso des groupes.
+    """
+    prev_total = float(previous_cp) + float(previous_cj)
+    curr_total = float(current_cp) + float(current_cj)
+    return max(0.0, prev_total - curr_total + float(depotage or 0.0))
+
+
+def somme_conso_groupes(group_blocks: list, n_periods: int) -> list:
+    """
+    Conso site = somme des consos des groupes agrégés (par période).
+    None si aucun groupe n’a de valeur sur la période.
+    """
+    series = []
+    for idx in range(n_periods):
+        vals = []
+        for block in group_blocks or []:
+            consos = block.get('consumption') or []
+            if idx < len(consos) and consos[idx] is not None:
+                vals.append(float(consos[idx]))
+        series.append(round(sum(vals), 1) if vals else None)
+    return series
+
 
 def calculer_site_series(reports, lines_by_site_report, site_id):
     """
-    Calcule les séries de volume et consommation pour un site.
+    Calcule les séries de volume (CP) et consommation (stock global CP+CJ) pour un site.
     Retourne (volume_data, consumption_data) — null si pas de relevé sur le rapport.
+
+    Note : pour l’affichage dashboard, préférer somme_conso_groupes après calculer_groupes
+    (conso site = agrégation des groupes). Cette série reste alignée sur la même formule
+    de stock global.
     """
     volume_data = []
     consumption_data = []
-    previous_volume = None
+    previous_cp = None
+    previous_cj = None
 
     for report in reports:
         lines = lines_by_site_report.get((site_id, report.id), [])
@@ -121,17 +171,24 @@ def calculer_site_series(reports, lines_by_site_report, site_id):
             consumption_data.append(None)
             continue
 
-        current_volume = _site_volume_from_lines(lines)
+        current_cp = _site_volume_from_lines(lines)
+        current_cj = _site_cj_volume_from_lines(lines)
         depotage_total = _site_depotage_from_lines(lines)
-        volume_data.append(round(current_volume, 1))
+        volume_data.append(round(current_cp, 1))
 
-        if previous_volume is None:
+        if previous_cp is None:
             consumption_data.append(0.0)
         else:
             consumption_data.append(
-                round(max(0.0, previous_volume - current_volume + depotage_total), 1)
+                round(
+                    _consommation_periode(
+                        previous_cp, previous_cj, current_cp, current_cj, depotage_total
+                    ),
+                    1,
+                )
             )
-        previous_volume = current_volume
+        previous_cp = current_cp
+        previous_cj = current_cj
 
     return volume_data, consumption_data
 
@@ -140,10 +197,13 @@ def build_site_report_state(reports, sites, lines_by_site_report):
     """
     Prépare l'état volume/delta par (site, rapport) pour le calcul des groupes.
     present=False si le site n’a aucune ligne sur ce rapport.
+
+    delta = conso réelle (CP+CJ, prélèvements annulés) — base de la proportionnalité.
     """
     site_report_state = {}
     for site in sites:
-        previous_site_volume = None
+        previous_cp = None
+        previous_cj = None
         for report in reports:
             lines = lines_by_site_report.get((site.id, report.id), [])
             if not lines:
@@ -154,20 +214,25 @@ def build_site_report_state(reports, sites, lines_by_site_report):
                 }
                 continue
 
-            current_volume = _site_volume_from_lines(lines)
+            current_cp = _site_volume_from_lines(lines)
+            current_cj = _site_cj_volume_from_lines(lines)
             depotage_total = _site_depotage_from_lines(lines)
 
-            if previous_site_volume is None:
+            if previous_cp is None:
                 delta = 0.0
             else:
-                delta = max(0.0, previous_site_volume - current_volume + depotage_total)
+                delta = _consommation_periode(
+                    previous_cp, previous_cj, current_cp, current_cj, depotage_total
+                )
 
             site_report_state[(site.id, report.id)] = {
                 'present': True,
-                'current_volume': current_volume,
+                'current_volume': current_cp,
+                'cj_volume': current_cj,
                 'delta': delta,
             }
-            previous_site_volume = current_volume
+            previous_cp = current_cp
+            previous_cj = current_cj
 
     return site_report_state
 
@@ -282,6 +347,7 @@ def calculer_groupes(
             hours_run.append(round(hour_delta, 1) if hour_delta is not None else None)
 
             site_current_volume = float(site_state.get('current_volume') or 0.0)
+            # delta = conso réelle (CP+CJ, prélèvements exclus) avant prorata puissance
             site_delta = float(site_state.get('delta') or 0.0)
 
             # Conso période : partage au prorata des groupes ACTIFS sur ce rapport

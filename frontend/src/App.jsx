@@ -11,14 +11,15 @@ import OperatorHomePage from './pages/OperatorHomePage.jsx'
 import UserHomePage from './pages/UserHomePage.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
 import AlertsPage from './pages/AlertsPage.jsx'
+import NotificationsPage from './pages/NotificationsPage.jsx'
 import { AuthProvider, useAuth } from './context/AuthContext.jsx'
 import { ThemeProvider } from './context/ThemeContext.jsx'
 import InteractionShell from './components/InteractionShell.jsx'
 import PageLoader from './components/PageLoader.jsx'
 
-const ADMIN_VIEWS = new Set(['home', 'dashboard', 'sites', 'cuves', 'groups', 'reports', 'history', 'profile', 'alerts'])
-const OPERATOR_VIEWS = new Set(['operator', 'sites', 'reports', 'history', 'profile'])
-const VIEWER_VIEWS = new Set(['viewer', 'sites', 'profile'])
+const ADMIN_VIEWS = new Set(['home', 'dashboard', 'sites', 'cuves', 'groups', 'reports', 'history', 'profile', 'alerts', 'notifications'])
+const OPERATOR_VIEWS = new Set(['operator', 'sites', 'reports', 'history', 'profile', 'notifications'])
+const VIEWER_VIEWS = new Set(['viewer', 'sites', 'profile', 'notifications'])
 const PUBLIC_VIEWS = new Set(['home', 'login', 'register'])
 
 function resolveViewFromPath(pathname) {
@@ -27,6 +28,7 @@ function resolveViewFromPath(pathname) {
   if (pathname.startsWith('/cuves')) return 'cuves'
   if (pathname.startsWith('/dashboard')) return 'dashboard'
   if (pathname.startsWith('/alertes')) return 'alerts'
+  if (pathname.startsWith('/notifications')) return 'notifications'
   if (pathname.startsWith('/historique')) return 'history'
   if (pathname.startsWith('/operateur')) return 'operator'
   if (pathname.startsWith('/espace')) return 'viewer'
@@ -64,6 +66,7 @@ function pathForView(view) {
     reports: '/rapports/',
     history: '/historique/',
     alerts: '/alertes/',
+    notifications: '/notifications/',
     login: '/login/',
     register: '/register/',
   })[view] || '/'
@@ -151,6 +154,8 @@ function AppRoutes() {
   }
 
   if (view === 'profile') return <ProfilePage onNavigate={navigate} />
+
+  if (view === 'notifications') return <NotificationsPage onNavigate={navigate} />
 
   if (isViewer) {
     if (view === 'viewer') return <UserHomePage onNavigate={navigate} />

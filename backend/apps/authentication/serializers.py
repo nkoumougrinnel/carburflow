@@ -141,6 +141,27 @@ class ProfileUpdateSerializer(serializers.Serializer):
         return instance
 
 
+class AdminUserSearchSerializer(serializers.Serializer):
+    email = serializers.CharField(min_length=2, max_length=254)
+
+
+class AdminSetRoleSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    role = serializers.ChoiceField(
+        choices=['admin', 'operateur', 'agent', 'user'],
+    )
+
+    def validate_role(self, value):
+        raw = (value or '').strip().lower()
+        if raw in {'operateur', 'agent'}:
+            return 'operateur'
+        if raw in {'admin', 'user'}:
+            return raw
+        raise serializers.ValidationError(
+            'Rôle invalide. Choisissez admin, operateur ou user.'
+        )
+
+
 class PasswordChangeSerializer(serializers.Serializer):
     current_password = serializers.CharField(write_only=True)
     new_password = serializers.CharField(write_only=True, min_length=6)
