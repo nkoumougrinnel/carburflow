@@ -23,11 +23,12 @@ function WelcomeBanner({
 
   useGSAP(() => {
     if (!ref.current) return
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (reduce) return
     gsap.from(ref.current, {
       opacity: 0,
-      y: 16,
-      duration: 0.55,
-      ease: 'power2.out',
+      duration: 0.35,
+      ease: 'power1.out',
     })
   }, { scope: ref })
 

@@ -3,16 +3,27 @@ from django.db import models
 
 
 class Notification(models.Model):
+    CANAL_IN_APP = 'in_app'
+    CANAL_EMAIL = 'email'
+    CANAL_SMS = 'sms'
     CANAL_CHOICES = [
-        ('in_app', "Dans l'application"),
-        ('email', 'Email'),
-        ('sms', 'SMS'),
+        (CANAL_IN_APP, "Dans l'application"),
+        (CANAL_EMAIL, 'Email'),
+        (CANAL_SMS, 'SMS'),
     ]
 
     destinataire = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='notifications',
+    )
+    expediteur = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='messages_envoyes',
+        verbose_name='Expéditeur',
     )
     alerte = models.ForeignKey(
         'alerts.Alerte',
@@ -21,7 +32,8 @@ class Notification(models.Model):
         blank=True,
         related_name='notifications',
     )
-    canal = models.CharField(max_length=20, choices=CANAL_CHOICES, default='in_app')
+    sujet = models.CharField(max_length=200, blank=True, default='')
+    canal = models.CharField(max_length=20, choices=CANAL_CHOICES, default=CANAL_IN_APP)
     contenu = models.TextField()
     lu = models.BooleanField(default=False)
     date_envoi = models.DateTimeField(auto_now_add=True)
@@ -34,4 +46,13 @@ class Notification(models.Model):
         ordering = ['-date_envoi']
 
     def __str__(self):
-        return f'Notification pour {self.destinataire.username} - {self.date_envoi}'
+        label = self.sujet or self.contenu[:40]
+        return f'{self.destinataire.username} — {label}'
+
+    def marquer_lue(self):
+        if self.lu:
+            return
+        from django.utils import timezone
+        self.lu = True
+        self.date_lecture = timezone.now()
+        self.save(update_fields=['lu', 'date_lecture'])

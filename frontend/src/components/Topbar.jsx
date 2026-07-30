@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import {
   LayoutDashboard,
   MapPinned,
@@ -14,11 +14,16 @@ import {
   History,
   UserRound,
   Bell,
+  Inbox,
 } from 'lucide-react'
 import BrandLogo from './BrandLogo.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useTheme } from '../context/ThemeContext.jsx'
+import { listAlertes, notificationsUnreadCount } from '../auth.js'
+import { BADGES_REFRESH_EVENT } from '../utils/badges.js'
 import { getDisplayFullName } from '../utils/userDisplay.js'
+
+const BADGES_POLL_MS = 15000
 
 function roleLabel(isAdmin, isOperator) {
   if (isAdmin) return 'Responsable'
@@ -36,8 +41,57 @@ function Topbar({ activeView, onNavigate }) {
   const { isAuthenticated, isAdmin, isOperator, logout, user } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [activeAlertsCount, setActiveAlertsCount] = useState(0)
+  const [unreadMessages, setUnreadMessages] = useState(0)
 
   useEffect(() => { setMenuOpen(false) }, [activeView])
+
+  const refreshBadges = useCallback(async () => {
+    if (!isAuthenticated) {
+      setActiveAlertsCount(0)
+      setUnreadMessages(0)
+      return
+    }
+
+    const tasks = [
+      notificationsUnreadCount()
+        .then((data) => setUnreadMessages(Number(data?.unread) || 0))
+        .catch(() => setUnreadMessages(0)),
+    ]
+
+    if (isAdmin) {
+      tasks.push(
+        listAlertes({ etat: 'actives' })
+          .then((rows) => setActiveAlertsCount(Array.isArray(rows) ? rows.length : 0))
+          .catch(() => setActiveAlertsCount(0)),
+      )
+    } else {
+      setActiveAlertsCount(0)
+    }
+
+    await Promise.all(tasks)
+  }, [isAuthenticated, isAdmin])
+
+  useEffect(() => {
+    let cancelled = false
+    const run = () => {
+      if (!cancelled) refreshBadges()
+    }
+    run()
+    const pollId = window.setInterval(run, BADGES_POLL_MS)
+    const onRefresh = () => run()
+    const onFocus = () => run()
+    window.addEventListener(BADGES_REFRESH_EVENT, onRefresh)
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onFocus)
+    return () => {
+      cancelled = true
+      window.clearInterval(pollId)
+      window.removeEventListener(BADGES_REFRESH_EVENT, onRefresh)
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onFocus)
+    }
+  }, [refreshBadges, activeView])
 
   const go = (view) => {
     setMenuOpen(false)
@@ -53,14 +107,16 @@ function Topbar({ activeView, onNavigate }) {
   const adminLinks = [
     { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
     { id: 'alerts', label: 'Alertes', icon: Bell },
+    { id: 'notifications', label: 'Notifications', icon: Inbox },
     { id: 'sites', label: 'Sites', icon: MapPinned },
     { id: 'groups', label: 'Groupes', icon: Zap },
     { id: 'reports', label: 'Relevés', icon: Upload },
-    { id: 'profile', label: 'Profil', icon: UserRound },
+    { id: 'profile', label: 'Comptes', icon: UserRound },
   ]
 
   const operatorLinks = [
     { id: 'operator', label: 'Accueil', icon: Home },
+    { id: 'notifications', label: 'Notifications', icon: Inbox },
     { id: 'sites', label: 'Sites', icon: MapPinned },
     { id: 'reports', label: 'Relevé', icon: Upload },
     { id: 'history', label: 'Historique', icon: History },
@@ -69,6 +125,7 @@ function Topbar({ activeView, onNavigate }) {
 
   const viewerLinks = [
     { id: 'viewer', label: 'Accueil', icon: Home },
+    { id: 'notifications', label: 'Notifications', icon: Inbox },
     { id: 'sites', label: 'Sites', icon: MapPinned },
     { id: 'profile', label: 'Profil', icon: UserRound },
   ]
@@ -117,6 +174,16 @@ function Topbar({ activeView, onNavigate }) {
             >
               <Icon size={16} aria-hidden="true" />
               <span>{label}</span>
+              {id === 'alerts' && activeAlertsCount > 0 && (
+                <span className="nav-link-badge" aria-label={`${activeAlertsCount} alertes non traitées`}>
+                  {activeAlertsCount}
+                </span>
+              )}
+              {id === 'notifications' && unreadMessages > 0 && (
+                <span className="nav-link-badge" aria-label={`${unreadMessages} messages non lus`}>
+                  {unreadMessages}
+                </span>
+              )}
             </button>
           ))}
 

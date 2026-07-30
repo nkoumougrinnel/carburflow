@@ -3,7 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.http import HttpResponse
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, OpenApiParameter
 
 from django.shortcuts import get_object_or_404
 
@@ -25,7 +25,7 @@ from apps.reports.norme import (
     rows_from_csv,
     rows_from_xlsx,
 )
-from apps.reports.serializers import RapportSerializer
+from apps.reports.serializers import RapportListSerializer, RapportSerializer
 
 
 def _user_can_access_rapport(user, rapport: Rapport) -> bool:
@@ -84,7 +84,25 @@ class GenererRapportHebdoAPIView(APIView):
         from apps.reports.pipeline import generate_rapport_template_xlsx
         date_debut = request.query_params.get('date_debut')
         date_fin = request.query_params.get('date_fin')
-        content = generate_rapport_template_xlsx(date_debut, date_fin)
+        try:
+            content = generate_rapport_template_xlsx(date_debut, date_fin)
+        except ModuleNotFoundError as exc:
+            if 'openpyxl' in str(exc):
+                return Response(
+                    {
+                        'detail': (
+                            'La génération Excel nécessite le paquet openpyxl. '
+                            'Installez-le : pip install openpyxl'
+                        ),
+                    },
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+            raise
+        except Exception as exc:
+            return Response(
+                {'detail': f'Impossible de générer la fiche : {exc}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
         filename = 'carburflow_fiche_hebdo.xlsx'
         response = HttpResponse(
             content,
@@ -178,7 +196,24 @@ class RapportUploadAPIView(APIView):
 class MesRapportsAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @extend_schema(tags=['Rapports'], summary='Rapports visibles selon le rôle')
+    @extend_schema(
+        tags=['Rapports'],
+        summary='Rapports visibles selon le rôle (filtre période optionnel)',
+        parameters=[
+            OpenApiParameter(
+                name='date_debut',
+                required=False,
+                type=str,
+                description='Début d’intervalle (YYYY-MM-DD) — chevauchement',
+            ),
+            OpenApiParameter(
+                name='date_fin',
+                required=False,
+                type=str,
+                description='Fin d’intervalle (YYYY-MM-DD) — chevauchement',
+            ),
+        ],
+    )
     def get(self, request):
         if not user_can_upload_rapports(request.user):
             return Response(
@@ -188,12 +223,24 @@ class MesRapportsAPIView(APIView):
         qs = (
             Rapport.objects.all()
             .select_related('created_by')
-            .prefetch_related('lignes')
             .order_by('-date_fin', '-id')
         )
         if not user_is_admin(request.user):
             qs = qs.filter(created_by=request.user)
-        return Response(RapportSerializer(qs[:100], many=True).data)
+
+        date_debut = (request.query_params.get('date_debut') or '').strip()
+        date_fin = (request.query_params.get('date_fin') or '').strip()
+        if date_debut and date_fin:
+            # Chevauchement réel : le relevé intersecte [date_debut, date_fin]
+            # (pas une égalité exacte début/fin de semaine).
+            qs = qs.filter(
+                date_debut__lte=date_fin,
+                date_fin__gte=date_debut,
+            )
+            return Response(RapportListSerializer(qs[:100], many=True).data)
+
+        # Sans filtre : aperçu léger (historique opérateur), pas toute la base
+        return Response(RapportListSerializer(qs[:50], many=True).data)
 
 
 class SoumissionsAPIView(APIView):

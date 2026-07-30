@@ -113,9 +113,12 @@ class SitesDashboardAPIView(APIView):
             site_name = _site_display_name(site)
             color = site_colors[idx % len(site_colors)]
 
-            volume_data, consumption_data = calc.calculer_site_series(
+            volume_data, _ = calc.calculer_site_series(
                 reports, lines_by_site_report, site_id
             )
+            # Conso site = somme des consos des groupes agrégés (pas le delta CP brut)
+            site_groups = group_blocks_by_site.get(site_id, [])
+            consumption_data = calc.somme_conso_groupes(site_groups, len(reports))
 
             volume_series.append({
                 'id': site_id,
@@ -137,7 +140,6 @@ class SitesDashboardAPIView(APIView):
             # all_group_blocks (algorithme GroupesAPIView), au lieu d'un recalcul
             # maison des heures par (site, groupe, rapport). ---
             site_datasets = []
-            site_groups = group_blocks_by_site.get(site_id, [])
             for group_idx, gb in enumerate(site_groups):
                 if any((v or 0) > 0 for v in gb['hours_run']):
                     site_datasets.append({
@@ -262,37 +264,7 @@ class DashboardOverviewAPIView(APIView):
                 lines_by_group_report.setdefault((line.groupe_electrogene_id, line.rapport_id), []).append(line)
 
         # --- Sites ---
-        site_rows = []
-        site_latest_volume_map = {}
-        for site in sites:
-            volume_series, consumption_series = calc.calculer_site_series(
-                reports, lines_by_site_report, site.id
-            )
-
-            # Moyenne = périodes avec conso > 0 uniquement (comme page Groupes)
-            avg_consumption = round(self._mean_positive(consumption_series), 1)
-            latest_consumption = self._last_numeric(consumption_series)
-            latest_volume = self._last_numeric(volume_series)
-
-            site_rows.append({
-                'id': site.id,
-                'site_name': _site_display_name(site),
-                'label': _site_display_name(site),
-                'avg_consumption': avg_consumption,
-                'latest_consumption': latest_consumption,
-                'latest_volume': latest_volume,
-                'autonomy': None,
-                'autonomie_hours': None,
-                'formatted_autonomy': None,
-                'is_infinite_consumption': False,
-                'is_infinite_autonomy': False,
-            })
-            site_latest_volume_map[site.id] = latest_volume
-
-        site_rows.sort(key=lambda item: item['avg_consumption'], reverse=True)
-
-        # --- Groupes (avec calculs partagés) ---
-        groups_by_site = {}
+        # Groupes d'abord : la conso site = somme des consos groupes
         group_site_counts = {}
         for line in lignes_all:
             if line.groupe_electrogene_id and line.cuve_principale_id:
@@ -324,6 +296,42 @@ class DashboardOverviewAPIView(APIView):
             group_primary_site_ids=group_primary_site_ids,
             selected_site_id=None,
         )
+
+        group_blocks_by_site = {}
+        for gb in group_blocks:
+            if gb['site_id'] is not None:
+                group_blocks_by_site.setdefault(gb['site_id'], []).append(gb)
+
+        site_rows = []
+        site_latest_volume_map = {}
+        for site in sites:
+            volume_series, _ = calc.calculer_site_series(
+                reports, lines_by_site_report, site.id
+            )
+            site_groups = group_blocks_by_site.get(site.id, [])
+            consumption_series = calc.somme_conso_groupes(site_groups, len(reports))
+
+            # Moyenne = périodes avec conso > 0 uniquement (comme page Groupes)
+            avg_consumption = round(self._mean_positive(consumption_series), 1)
+            latest_consumption = self._last_numeric(consumption_series)
+            latest_volume = self._last_numeric(volume_series)
+
+            site_rows.append({
+                'id': site.id,
+                'site_name': _site_display_name(site),
+                'label': _site_display_name(site),
+                'avg_consumption': avg_consumption,
+                'latest_consumption': latest_consumption,
+                'latest_volume': latest_volume,
+                'autonomy': None,
+                'autonomie_hours': None,
+                'formatted_autonomy': None,
+                'is_infinite_consumption': False,
+                'is_infinite_autonomy': False,
+            })
+            site_latest_volume_map[site.id] = latest_volume
+
+        site_rows.sort(key=lambda item: item['avg_consumption'], reverse=True)
 
         # Conversion des group_blocks en group_rows
         group_rows = []
@@ -414,7 +422,10 @@ class DashboardOverviewAPIView(APIView):
                 site['is_infinite_consumption'] = False
                 site['is_infinite_autonomy'] = True
 
-        # --- Alertes ---
+        # --- Alertes (persistées en BD au dépôt de fiche) ---
+        from apps.alerts.models import Alerte
+        from apps.alerts.serializers import AlerteListSerializer
+
         def _site_is_critical(site):
             if site['is_infinite_consumption']:
                 return True
@@ -422,57 +433,20 @@ class DashboardOverviewAPIView(APIView):
                 return site['autonomie_hours'] <= self.AUTONOMY_CRITICAL_HOURS
             return site['autonomy'] is not None and site['autonomy'] <= self.AUTONOMY_CRITICAL_THRESHOLD
 
-        alerts = []
-        for site in site_rows:
-            if _site_is_critical(site):
-                if site['formatted_autonomy']:
-                    autonomy_text = f"Temps restant : {site['formatted_autonomy']}"
-                else:
-                    autonomy_text = f"Temps restant : {site['autonomy']} périodes"
-                alerts.append({
-                    'id': f"site-{site['id']}",
-                    'type': 'site_autonomy',
-                    'target': 'site',
-                    'priority': 'Critique',
-                    'priority_level': 'urgent',
-                    'site_id': site['id'],
-                    'site_name': site['site_name'],
-                    'title': f"Site {site['site_name']} : temps restant critique",
-                    'subtitle': f"{autonomy_text} — consommation moyenne {site['avg_consumption']:.1f} L.",
-                })
-
-        for group in group_rows:
-            if not group['is_abnormal']:
-                continue
-            variance = group.get('ecart_pct') or group['variance_pct']
-            sign = "▲" if (
-                (group.get('latest_hourly_consumption') or 0)
-                >= (group.get('mean_hourly_consumption_deduite') or 0)
-            ) else "▼"
-            alerts.append({
-                'id': f"group-{group['id']}",
-                'type': 'group_variance',
-                'target': 'groups',
-                'priority': 'Moyenne',
-                'priority_level': 'warning',
-                'group_id': group['id'],
-                'group_label': group['label'],
-                'site_name': group['site_name'],
-                'ecart_pct': variance,
-                'title': f"Groupe {group['label']} : écart de consommation horaire",
-                'subtitle': (
-                    f"Écart de {sign}{abs(variance):.1f}% entre la consommation horaire moyenne "
-                    f"({group['mean_hourly_consumption_deduite']:.2f} L/h) et la consommation horaire semaine N "
-                    f"({(group['latest_hourly_consumption'] if group['latest_hourly_consumption'] is not None else group['mean_hourly_consumption']):.2f} L/h). "
-                    f"Consommation moyenne du groupe : {group['avg_consumption']:.1f} L."
-                ),
-            })
-
-        priority_order = {'urgent': 0, 'warning': 1}
-        alerts.sort(key=lambda item: (
-            priority_order.get(item['priority_level'], 99),
-            -(item.get('ecart_pct') or 0),
-        ))
+        alertes_qs = (
+            Alerte.objects.filter(etat__in=Alerte.ETATS_ACTIFS)
+            .select_related('site', 'groupe_electrogene', 'traite_par')
+            .order_by('-date_apparition', '-id')
+        )
+        alerts = AlerteListSerializer(alertes_qs, many=True).data
+        severity_rank = {'critical': 0, 'high': 1, 'medium': 2, 'low': 3}
+        alerts = sorted(
+            alerts,
+            key=lambda item: (
+                severity_rank.get(item.get('severity') or item.get('priority_level'), 99),
+                -(item.get('ecart_pct') or 0),
+            ),
+        )
 
         prev_consumption = None
         prev_runtime = None
@@ -502,6 +476,7 @@ class DashboardOverviewAPIView(APIView):
                 'previous_total_consumption': prev_consumption,
                 'total_runtime': round(sum(g['latest_hours'] for g in group_rows), 1),
                 'previous_total_runtime': prev_runtime,
+                'active_alerts': len(alerts),
             },
             'sites': site_rows,
             'groups': group_rows,

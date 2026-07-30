@@ -172,6 +172,21 @@ class ImportDataService:
             if lignes:
                 self._import_lignes(lignes)
 
+        if lignes and not self.dry_run:
+            try:
+                from apps.alerts.services import detecter_et_persister_alertes
+
+                result = detecter_et_persister_alertes()
+                self.log.info(
+                    'Alertes détectées : créées=%s mises_à_jour=%s ignorées=%s actives=%s',
+                    result['created'],
+                    result['updated'],
+                    result['ignored'],
+                    result['active'],
+                )
+            except Exception:
+                self.log.exception('Échec de la détection d’alertes après import_data')
+
         self.log.info(
             'Import terminé : sites=%s CP=%s G=%s CJ=%s liaisons=%s rapports=%s lignes=%s',
             self.stats.sites,

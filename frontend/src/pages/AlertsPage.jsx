@@ -1,18 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { Bell, Filter, ArrowRight, CheckCircle2 } from 'lucide-react'
+import { Bell, ArrowRight, CheckCircle2, History } from 'lucide-react'
 import Topbar from '../components/Topbar.jsx'
-import WelcomeBanner from '../components/WelcomeBanner.jsx'
 import PageEnter from '../components/PageEnter.jsx'
 import PageLoader from '../components/PageLoader.jsx'
+import SectionWorkspace from '../components/SectionWorkspace.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
-import { apiFetch, listAlertTreatments, treatAlert } from '../auth.js'
+import { listAlertes, treatAlert } from '../auth.js'
+import { requestBadgesRefresh } from '../utils/badges.js'
 import {
   ALERT_TYPE_META,
-  SEVERITY_META,
-  buildDashboardAlerts,
+  PRIORITE_META,
   countAlertsBySeverity,
   filterAlerts,
-  mergeAlertTreatments,
+  normalizePersistedAlert,
   splitAlertSubtitle,
 } from '../utils/alerts.js'
 
@@ -32,6 +32,13 @@ function AlertSubtitle({ subtitle }) {
       ))}
     </>
   )
+}
+
+function formatWhen(value) {
+  if (!value) return '—'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '—'
+  return date.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
 }
 
 function TreatAlertModal({ alert, onClose, onConfirm }) {
@@ -110,78 +117,97 @@ function TreatAlertModal({ alert, onClose, onConfirm }) {
 
 function AlertsPage({ onNavigate }) {
   const { isAdmin } = useAuth()
-  const [dashboardData, setDashboardData] = useState(null)
-  const [treatments, setTreatments] = useState([])
+  const [alertsRaw, setAlertsRaw] = useState([])
+  const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [message, setMessage] = useState('')
+  const [panel, setPanel] = useState(() => {
+    const status = new URLSearchParams(window.location.search).get('status')
+    return status === 'treated' || status === 'history' ? 'history' : 'active'
+  })
   const [priority, setPriority] = useState(() => new URLSearchParams(window.location.search).get('priority') || 'all')
-  const [type, setType] = useState(() => new URLSearchParams(window.location.search).get('type') || 'all')
-  const [dateRange, setDateRange] = useState(() => new URLSearchParams(window.location.search).get('date') || 'all')
-  const [status, setStatus] = useState(() => new URLSearchParams(window.location.search).get('status') || 'active')
   const [pendingTreat, setPendingTreat] = useState(null)
 
   const loadAll = useCallback(async () => {
-    const [overview, treated] = await Promise.all([
-      apiFetch('/api/v1/dashboard/overview'),
-      listAlertTreatments().catch(() => []),
-    ])
-    setDashboardData(overview)
-    setTreatments(Array.isArray(treated) ? treated : [])
-    setLoadError('')
+    setLoading(true)
+    try {
+      const rows = await listAlertes({ etat: 'all' })
+      setAlertsRaw(Array.isArray(rows) ? rows : [])
+      setLoadError('')
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => {
     let cancelled = false
     loadAll().catch((err) => {
-      if (!cancelled) setLoadError(err.message || 'Impossible de charger les alertes.')
+      if (!cancelled) {
+        setLoadError(err.message || 'Impossible de charger les alertes.')
+        setLoading(false)
+      }
     })
     return () => { cancelled = true }
   }, [loadAll])
 
   useEffect(() => {
     const params = new URLSearchParams()
+    if (panel === 'history') params.set('status', 'history')
     if (priority !== 'all') params.set('priority', priority)
-    if (type !== 'all') params.set('type', type)
-    if (dateRange !== 'all') params.set('date', dateRange)
-    if (status !== 'active') params.set('status', status)
     const qs = params.toString()
     window.history.replaceState({}, '', qs ? `/alertes/?${qs}` : '/alertes/')
-  }, [priority, type, dateRange, status])
+  }, [panel, priority])
 
-  const siteRows = useMemo(() => {
-    if (!dashboardData?.sites?.length) return []
-    return dashboardData.sites.map((site) => ({
-      ...site,
-      autonomie_hours: site.autonomie_hours != null ? Number(site.autonomie_hours) : null,
-      formatted_autonomy: site.formatted_autonomy || null,
-      is_infinite_consumption: !!site.is_infinite_consumption,
-      is_infinite_autonomy: !!site.is_infinite_autonomy,
-      avg_consumption: site.avg_consumption != null ? Number(site.avg_consumption) : 0,
-      latest_volume: site.latest_volume != null ? Number(site.latest_volume) : 0,
-    }))
-  }, [dashboardData])
+  const alerts = useMemo(
+    () => (alertsRaw || []).map(normalizePersistedAlert).filter(Boolean),
+    [alertsRaw],
+  )
 
-  const groupRows = useMemo(() => {
-    if (!dashboardData?.groups?.length) return []
-    return dashboardData.groups.map((group) => ({
-      ...group,
-      latest_consumption: group.latest_consumption != null ? Number(group.latest_consumption) : 0,
-      mean_hourly_consumption_deduite: group.mean_hourly_consumption_deduite != null ? Number(group.mean_hourly_consumption_deduite) : 0,
-      latest_hourly_consumption: group.latest_hourly_consumption != null ? Number(group.latest_hourly_consumption) : null,
-      latest_hours: group.latest_hours != null ? Number(group.latest_hours) : 0,
-    }))
-  }, [dashboardData])
+  const activeAlerts = useMemo(
+    () => alerts.filter((a) => !a.traitee && a.etat !== 'ignoree'),
+    [alerts],
+  )
+  const historyAlerts = useMemo(
+    () => alerts
+      .filter((a) => a.traitee || a.etat === 'ignoree' || a.etat === 'traitee')
+      .sort((a, b) => {
+        const ta = new Date(a.date_traitement || a.detected_at || 0).getTime()
+        const tb = new Date(b.date_traitement || b.detected_at || 0).getTime()
+        return tb - ta
+      }),
+    [alerts],
+  )
 
-  const alerts = useMemo(() => {
-    const computed = buildDashboardAlerts(siteRows, groupRows)
-    return mergeAlertTreatments(computed, treatments)
-  }, [siteRows, groupRows, treatments])
+  const navItems = useMemo(() => ([
+    {
+      id: 'active',
+      label: 'À traiter',
+      description: 'Alertes actives à valider',
+      icon: Bell,
+      badge: activeAlerts.length,
+    },
+    {
+      id: 'history',
+      label: 'Historique',
+      description: 'Alertes traitées ou ignorées',
+      icon: History,
+      badge: historyAlerts.length,
+    },
+  ]), [activeAlerts.length, historyAlerts.length])
 
-  const activeAlerts = useMemo(() => alerts.filter((a) => !a.traitee), [alerts])
   const counts = useMemo(() => countAlertsBySeverity(activeAlerts), [activeAlerts])
+  const historyCounts = useMemo(() => countAlertsBySeverity(historyAlerts), [historyAlerts])
+
+  const filterStatus = panel === 'history' ? 'history' : 'active'
+  const sourceAlerts = panel === 'history' ? historyAlerts : activeAlerts
   const visible = useMemo(
-    () => filterAlerts(alerts, { priority, type, dateRange, status }),
-    [alerts, priority, type, dateRange, status],
+    () => filterAlerts(sourceAlerts, {
+      priority,
+      type: 'all',
+      dateRange: 'all',
+      status: filterStatus,
+    }),
+    [sourceAlerts, priority, filterStatus],
   )
 
   const openAlert = (alert) => {
@@ -206,215 +232,194 @@ function AlertsPage({ onNavigate }) {
       group_id: alert.group_id || null,
     })
     const saved = result?.alerte
-    setTreatments((prev) => {
-      const next = prev.filter((t) => t.cle !== alert.id)
-      if (saved) next.unshift(saved)
-      return next
-    })
+    setAlertsRaw((prev) => prev.map((row) => {
+      const cle = row.cle || row.id
+      if (cle !== alert.id) return row
+      return {
+        ...row,
+        etat: 'traitee',
+        traitee: true,
+        justification: saved?.justification || justification,
+        date_traitement: saved?.date_traitement || new Date().toISOString(),
+        traite_par_username: saved?.traite_par_username || null,
+      }
+    }))
     setPendingTreat(null)
     setMessage('Alerte marquée comme traitée.')
-    setStatus('treated')
+    setPanel('history')
+    requestBadgesRefresh({ source: 'alerts' })
   }
 
-  if (!dashboardData && !loadError) {
+  const listContent = (
+    <>
+      {message && <div className="reports-success" role="status">{message}</div>}
+
+      {loadError && (
+        <div className="reports-error-panel" role="alert">
+          <div className="reports-error-panel-head">
+            <strong>Problème</strong>
+            <p>{loadError}</p>
+          </div>
+        </div>
+      )}
+
+      <section className="alerts-filters alerts-filters--compact" aria-label="Filtrer par priorité">
+        <div className="alerts-priority-strip">
+          {[
+            { id: 'all', label: 'Toutes', count: panel === 'history' ? historyCounts.total : counts.total, tone: 'all' },
+            { id: 'critique', label: 'Critique', count: panel === 'history' ? historyCounts.critique : counts.critique, tone: 'critical' },
+            { id: 'haute', label: 'Haute', count: panel === 'history' ? historyCounts.haute : counts.haute, tone: 'high' },
+            { id: 'moyenne', label: 'Moyenne', count: panel === 'history' ? historyCounts.moyenne : counts.moyenne, tone: 'medium' },
+            { id: 'basse', label: 'Basse', count: panel === 'history' ? historyCounts.basse : counts.basse, tone: 'low' },
+          ].map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={`alerts-priority-card alerts-priority-card--${item.tone}${priority === item.id ? ' is-active' : ''}`}
+              onClick={() => setPriority(item.id)}
+            >
+              <span className="alerts-priority-label">{item.label}</span>
+              <strong className="alerts-priority-count">{item.count}</strong>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="dashboard-alerts metric-panel alerts-list-panel">
+        <div className="metric-title-row alert-section-head">
+          <div>
+            <span className="metric-label">{panel === 'history' ? 'Historique' : 'Actives'}</span>
+            <h3>
+              {panel === 'history' ? 'Alertes traitées' : 'Alertes à traiter'}
+            </h3>
+          </div>
+          <button type="button" className="dashboard-section-link" onClick={() => onNavigate('dashboard')}>
+            Retour dashboard →
+          </button>
+        </div>
+
+        <div className="alert-list">
+          {visible.length ? visible.map((alert) => {
+            const severity = alert.severity || 'medium'
+            const label = alert.priority || PRIORITE_META[alert.priorite]?.label || 'Moyenne'
+            const typeLabel = ALERT_TYPE_META[alert.type]?.label || alert.type
+            const when = panel === 'history'
+              ? formatWhen(alert.date_traitement || alert.detected_at)
+              : formatWhen(alert.detected_at)
+            const author = alert.traite_par_username || alert.traite_par || null
+            return (
+              <div
+                key={alert.id}
+                className={`alert-item alert-${severity}${panel === 'history' ? ' alert-item--treated' : ''}`}
+                data-severity={severity}
+              >
+                <div className="alert-severity-bar" aria-hidden="true" />
+                <div className="alert-header">
+                  <div className="alert-title-wrap">
+                    <span className="alert-type-chip">{typeLabel}</span>
+                    {panel === 'history' && (
+                      <span className={`alert-type-chip ${alert.etat === 'ignoree' ? 'alert-type-chip--ignored' : 'alert-type-chip--treated'}`}>
+                        {alert.etat === 'ignoree' ? 'Ignorée' : 'Traitée'}
+                      </span>
+                    )}
+                    <strong>{alert.title}</strong>
+                  </div>
+                  <span className={`alert-level-tag alert-level-tag--${severity}`}>{label}</span>
+                </div>
+                <div className="alert-body">
+                  <AlertSubtitle subtitle={alert.subtitle} />
+                  {panel === 'history' && alert.justification && (
+                    <p className="alert-justification">
+                      <strong>Justification :</strong> {alert.justification}
+                      {author ? ` — ${author}` : ''}
+                    </p>
+                  )}
+                  <div className="alert-meta-row">
+                    <span>
+                      {panel === 'history' ? `Traité le ${when}` : `Détectée le ${when}`}
+                      {panel === 'history' && author ? ` · ${author}` : ''}
+                    </span>
+                    <div className="alert-item-actions">
+                      <button
+                        type="button"
+                        className="alert-more-btn"
+                        onClick={() => openAlert(alert)}
+                      >
+                        En savoir plus <ArrowRight size={14} aria-hidden="true" />
+                      </button>
+                      {isAdmin && panel === 'active' && (
+                        <button
+                          type="button"
+                          className="reports-btn reports-btn--primary alert-treat-btn"
+                          onClick={() => { setMessage(''); setPendingTreat(alert) }}
+                        >
+                          <CheckCircle2 size={15} aria-hidden="true" />
+                          Marquer traitée
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          }) : (
+            <div className="alert-empty">
+              {panel === 'history'
+                ? (historyAlerts.length
+                  ? 'Aucune alerte pour ces filtres dans l’historique.'
+                  : 'Aucune alerte traitée pour le moment.')
+                : (activeAlerts.length
+                  ? 'Aucune alerte pour ces filtres.'
+                  : 'Aucune alerte à traiter pour le moment.')}
+            </div>
+          )}
+        </div>
+      </section>
+    </>
+  )
+
+  if (loading) {
     return (
-      <div className="app-shell dashboard-shell">
+      <div className="app-shell app-shell--alerts dashboard-shell">
         <Topbar activeView="alerts" onNavigate={onNavigate} />
         <PageLoader label="Chargement des alertes…" />
       </div>
     )
   }
 
+  if (loadError && !alertsRaw.length) {
+    return (
+      <div className="app-shell app-shell--alerts dashboard-shell">
+        <Topbar activeView="alerts" onNavigate={onNavigate} />
+        <div className="loading-state" style={{ marginTop: 24 }}>
+          {loadError}
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="app-shell dashboard-shell">
+    <div className="app-shell app-shell--alerts dashboard-shell">
       <Topbar activeView="alerts" onNavigate={onNavigate} />
-      <PageEnter>
-        <main className="alerts-page">
-          <WelcomeBanner
-            title="Centre d’alertes"
+      <PageEnter className="alerts-page-enter">
+        <main className="alerts-page alerts-page--workspace">
+          <SectionWorkspace
+            className="section-workspace--fill"
+            title="Alertes"
             subtitle={
               isAdmin
-                ? 'Filtrez, ouvrez un site/groupe, et validez le traitement avec une justification.'
-                : 'Filtrez par priorité, type et date. Cliquez une alerte pour ouvrir le site ou le groupe.'
+                ? 'Traitez les alertes, puis consultez l’historique'
+                : 'Consultez les alertes actives et l’historique'
             }
-          />
-
-          {message && <div className="reports-success" role="status">{message}</div>}
-
-          {loadError && (
-            <div className="reports-error-panel" role="alert">
-              <div className="reports-error-panel-head">
-                <strong>Problème</strong>
-                <p>{loadError}</p>
-              </div>
-            </div>
-          )}
-
-          <section className="alerts-priority-strip" aria-label="Compteurs par priorité">
-            {[
-              { id: 'all', label: 'Toutes', count: counts.total, tone: 'all' },
-              { id: 'critical', label: 'Urgent', count: counts.critical, tone: 'critical' },
-              { id: 'medium', label: 'À surveiller', count: counts.medium, tone: 'medium' },
-              { id: 'low', label: 'Attention', count: counts.low, tone: 'low' },
-            ].map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className={`alerts-priority-card alerts-priority-card--${item.tone}${priority === item.id ? ' is-active' : ''}`}
-                onClick={() => { setPriority(item.id); setStatus('active') }}
-              >
-                <span className="alerts-priority-label">{item.label}</span>
-                <strong className="alerts-priority-count">{item.count}</strong>
-              </button>
-            ))}
-          </section>
-
-          <section className="alerts-filters metric-panel">
-            <div className="alerts-filters-head">
-              <Filter size={18} aria-hidden="true" />
-              <h2>Filtres</h2>
-            </div>
-            <div className="alerts-filters-grid">
-              <label className="alerts-filter-field">
-                <span>Statut</span>
-                <select value={status} onChange={(e) => setStatus(e.target.value)}>
-                  <option value="active">À traiter</option>
-                  <option value="treated">Traitées</option>
-                  <option value="all">Toutes</option>
-                </select>
-              </label>
-              <label className="alerts-filter-field">
-                <span>Priorité</span>
-                <select value={priority} onChange={(e) => setPriority(e.target.value)}>
-                  <option value="all">Toutes</option>
-                  <option value="critical">Urgent</option>
-                  <option value="medium">À surveiller</option>
-                  <option value="low">Attention</option>
-                </select>
-              </label>
-              <label className="alerts-filter-field">
-                <span>Type</span>
-                <select value={type} onChange={(e) => setType(e.target.value)}>
-                  <option value="all">Tous les types</option>
-                  {Object.entries(ALERT_TYPE_META).map(([key, meta]) => (
-                    <option key={key} value={key}>{meta.label}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="alerts-filter-field">
-                <span>Date</span>
-                <select value={dateRange} onChange={(e) => setDateRange(e.target.value)}>
-                  <option value="all">Toutes les dates</option>
-                  <option value="today">Aujourd’hui</option>
-                  <option value="week">7 derniers jours</option>
-                  <option value="month">30 derniers jours</option>
-                </select>
-              </label>
-            </div>
-            <p className="alerts-filters-meta">
-              {visible.length} alerte{visible.length > 1 ? 's' : ''} affichée{visible.length > 1 ? 's' : ''}
-              {(priority !== 'all' || type !== 'all' || dateRange !== 'all' || status !== 'active') && (
-                <button
-                  type="button"
-                  className="alerts-reset"
-                  onClick={() => {
-                    setPriority('all')
-                    setType('all')
-                    setDateRange('all')
-                    setStatus('active')
-                  }}
-                >
-                  Réinitialiser
-                </button>
-              )}
-            </p>
-          </section>
-
-          <section className="dashboard-alerts metric-panel alerts-list-panel">
-            <div className="metric-title-row alert-section-head">
-              <div>
-                <span className="metric-label">Liste</span>
-                <h3>
-                  <Bell size={18} aria-hidden="true" style={{ marginRight: 8, verticalAlign: -3 }} />
-                  Alertes filtrées
-                </h3>
-              </div>
-              <button type="button" className="dashboard-section-link" onClick={() => onNavigate('dashboard')}>
-                Retour dashboard →
-              </button>
-            </div>
-
-            <div className="alert-list">
-              {visible.length ? visible.map((alert) => {
-                const severity = alert.severity || 'medium'
-                const label = alert.priority || SEVERITY_META[severity]?.label || 'Moyen'
-                const typeLabel = ALERT_TYPE_META[alert.type]?.label || alert.type
-                const when = alert.detected_at
-                  ? new Date(alert.detected_at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
-                  : '—'
-                return (
-                  <div
-                    key={alert.id}
-                    className={`alert-item alert-${severity}${alert.traitee ? ' alert-item--treated' : ''}`}
-                    data-severity={severity}
-                  >
-                    <div className="alert-priority-bar" aria-hidden="true" />
-                    <div className="alert-header">
-                      <div className="alert-title-wrap">
-                        <span className={`alert-level-tag alert-level-tag--${severity}`}>{label}</span>
-                        <span className="alert-type-chip">{typeLabel}</span>
-                        {alert.traitee && <span className="alert-type-chip alert-type-chip--treated">Traitée</span>}
-                        <strong>{alert.title}</strong>
-                      </div>
-                      <span className={`alert-badge alert-badge-${severity}`}>
-                        <span className="alert-badge-text">{label}</span>
-                      </span>
-                    </div>
-                    <div className="alert-body">
-                      {alert.is_infinite_consumption && (
-                        <span className="alert-anomaly-prefix">Anomalie :</span>
-                      )}
-                      <AlertSubtitle subtitle={alert.subtitle} />
-                      {alert.traitee && alert.justification && (
-                        <p className="alert-justification">
-                          <strong>Justification :</strong> {alert.justification}
-                          {alert.traite_par ? ` — ${alert.traite_par}` : ''}
-                        </p>
-                      )}
-                      <div className="alert-meta-row">
-                        <span>{when}</span>
-                        <div className="alert-item-actions">
-                          <button
-                            type="button"
-                            className="alert-more-btn"
-                            onClick={() => openAlert(alert)}
-                          >
-                            En savoir plus <ArrowRight size={14} aria-hidden="true" />
-                          </button>
-                          {isAdmin && !alert.traitee && (
-                            <button
-                              type="button"
-                              className="reports-btn reports-btn--primary alert-treat-btn"
-                              onClick={() => { setMessage(''); setPendingTreat(alert) }}
-                            >
-                              <CheckCircle2 size={15} aria-hidden="true" />
-                              Marquer traitée
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )
-              }) : (
-                <div className="alert-empty">
-                  {alerts.length
-                    ? 'Aucune alerte pour ces filtres.'
-                    : 'Aucune alerte majeure détectée pour le moment.'}
-                </div>
-              )}
-            </div>
-          </section>
+            items={navItems}
+            activeId={panel}
+            onChange={(id) => {
+              setMessage('')
+              setPanel(id)
+            }}
+          >
+            {listContent}
+          </SectionWorkspace>
         </main>
       </PageEnter>
 

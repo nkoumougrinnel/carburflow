@@ -1,5 +1,4 @@
-from django.utils import timezone
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -8,21 +7,89 @@ from rest_framework.views import APIView
 from apps.api.permissions import IsAdminRole
 
 from .models import Alerte
-from .serializers import AlerteTreatmentSerializer, TreatAlertSerializer
+from .serializers import (
+    AlerteListSerializer,
+    AlerteTreatmentSerializer,
+    TreatAlertSerializer,
+)
 
-TYPE_MAP = {
-    'critique': 'seuil_bas',
-    'alerte': 'seuil_bas',
-    'anomalie': 'compteur_anormal',
-    'ecart': 'ecart_releve',
+TYPE_ALIASES = {
+    'critique': 'autonomie_critique',
+    'alerte': 'autonomie_preventive',
+    'anomalie': 'conso_sans_horaire',
+    'ecart': 'ecart_conso',
+    'autonomie_critique': 'autonomie_critique',
+    'autonomie_preventive': 'autonomie_preventive',
+    'conso_sans_horaire': 'conso_sans_horaire',
+    'ecart_conso': 'ecart_conso',
 }
 
-PRIORITE_MAP = {
+PRIORITE_ALIASES = {
     'critical': 'critique',
-    'medium': 'moyenne',
-    'low': 'basse',
     'urgent': 'critique',
+    'high': 'haute',
+    'medium': 'moyenne',
+    'warning': 'moyenne',
+    'low': 'basse',
+    'critique': 'critique',
+    'haute': 'haute',
+    'moyenne': 'moyenne',
+    'basse': 'basse',
 }
+
+
+class AlerteListAPIView(APIView):
+    """Liste des alertes persistées (source de vérité du dashboard)."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=['Alertes'],
+        summary='Lister les alertes',
+        parameters=[
+            OpenApiParameter(
+                name='etat',
+                description='nouvelle|en_cours|traitee|ignoree|actives|all',
+                required=False,
+                type=str,
+            ),
+            OpenApiParameter(name='priorite', required=False, type=str),
+            OpenApiParameter(name='type', required=False, type=str),
+            OpenApiParameter(name='site_id', required=False, type=int),
+            OpenApiParameter(name='group_id', required=False, type=int),
+        ],
+    )
+    def get(self, request):
+        qs = Alerte.objects.select_related(
+            'site',
+            'groupe_electrogene',
+            'traite_par',
+        ).order_by('-date_apparition', '-id')
+
+        etat = (request.query_params.get('etat') or 'actives').strip().lower()
+        if etat == 'actives':
+            qs = qs.filter(etat__in=Alerte.ETATS_ACTIFS)
+        elif etat != 'all':
+            qs = qs.filter(etat=etat)
+
+        priorite = (request.query_params.get('priorite') or '').strip().lower()
+        if priorite:
+            qs = qs.filter(priorite=PRIORITE_ALIASES.get(priorite, priorite))
+
+        type_alerte = (request.query_params.get('type') or '').strip().lower()
+        if type_alerte:
+            qs = qs.filter(type_alerte=TYPE_ALIASES.get(type_alerte, type_alerte))
+
+        site_id = request.query_params.get('site_id')
+        if site_id not in (None, ''):
+            # Le front envoie souvent l’id CuvePrincipale
+            qs = qs.filter(donnees_contexte__cuve_principale_id=int(site_id))
+
+        group_id = request.query_params.get('group_id')
+        if group_id not in (None, ''):
+            qs = qs.filter(groupe_electrogene_id=int(group_id))
+
+        return Response(AlerteListSerializer(qs, many=True).data)
 
 
 class AlertTreatmentsAPIView(APIView):
@@ -43,7 +110,7 @@ class AlertTreatmentsAPIView(APIView):
 
 
 class AlertTreatAPIView(APIView):
-    """Marquer une alerte calculée comme traitée (admin) avec justification."""
+    """Marquer une alerte comme traitée (admin) avec justification."""
 
     permission_classes = [IsAuthenticated, IsAdminRole]
 
@@ -67,34 +134,51 @@ class AlertTreatAPIView(APIView):
         if subtitle:
             message = f'{title}\n{subtitle}'.strip() if title else subtitle
 
-        type_alerte = TYPE_MAP.get((data.get('type') or '').strip(), 'autre')
-        priorite = PRIORITE_MAP.get((data.get('severity') or '').strip().lower(), 'moyenne')
+        type_raw = (data.get('type') or '').strip()
+        type_alerte = TYPE_ALIASES.get(type_raw, type_raw or 'ecart_conso')
+        if type_alerte not in dict(Alerte.TYPE_CHOICES):
+            type_alerte = 'ecart_conso'
 
-        alerte, _created = Alerte.objects.get_or_create(
-            cle=cle,
-            defaults={
-                'message': message or cle,
-                'type_alerte': type_alerte,
-                'priorite': priorite,
-                'site_id': data.get('site_id'),
-                'groupe_electrogene_id': data.get('group_id'),
-            },
+        priorite = PRIORITE_ALIASES.get(
+            (data.get('severity') or '').strip().lower(),
+            'moyenne',
         )
 
-        if not _created:
-            alerte.message = message or alerte.message
-            alerte.type_alerte = type_alerte
-            alerte.priorite = priorite
-            if data.get('site_id') is not None:
-                alerte.site_id = data.get('site_id')
+        alerte = Alerte.objects.filter(cle=cle).first()
+        if alerte is None:
+            # Fallback : traitement d’une alerte non encore persistée
+            alerte = Alerte(
+                cle=cle,
+                message=message or cle,
+                type_alerte=type_alerte,
+                priorite=priorite,
+                donnees_contexte={
+                    'cuve_principale_id': data.get('site_id'),
+                    'groupe_id': data.get('group_id'),
+                },
+            )
             if data.get('group_id') is not None:
                 alerte.groupe_electrogene_id = data.get('group_id')
+            alerte.save()
+        else:
+            if message:
+                alerte.message = message
+            alerte.type_alerte = type_alerte
+            alerte.priorite = priorite
+            if data.get('group_id') is not None:
+                alerte.groupe_electrogene_id = data.get('group_id')
+            ctx = dict(alerte.donnees_contexte or {})
+            if data.get('site_id') is not None:
+                ctx['cuve_principale_id'] = data.get('site_id')
+            if data.get('group_id') is not None:
+                ctx['groupe_id'] = data.get('group_id')
+            alerte.donnees_contexte = ctx
+            alerte.save()
 
-        alerte.etat = 'traitee'
-        alerte.justification = justification
-        alerte.traite_par = request.user
-        alerte.date_traitement = timezone.now()
-        alerte.save()
+        try:
+            alerte.marquer_traitee(request.user, justification)
+        except ValueError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(
             {

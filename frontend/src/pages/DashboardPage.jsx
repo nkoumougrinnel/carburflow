@@ -1,23 +1,19 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import Topbar from '../components/Topbar.jsx'
 import WelcomeBanner from '../components/WelcomeBanner.jsx'
-import { apiFetch, listAlertTreatments } from '../auth.js'
+import { apiFetch } from '../auth.js'
 import AutonomyBadge from '../components/AutonomyBadge.jsx'
 import PageLoader from '../components/PageLoader.jsx'
 import PageEnter from '../components/PageEnter.jsx'
 import { getAutonomySeverity } from '../utils/format.js'
 import {
-  SEVERITY_META,
-  buildDashboardAlerts,
   countAlertsBySeverity,
-  mergeAlertTreatments,
+  normalizePersistedAlert,
   pickPreviewAlerts,
-  splitAlertSubtitle,
 } from '../utils/alerts.js'
 
 function DashboardPage({ onNavigate }) {
   const [dashboardData, setDashboardData] = useState(null)
-  const [treatments, setTreatments] = useState([])
   const [loadError, setLoadError] = useState('')
 
   const formatValue = (value, suffix = '') => {
@@ -80,12 +76,8 @@ function DashboardPage({ onNavigate }) {
     const loadDashboardData = async () => {
       try {
         setLoadError('')
-        const [payload, treated] = await Promise.all([
-          apiFetch('/api/v1/dashboard/overview'),
-          listAlertTreatments().catch(() => []),
-        ])
+        const payload = await apiFetch('/api/v1/dashboard/overview')
         setDashboardData(payload)
-        setTreatments(Array.isArray(treated) ? treated : [])
       } catch (error) {
         console.warn('Dashboard API unavailable.', error)
         setDashboardData(null)
@@ -216,10 +208,10 @@ function DashboardPage({ onNavigate }) {
       return s.autonomie_hours != null && s.autonomie_hours < 24
     }).length
 
-    const activeAlertCount = mergeAlertTreatments(
-      buildDashboardAlerts(siteRows, groupRows),
-      treatments,
-    ).filter((a) => !a.traitee).length
+    const activeAlertCount = (
+      dashboardData.summary?.active_alerts
+      ?? (dashboardData.alerts || []).filter((a) => !a.traitee && a.etat !== 'traitee').length
+    )
 
     const totalConsumption = dashboardData.summary?.total_consumption ?? 0
     const previousTotalConsumption = dashboardData.summary?.previous_total_consumption ?? null
@@ -265,7 +257,7 @@ function DashboardPage({ onNavigate }) {
         },
       },
     ]
-  }, [dashboardData, groupRows, siteRows, treatments, onNavigate])
+  }, [dashboardData, groupRows, siteRows, onNavigate])
 
   // 1. Sites avec autonomie — tous, triés par ordre croissant (les plus urgents en premier)
   // 0h (consommation sans heures) passe en tête, ∞ (pas de données) est exclu
@@ -315,26 +307,13 @@ function DashboardPage({ onNavigate }) {
   }, [siteRows])
 
   const alerts = useMemo(() => {
-    const computed = buildDashboardAlerts(siteRows, groupRows)
-    return mergeAlertTreatments(computed, treatments).filter((a) => !a.traitee)
-  }, [siteRows, groupRows, treatments])
+    const rows = Array.isArray(dashboardData?.alerts) ? dashboardData.alerts : []
+    return rows
+      .map(normalizePersistedAlert)
+      .filter((a) => a && !a.traitee)
+  }, [dashboardData])
   const alertCounts = useMemo(() => countAlertsBySeverity(alerts), [alerts])
   const previewAlerts = useMemo(() => pickPreviewAlerts(alerts), [alerts])
-
-
-  const renderAlertSubtitle = (subtitle) => {
-    const parts = splitAlertSubtitle(subtitle)
-    if (!parts.length) return null
-    return parts.map((part, i) => (
-      part.kind === 'arrow' ? (
-        <span key={i} style={{ color: part.up ? '#dc2626' : '#16a34a', fontWeight: 700 }}>
-          {part.text}
-        </span>
-      ) : (
-        <span key={i}>{part.text}</span>
-      )
-    ))
-  }
 
   if (!dashboardData) {
     return (
@@ -362,102 +341,7 @@ function DashboardPage({ onNavigate }) {
 
       <PageEnter>
       <main className="dashboard-grid dashboard-grid-4col">
-        <WelcomeBanner
-          subtitle="Alertes d’abord, puis stocks et consommations — l’essentiel pour décider vite."
-        />
-
-        {/* Alertes en premier — aperçu prioritaire */}
-        <section className="dashboard-alerts metric-panel dashboard-alerts--preview" style={{ gridColumn: '1 / -1' }}>
-          <div className="metric-title-row alert-section-head">
-            <div>
-              <span className="metric-label">Priorité</span>
-              <h3>
-                {alerts.length
-                  ? (alertCounts.critical > 0 ? 'Alertes à traiter en premier' : 'Points à surveiller')
-                  : 'Aucune alerte majeure'}
-              </h3>
-              <p className="dashboard-alerts-lead">
-                {alerts.length
-                  ? `${alertCounts.critical} urgent · ${alertCounts.medium} à surveiller · ${alertCounts.low} attention — aperçu des plus critiques.`
-                  : 'Tout est sous contrôle pour le moment.'}
-              </p>
-            </div>
-            <div className="dashboard-alerts-actions">
-              {alerts.length > 0 && (
-                <div className="alert-legend alert-legend--static" aria-label="Répartition des alertes">
-                  <span className="alert-legend-item alert-legend--critical is-active">Urgent <strong>{alertCounts.critical}</strong></span>
-                  <span className="alert-legend-item alert-legend--medium is-active">À surveiller <strong>{alertCounts.medium}</strong></span>
-                  <span className="alert-legend-item alert-legend--low is-active">Attention <strong>{alertCounts.low}</strong></span>
-                </div>
-              )}
-              <button
-                type="button"
-                className="dashboard-section-link"
-                onClick={() => onNavigate?.({ view: 'alerts', priority: alertCounts.critical > 0 ? 'critical' : 'all' })}
-              >
-                Voir toutes les alertes →
-              </button>
-            </div>
-          </div>
-          <div className="alert-list">
-            {previewAlerts.length ? previewAlerts.map((alert) => {
-              const severity = alert.severity || 'medium'
-              const label = alert.priority || SEVERITY_META[severity]?.label || 'Moyen'
-              const openAlert = () => {
-                if (!onNavigate) return
-                if (alert.target === 'groups') {
-                  goGroups({ id: alert.group_id, label: alert.group_label })
-                } else {
-                  goSites({ id: alert.site_id, site_name: alert.site_name })
-                }
-              }
-              return (
-                <button
-                  key={alert.id}
-                  type="button"
-                  className={`alert-item alert-${severity} alert-item--link`}
-                  data-severity={severity}
-                  onClick={openAlert}
-                >
-                  <div className="alert-severity-bar" aria-hidden="true" />
-                  <div className="alert-header">
-                    <div className="alert-title-wrap">
-                      <span className={`alert-level-tag alert-level-tag--${severity}`}>
-                        {label}
-                      </span>
-                      <strong>{alert.title}</strong>
-                    </div>
-                    <span className={`alert-badge alert-badge-${severity}`}>
-                      <span className="alert-badge-text">{label}</span>
-                    </span>
-                  </div>
-                  <p>
-                    {alert.is_infinite_consumption && (
-                      <span className="alert-anomaly-prefix">Anomalie :</span>
-                    )}
-                    {renderAlertSubtitle(alert.subtitle)}
-                    <span className="alert-more">En savoir plus →</span>
-                  </p>
-                </button>
-              )
-            }) : (
-              <div className="alert-empty">
-                Aucune alerte majeure détectée pour le moment.
-              </div>
-            )}
-          </div>
-          {alerts.length > previewAlerts.length && (
-            <div className="dashboard-alerts-more">
-              <button
-                type="button"
-                className="reports-btn reports-btn--primary"
-                onClick={() => onNavigate?.('alerts')}
-              >
-                Afficher les {alerts.length - previewAlerts.length} autres alertes
-              </button>
-            </div>
-          )}
-        </section>
+        <WelcomeBanner />
 
         <div className="dashboard-summary-grid">
           {summaryCards.map((card) => (
@@ -485,6 +369,69 @@ function DashboardPage({ onNavigate }) {
             </button>
           ))}
         </div>
+
+        <section className="dashboard-alerts metric-panel" style={{ gridColumn: '1 / -1' }}>
+          <div className="metric-title-row alert-section-head">
+            <div>
+              <h3>Notifications d’alertes</h3>
+            </div>
+            <div className="dashboard-alerts-actions">
+              {alerts.length > 0 && (
+                <div className="alert-legend alert-legend--static" aria-label="Répartition des alertes">
+                  <span className="alert-legend-item alert-legend--critical is-active">Critique <strong>{alertCounts.critique}</strong></span>
+                  <span className="alert-legend-item alert-legend--high is-active">Haute <strong>{alertCounts.haute}</strong></span>
+                  <span className="alert-legend-item alert-legend--medium is-active">Moyenne <strong>{alertCounts.moyenne}</strong></span>
+                  <span className="alert-legend-item alert-legend--low is-active">Basse <strong>{alertCounts.basse}</strong></span>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="alert-list">
+            {previewAlerts.length ? previewAlerts.map((alert) => {
+              const severity = alert.severity || 'medium'
+              const label = alert.priority || 'Moyenne'
+              return (
+                <div
+                  key={alert.id}
+                  className={`alert-item alert-${severity} alert-item--preview`}
+                  data-severity={severity}
+                >
+                  <div className="alert-severity-bar" aria-hidden="true" />
+                  <div className="alert-header alert-header--compact">
+                    <strong className="alert-preview-title">{alert.title}</strong>
+                    <span className={`alert-level-tag alert-level-tag--${severity}`}>
+                      {label}
+                    </span>
+                  </div>
+                </div>
+              )
+            }) : (
+              <div className="alert-empty">
+                Aucune alerte majeure détectée pour le moment.
+              </div>
+            )}
+          </div>
+          {alerts.length > previewAlerts.length && (
+            <div className="dashboard-alerts-footer">
+              <button
+                type="button"
+                className="dashboard-alerts-more-btn"
+                onClick={() => onNavigate?.({
+                  view: 'alerts',
+                  priority: alertCounts.critique > 0 ? 'critique' : 'all',
+                })}
+              >
+                Plus d’alertes
+                <span
+                  className="dashboard-alerts-more-count"
+                  aria-label={`${alerts.length - previewAlerts.length} autres non traitées`}
+                >
+                  {alerts.length - previewAlerts.length}
+                </span>
+              </button>
+            </div>
+          )}
+        </section>
 
         {/* 1. Sites à faible autonomie */}
         <section className="dashboard-table metric-panel">

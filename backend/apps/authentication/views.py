@@ -1,16 +1,18 @@
+from django.contrib.auth.models import User
 from django.middleware.csrf import get_token
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.api.permissions import get_user_role
+from apps.api.permissions import IsAdminRole, get_user_role
 from apps.sites.models import Site
 
 from .models import ProfilUtilisateur
 from .serializers import (
+    AdminSetRoleSerializer,
     LoginSerializer,
     PasswordChangeSerializer,
     ProfileUpdateSerializer,
@@ -47,6 +49,44 @@ def serialize_me(user):
     data = UserSerializer(user).data
     data['role'] = get_user_role(user)
     return data
+
+
+def serialize_managed_user(user):
+    ensure_profil(user)
+    user.refresh_from_db()
+    profil = user.profil
+    return {
+        **UserSerializer(user).data,
+        'role': get_user_role(user),
+        'role_db': profil.role,
+        'role_label': profil.get_role_display(),
+        'is_active': user.is_active,
+    }
+
+
+def apply_api_role(user, api_role):
+    """Applique un rôle API (admin/operateur/user) sur le profil + flags Django."""
+    profil = ensure_profil(user)
+    if profil.role == ProfilUtilisateur.ROLE_SUPER_ADMIN and api_role != 'admin':
+        raise ValueError(
+            'Impossible de modifier un super administrateur via cette interface.'
+        )
+
+    if api_role == 'admin':
+        profil.role = ProfilUtilisateur.ROLE_ADMIN
+        user.is_staff = True
+    elif api_role == 'operateur':
+        profil.role = ProfilUtilisateur.ROLE_AGENT
+        user.is_staff = False
+        user.is_superuser = False
+    else:
+        profil.role = ProfilUtilisateur.ROLE_USER
+        user.is_staff = False
+        user.is_superuser = False
+
+    profil.save(update_fields=['role'])
+    user.save(update_fields=['is_staff', 'is_superuser'])
+    return profil
 
 
 class RegisterAPIView(APIView):
@@ -139,9 +179,123 @@ class PublicSitesAPIView(APIView):
     @extend_schema(tags=['Auth'], summary='Sites publics (inscription)')
     def get(self, request):
         sites = Site.objects.filter(statut=Site.STATUT_ACTIF).order_by('nom')
-        # Compat frontend SignUp : champ nom_site
         payload = [
             {'id': site.id, 'nom_site': site.nom, 'nom': site.nom}
             for site in sites
         ]
         return Response(payload)
+
+
+def staff_users_queryset():
+    """Admins et agents uniquement (pas les utilisateurs simples)."""
+    from django.db.models import Q
+
+    return (
+        User.objects.filter(
+            Q(is_superuser=True)
+            | Q(is_staff=True)
+            | Q(
+                profil__role__in=[
+                    ProfilUtilisateur.ROLE_SUPER_ADMIN,
+                    ProfilUtilisateur.ROLE_ADMIN,
+                    ProfilUtilisateur.ROLE_AGENT,
+                ]
+            )
+        )
+        .select_related('profil', 'profil__site')
+        .distinct()
+        .order_by('email', 'username')
+    )
+
+
+class AdminStaffUsersAPIView(APIView):
+    """Liste des profils privilégiés (admin / agent)."""
+
+    permission_classes = [IsAuthenticated, IsAdminRole]
+
+    @extend_schema(tags=['Auth'], summary='Lister admins et agents')
+    def get(self, request):
+        qs = staff_users_queryset()[:100]
+        return Response([serialize_managed_user(user) for user in qs])
+
+
+class AdminUserSearchAPIView(APIView):
+    """Recherche d’utilisateurs par e-mail (admin) — tous rôles, pour élire."""
+
+    permission_classes = [IsAuthenticated, IsAdminRole]
+
+    @extend_schema(
+        tags=['Auth'],
+        summary='Rechercher un utilisateur par e-mail',
+        parameters=[
+            OpenApiParameter(
+                name='email',
+                description='Fragment ou adresse e-mail',
+                required=True,
+                type=str,
+            ),
+        ],
+    )
+    def get(self, request):
+        email = (request.query_params.get('email') or '').strip()
+        if len(email) < 2:
+            return Response(
+                {'detail': 'Indiquez au moins 2 caractères d’e-mail.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        qs = (
+            User.objects.filter(email__icontains=email)
+            .select_related('profil', 'profil__site')
+            .order_by('email', 'username')[:20]
+        )
+        return Response([serialize_managed_user(user) for user in qs])
+
+
+class AdminSetRoleAPIView(APIView):
+    """Élire / rétrograder un utilisateur (admin, agent/opérateur, user)."""
+
+    permission_classes = [IsAuthenticated, IsAdminRole]
+
+    @extend_schema(
+        request=AdminSetRoleSerializer,
+        tags=['Auth'],
+        summary='Attribuer un rôle à un utilisateur',
+    )
+    def post(self, request):
+        serializer = AdminSetRoleSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data['email'].strip()
+        api_role = serializer.validated_data['role']
+
+        user = (
+            User.objects.filter(email__iexact=email)
+            .select_related('profil')
+            .first()
+        )
+        if not user:
+            return Response(
+                {'detail': f'Aucun utilisateur avec l’e-mail « {email} ».'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if user.pk == request.user.pk and api_role != 'admin':
+            return Response(
+                {'detail': 'Vous ne pouvez pas retirer votre propre rôle administrateur.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            apply_api_role(user, api_role)
+        except ValueError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        labels = {
+            'admin': 'administrateur',
+            'operateur': 'agent / opérateur',
+            'user': 'utilisateur',
+        }
+        return Response({
+            'detail': f'Rôle mis à jour : {labels.get(api_role, api_role)}.',
+            'user': serialize_managed_user(user),
+        })
