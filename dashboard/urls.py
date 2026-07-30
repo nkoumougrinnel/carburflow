@@ -33,6 +33,9 @@ from dashboard.views import (
     RapportViewSet,
     LigneRapportViewSet,
     SitesDashboardAPIView,
+    SitesVolumeAPIView,
+    SitesDureeAPIView,
+    SitesConsommationAPIView,
     CuvesDashboardAPIView,
     DashboardOverviewAPIView,
     GroupesAPIView,
@@ -50,6 +53,7 @@ SpectacularSwaggerView.permission_classes = [AllowAny]
 SpectacularRedocView.permission_classes = [AllowAny]
 
 urlpatterns = [
+    # --- Auth ---
     path('auth/register', RegisterAPIView.as_view(), name='api-auth-register'),
     path('auth/login', LoginAPIView.as_view(), name='api-auth-login'),
     path('auth/logout', LogoutAPIView.as_view(), name='api-auth-logout'),
@@ -57,6 +61,7 @@ urlpatterns = [
     path('auth/password', PasswordChangeAPIView.as_view(), name='api-auth-password'),
     path('auth/csrf', CsrfAPIView.as_view(), name='api-auth-csrf'),
 
+    # --- Rapports & Upload ---
     path('rapports/norme', NormeMetaAPIView.as_view(), name='api-norme-meta'),
     path('rapports/norme.csv', NormeCsvAPIView.as_view(), name='api-norme-csv'),
     path('rapports/norme.xlsx', NormeXlsxAPIView.as_view(), name='api-norme-xlsx'),
@@ -75,12 +80,19 @@ urlpatterns = [
         name='api-rapport-delete',
     ),
 
+    # --- Documentation OpenAPI / Swagger ---
     path('schema/', SpectacularAPIView.as_view(), name='schema'),
     path('docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 
+    # --- Router REST standard ---
     path('', include(router.urls)),
+
+    # --- Dashboard & Analytics Views ---
     path('dashboard/sites', SitesDashboardAPIView.as_view(), name='dashboard-sites'),
+    path('dashboard/sites/volume', SitesVolumeAPIView.as_view(), name='dashboard-sites-volume'),
+    path('dashboard/sites/duree', SitesDureeAPIView.as_view(), name='dashboard-sites-duree'),
+    path('dashboard/sites/consommation', SitesConsommationAPIView.as_view(), name='dashboard-sites-consommation'),
     path('dashboard/overview', DashboardOverviewAPIView.as_view(), name='dashboard-overview'),
     path('dashboard/groupes', GroupesAPIView.as_view(), name='dashboard-groupes'),
     path('dashboard/cuves', CuvesDashboardAPIView.as_view(), name='dashboard-cuves'),
