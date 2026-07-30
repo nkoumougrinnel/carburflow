@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import {
   LayoutDashboard,
   MapPinned,
@@ -20,7 +20,10 @@ import BrandLogo from './BrandLogo.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useTheme } from '../context/ThemeContext.jsx'
 import { listAlertes, notificationsUnreadCount } from '../auth.js'
+import { BADGES_REFRESH_EVENT } from '../utils/badges.js'
 import { getDisplayFullName } from '../utils/userDisplay.js'
+
+const BADGES_POLL_MS = 15000
 
 function roleLabel(isAdmin, isOperator) {
   if (isAdmin) return 'Responsable'
@@ -43,37 +46,52 @@ function Topbar({ activeView, onNavigate }) {
 
   useEffect(() => { setMenuOpen(false) }, [activeView])
 
-  useEffect(() => {
-    if (!isAuthenticated || !isAdmin) {
+  const refreshBadges = useCallback(async () => {
+    if (!isAuthenticated) {
       setActiveAlertsCount(0)
-      return undefined
+      setUnreadMessages(0)
+      return
     }
-    let cancelled = false
-    listAlertes({ etat: 'actives' })
-      .then((rows) => {
-        if (!cancelled) setActiveAlertsCount(Array.isArray(rows) ? rows.length : 0)
-      })
-      .catch(() => {
-        if (!cancelled) setActiveAlertsCount(0)
-      })
-    return () => { cancelled = true }
-  }, [isAuthenticated, isAdmin, activeView])
+
+    const tasks = [
+      notificationsUnreadCount()
+        .then((data) => setUnreadMessages(Number(data?.unread) || 0))
+        .catch(() => setUnreadMessages(0)),
+    ]
+
+    if (isAdmin) {
+      tasks.push(
+        listAlertes({ etat: 'actives' })
+          .then((rows) => setActiveAlertsCount(Array.isArray(rows) ? rows.length : 0))
+          .catch(() => setActiveAlertsCount(0)),
+      )
+    } else {
+      setActiveAlertsCount(0)
+    }
+
+    await Promise.all(tasks)
+  }, [isAuthenticated, isAdmin])
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      setUnreadMessages(0)
-      return undefined
-    }
     let cancelled = false
-    notificationsUnreadCount()
-      .then((data) => {
-        if (!cancelled) setUnreadMessages(Number(data?.unread) || 0)
-      })
-      .catch(() => {
-        if (!cancelled) setUnreadMessages(0)
-      })
-    return () => { cancelled = true }
-  }, [isAuthenticated, activeView])
+    const run = () => {
+      if (!cancelled) refreshBadges()
+    }
+    run()
+    const pollId = window.setInterval(run, BADGES_POLL_MS)
+    const onRefresh = () => run()
+    const onFocus = () => run()
+    window.addEventListener(BADGES_REFRESH_EVENT, onRefresh)
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onFocus)
+    return () => {
+      cancelled = true
+      window.clearInterval(pollId)
+      window.removeEventListener(BADGES_REFRESH_EVENT, onRefresh)
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onFocus)
+    }
+  }, [refreshBadges, activeView])
 
   const go = (view) => {
     setMenuOpen(false)

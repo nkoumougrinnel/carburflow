@@ -112,12 +112,6 @@ function AppRoutes() {
       if (options.priority != null && options.priority !== '' && options.priority !== 'all') {
         params.push(`priority=${encodeURIComponent(options.priority)}`)
       }
-      if (options.type != null && options.type !== '' && options.type !== 'all') {
-        params.push(`type=${encodeURIComponent(options.type)}`)
-      }
-      if (options.date != null && options.date !== '' && options.date !== 'all') {
-        params.push(`date=${encodeURIComponent(options.date)}`)
-      }
       if (params.length) nextPath += `?${params.join('&')}`
     }
 

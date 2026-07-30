@@ -41,7 +41,12 @@ function SectionWorkspace({
                   </span>
                 ) : null}
                 <span className="section-workspace-item-copy">
-                  <span className="section-workspace-item-label">{item.label}</span>
+                  <span className="section-workspace-item-label">
+                    {item.label}
+                    {item.badge != null && item.badge !== '' ? (
+                      <span className="section-workspace-item-badge">{item.badge}</span>
+                    ) : null}
+                  </span>
                   {item.description ? (
                     <span className="section-workspace-item-desc">{item.description}</span>
                   ) : null}

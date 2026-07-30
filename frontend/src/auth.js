@@ -218,8 +218,13 @@ export async function listSoumissions() {
   return apiFetch('/api/v1/rapports/soumissions')
 }
 
-export async function listMesRapports() {
-  return apiFetch('/api/v1/rapports/mes')
+export async function listMesRapports(params = {}) {
+  const query = new URLSearchParams()
+  Object.entries(params).forEach(([key, value]) => {
+    if (value != null && value !== '') query.set(key, String(value))
+  })
+  const qs = query.toString()
+  return apiFetch(`/api/v1/rapports/mes${qs ? `?${qs}` : ''}`)
 }
 
 export async function normeMeta() {
