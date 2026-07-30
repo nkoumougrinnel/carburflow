@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import Topbar from '../components/Topbar.jsx'
 import WelcomeBanner from '../components/WelcomeBanner.jsx'
-import { apiFetch } from '../auth.js'
+import { apiFetch, listAlertTreatments } from '../auth.js'
 import AutonomyBadge from '../components/AutonomyBadge.jsx'
 import PageLoader from '../components/PageLoader.jsx'
 import PageEnter from '../components/PageEnter.jsx'
@@ -10,12 +10,14 @@ import {
   SEVERITY_META,
   buildDashboardAlerts,
   countAlertsBySeverity,
+  mergeAlertTreatments,
   pickPreviewAlerts,
   splitAlertSubtitle,
 } from '../utils/alerts.js'
 
 function DashboardPage({ onNavigate }) {
   const [dashboardData, setDashboardData] = useState(null)
+  const [treatments, setTreatments] = useState([])
   const [loadError, setLoadError] = useState('')
 
   const formatValue = (value, suffix = '') => {
@@ -78,8 +80,12 @@ function DashboardPage({ onNavigate }) {
     const loadDashboardData = async () => {
       try {
         setLoadError('')
-        const payload = await apiFetch('/api/v1/dashboard/overview')
+        const [payload, treated] = await Promise.all([
+          apiFetch('/api/v1/dashboard/overview'),
+          listAlertTreatments().catch(() => []),
+        ])
         setDashboardData(payload)
+        setTreatments(Array.isArray(treated) ? treated : [])
       } catch (error) {
         console.warn('Dashboard API unavailable.', error)
         setDashboardData(null)
@@ -210,10 +216,11 @@ function DashboardPage({ onNavigate }) {
       return s.autonomie_hours != null && s.autonomie_hours < 24
     }).length
 
-    // Anomalies = conso sans delta ∪ écarts (même périmètre que les alertes)
-    const abnormalGroups = new Set(
-      groupRows.filter((g) => isConsSansDelta(g) || isEcartConso(g) || g.has_anomaly).map((g) => g.id),
-    ).size
+    const activeAlertCount = mergeAlertTreatments(
+      buildDashboardAlerts(siteRows, groupRows),
+      treatments,
+    ).filter((a) => !a.traitee).length
+
     const totalConsumption = dashboardData.summary?.total_consumption ?? 0
     const previousTotalConsumption = dashboardData.summary?.previous_total_consumption ?? null
     const totalRuntime = dashboardData.summary?.total_runtime ?? 0
@@ -227,15 +234,15 @@ function DashboardPage({ onNavigate }) {
         label: 'Sites urgents',
         title: `${criticalAutonomySites}`,
         detail: 'Moins de 24 h de temps restant',
-        hrefHint: 'Voir les sites',
+        hrefHint: 'En savoir plus',
         open: () => goSites(),
       },
       {
-        label: 'Anomalies groupes',
-        title: `${abnormalGroups}`,
-        detail: 'Écart L/h ou conso sans delta horaire',
-        hrefHint: 'Voir les groupes',
-        open: () => goGroups({ mode: 'details' }),
+        label: 'Alertes',
+        title: `${activeAlertCount}`,
+        detail: activeAlertCount === 1 ? 'Alerte active à traiter' : 'Alertes actives à traiter',
+        hrefHint: 'En savoir plus',
+        open: () => onNavigate?.({ view: 'alerts' }),
       },
       {
         label: 'Consommation',
@@ -258,7 +265,7 @@ function DashboardPage({ onNavigate }) {
         },
       },
     ]
-  }, [dashboardData, groupRows, siteRows, onNavigate])
+  }, [dashboardData, groupRows, siteRows, treatments, onNavigate])
 
   // 1. Sites avec autonomie — tous, triés par ordre croissant (les plus urgents en premier)
   // 0h (consommation sans heures) passe en tête, ∞ (pas de données) est exclu
@@ -307,10 +314,10 @@ function DashboardPage({ onNavigate }) {
       .slice(0, 6)
   }, [siteRows])
 
-  const alerts = useMemo(
-    () => buildDashboardAlerts(siteRows, groupRows),
-    [siteRows, groupRows],
-  )
+  const alerts = useMemo(() => {
+    const computed = buildDashboardAlerts(siteRows, groupRows)
+    return mergeAlertTreatments(computed, treatments).filter((a) => !a.traitee)
+  }, [siteRows, groupRows, treatments])
   const alertCounts = useMemo(() => countAlertsBySeverity(alerts), [alerts])
   const previewAlerts = useMemo(() => pickPreviewAlerts(alerts), [alerts])
 
@@ -429,7 +436,7 @@ function DashboardPage({ onNavigate }) {
                       <span className="alert-anomaly-prefix">Anomalie :</span>
                     )}
                     {renderAlertSubtitle(alert.subtitle)}
-                    <span className="alert-more">Ouvrir →</span>
+                    <span className="alert-more">En savoir plus →</span>
                   </p>
                 </button>
               )
@@ -459,6 +466,7 @@ function DashboardPage({ onNavigate }) {
               type="button"
               className="metric-panel dashboard-summary-card dashboard-summary-card--link"
               onClick={card.open}
+              disabled={!card.open}
             >
               <div className="summary-card-header">
                 <span className="metric-label">{card.label}</span>
@@ -471,7 +479,9 @@ function DashboardPage({ onNavigate }) {
               </div>
               <h3>{card.title}</h3>
               <p>{card.detail}</p>
-              <span className="dashboard-card-cta">{card.hrefHint} →</span>
+              {card.hrefHint ? (
+                <span className="dashboard-card-cta">{card.hrefHint} →</span>
+              ) : null}
             </button>
           ))}
         </div>

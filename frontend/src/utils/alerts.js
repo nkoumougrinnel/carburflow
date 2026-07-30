@@ -207,11 +207,16 @@ export function pickPreviewAlerts(alerts = [], { perSeverity = 2, maxTotal = 6 }
   return [...buckets.critical, ...buckets.medium, ...buckets.low].slice(0, maxTotal)
 }
 
-export function filterAlerts(alerts = [], { priority = 'all', type = 'all', dateRange = 'all' } = {}) {
+export function filterAlerts(
+  alerts = [],
+  { priority = 'all', type = 'all', dateRange = 'all', status = 'active' } = {},
+) {
   const now = Date.now()
   const dayMs = 24 * 60 * 60 * 1000
 
   return alerts.filter((a) => {
+    if (status === 'active' && a.traitee) return false
+    if (status === 'treated' && !a.traitee) return false
     if (priority !== 'all' && a.severity !== priority) return false
     if (type !== 'all' && a.type !== type) return false
     if (dateRange !== 'all') {
@@ -221,6 +226,26 @@ export function filterAlerts(alerts = [], { priority = 'all', type = 'all', date
       if (dateRange === 'month' && now - ts > 30 * dayMs) return false
     }
     return true
+  })
+}
+
+/** Enrichit les alertes calculées avec les traitements persistés. */
+export function mergeAlertTreatments(alerts = [], treatments = []) {
+  const byCle = new Map(
+    (treatments || [])
+      .filter((t) => t && t.cle)
+      .map((t) => [t.cle, t]),
+  )
+  return alerts.map((alert) => {
+    const treatment = byCle.get(alert.id)
+    if (!treatment) return { ...alert, traitee: false }
+    return {
+      ...alert,
+      traitee: true,
+      justification: treatment.justification || '',
+      traite_par: treatment.traite_par_username || null,
+      date_traitement: treatment.date_traitement || null,
+    }
   })
 }
 

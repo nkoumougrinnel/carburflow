@@ -4,7 +4,6 @@ import WelcomeBanner from '../components/WelcomeBanner.jsx'
 import PageEnter from '../components/PageEnter.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import {
-  deleteRapport,
   downloadFicheHebdo,
   downloadNorme,
   downloadRapport,
@@ -157,13 +156,11 @@ function ReportsPage({ onNavigate }) {
   const [loadingList, setLoadingList] = useState(true)
   const [showAllColumns, setShowAllColumns] = useState(false)
   const [query, setQuery] = useState('')
-  const [deletingRapportId, setDeletingRapportId] = useState(null)
 
   const busy = uploading
     || downloadingFiche
     || Boolean(downloadingNorme)
     || Boolean(downloadingRapport)
-    || deletingRapportId != null
 
   const columns = useMemo(() => {
     const byName = Object.fromEntries(SIMPLE_COLUMNS.map((c) => [c.name, c]))
@@ -269,27 +266,6 @@ function ReportsPage({ onNavigate }) {
       setError(err.message || 'Impossible de télécharger ce rapport.')
     } finally {
       setDownloadingRapport('')
-    }
-  }
-
-  const handleDeleteRapport = async (rapport) => {
-    if (!isAdmin) return
-    const ok = window.confirm(
-      `Supprimer le rapport n°${rapport.id} ?\n\n`
-      + `Période : ${formatDate(rapport.date_debut)} → ${formatDate(rapport.date_fin)}\n`
-      + 'Cette action est définitive : les lignes de relevé liées seront aussi retirées.',
-    )
-    if (!ok) return
-    clearFeedback()
-    setDeletingRapportId(rapport.id)
-    try {
-      const result = await deleteRapport(rapport.id)
-      setMessage(result.detail || `Le rapport n°${rapport.id} a été supprimé.`)
-      await refresh({ silent: true })
-    } catch (err) {
-      setError(err.message || 'Impossible de supprimer ce rapport.')
-    } finally {
-      setDeletingRapportId(null)
     }
   }
 
@@ -533,8 +509,7 @@ function ReportsPage({ onNavigate }) {
             <div className="reports-admin-banner">
               <strong>Zone responsable</strong>
               <span>
-                Téléchargez un rapport avec <em>Télécharger Excel</em>,
-                ou retirez-le avec <em>Supprimer</em>.
+                Téléchargez un rapport avec <em>Télécharger Excel</em> ou <em>Télécharger CSV</em>.
               </span>
             </div>
           )}
@@ -606,15 +581,6 @@ function ReportsPage({ onNavigate }) {
                               onClick={() => handleDownloadRapport(r.id, 'csv')}
                             >
                               Télécharger CSV
-                            </LoadingButton>
-                            <LoadingButton
-                              className="reports-btn--danger"
-                              loading={deletingRapportId === r.id}
-                              loadingText="Suppression…"
-                              disabled={busy && deletingRapportId !== r.id}
-                              onClick={() => handleDeleteRapport(r)}
-                            >
-                              Supprimer
                             </LoadingButton>
                           </div>
                         </td>

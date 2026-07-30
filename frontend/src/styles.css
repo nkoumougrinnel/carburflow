@@ -4642,6 +4642,89 @@ button.alert-item--link {
   font-weight: 650;
 }
 
+.alert-item--treated {
+  opacity: 0.88;
+}
+
+.alert-type-chip--treated {
+  background: color-mix(in srgb, #16a34a 18%, transparent);
+  color: #15803d;
+}
+
+.alert-justification {
+  margin: 0.55rem 0 0;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  background: var(--panel-soft);
+  border: 1px solid var(--border);
+  font-size: 0.88rem;
+  color: var(--text);
+}
+
+.alert-item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.alert-more-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0;
+}
+
+.alert-treat-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.82rem;
+}
+
+.alert-treat-modal {
+  width: min(560px, 100%);
+}
+
+.alert-treat-field {
+  display: grid;
+  gap: 0.45rem;
+  margin-bottom: 0.75rem;
+}
+
+.alert-treat-field span {
+  font-size: 0.85rem;
+  font-weight: 650;
+  color: var(--muted);
+}
+
+.alert-treat-field textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 120px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel-soft);
+  color: var(--text);
+  padding: 0.75rem 0.85rem;
+  font: inherit;
+  line-height: 1.45;
+}
+
+.alert-treat-error {
+  margin: 0 0 0.75rem;
+  color: #b91c1c;
+  font-size: 0.9rem;
+}
+
 @media (max-width: 900px) {
   .alerts-priority-strip,
   .alerts-filters-grid {
@@ -4655,5 +4738,9 @@ button.alert-item--link {
   .alerts-priority-strip,
   .alerts-filters-grid {
     grid-template-columns: 1fr;
+  }
+  .alert-meta-row {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
