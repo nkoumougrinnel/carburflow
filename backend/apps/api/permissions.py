@@ -31,6 +31,12 @@ def user_is_agent(user):
 
 
 def user_can_upload_rapports(user):
+    """Dépôt de relevé réservé aux opérateurs (pas aux responsables)."""
+    return get_user_role(user) == 'operateur'
+
+
+def user_can_access_rapports(user):
+    """Consultation des relevés : responsables et opérateurs."""
     return get_user_role(user) in {'admin', 'operateur'}
 
 
@@ -52,7 +58,7 @@ class IsAdminOrAgent(BasePermission):
         return bool(
             request.user
             and request.user.is_authenticated
-            and user_can_upload_rapports(request.user)
+            and user_can_access_rapports(request.user)
         )
 
 

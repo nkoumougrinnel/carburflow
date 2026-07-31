@@ -8,6 +8,7 @@ import {
 
 /**
  * Pastille d’autonomie lisible (jamais ∞).
+ * Pour Indéterminée / Sans fonctionnement : un seul libellé (pas de doublon abrégé).
  * size: "sm" | "md" | "lg"
  */
 function AutonomyBadge({ entity = {}, size = 'md', showLabel = true, className = '' }) {
@@ -15,6 +16,8 @@ function AutonomyBadge({ entity = {}, size = 'md', showLabel = true, className =
   const value = formatAutonomyValue(entity)
   const label = getAutonomySeverityLabel(severity)
   const hint = getAutonomyHint(entity)
+  const isStatusOnly = severity === 'unknown' || severity === 'idle'
+  const displayLabel = showLabel && !isStatusOnly
 
   return (
     <span
@@ -23,7 +26,7 @@ function AutonomyBadge({ entity = {}, size = 'md', showLabel = true, className =
       aria-label={`${value}. ${label}. ${hint}`}
     >
       <span className="autonomy-badge-value">{value}</span>
-      {showLabel ? <span className="autonomy-badge-label">{label}</span> : null}
+      {displayLabel ? <span className="autonomy-badge-label">{label}</span> : null}
     </span>
   )
 }

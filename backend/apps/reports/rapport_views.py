@@ -9,6 +9,7 @@ from django.shortcuts import get_object_or_404
 
 from apps.reports.models import Rapport
 from apps.api.permissions import (
+    user_can_access_rapports,
     user_can_upload_rapports,
     user_is_admin,
     user_is_agent as user_is_operateur,
@@ -119,7 +120,7 @@ class RapportUploadAPIView(APIView):
     def post(self, request):
         if not user_can_upload_rapports(request.user):
             return Response(
-                {'detail': 'Seul un responsable ou un opérateur peut déposer un relevé.'},
+                {'detail': 'Seul un opérateur peut déposer un relevé.'},
                 status=status.HTTP_403_FORBIDDEN,
             )
         upload = request.FILES.get('file') or request.FILES.get('rapport')
@@ -215,7 +216,7 @@ class MesRapportsAPIView(APIView):
         ],
     )
     def get(self, request):
-        if not user_can_upload_rapports(request.user):
+        if not user_can_access_rapports(request.user):
             return Response(
                 {'detail': 'Accès réservé aux responsables et opérateurs.'},
                 status=status.HTTP_403_FORBIDDEN,
@@ -248,7 +249,7 @@ class SoumissionsAPIView(APIView):
 
     @extend_schema(tags=['Rapports'], summary='Historique des soumissions de rapports')
     def get(self, request):
-        if not user_can_upload_rapports(request.user):
+        if not user_can_access_rapports(request.user):
             return Response(
                 {'detail': 'Accès réservé aux responsables et opérateurs.'},
                 status=status.HTTP_403_FORBIDDEN,

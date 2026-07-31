@@ -23,7 +23,7 @@ import { BADGES_REFRESH_EVENT } from '../utils/badges.js'
 import { isIndeterminateAutonomyAlert, normalizePersistedAlert } from '../utils/alerts.js'
 import { getDisplayFullName } from '../utils/userDisplay.js'
 
-const BADGES_POLL_MS = 15000
+const BADGES_POLL_MS = 10000
 const ACTIVE_ALERT_ETATS = new Set(['nouvelle', 'en_cours'])
 
 function countActiveAlertsForBadge(rows) {
@@ -62,17 +62,23 @@ function Topbar({ activeView, onNavigate }) {
 
   useEffect(() => { setMenuOpen(false) }, [activeView])
 
-  const refreshBadges = useCallback(async () => {
+  const refreshBadges = useCallback(async ({ preferUnread } = {}) => {
     if (!isAuthenticated) {
       setActiveAlertsCount(0)
       setUnreadMessages(0)
       return
     }
 
+    if (typeof preferUnread === 'number' && Number.isFinite(preferUnread)) {
+      setUnreadMessages(Math.max(0, preferUnread))
+    }
+
     const tasks = [
       notificationsUnreadCount()
         .then((data) => setUnreadMessages(Number(data?.unread) || 0))
-        .catch(() => setUnreadMessages(0)),
+        .catch(() => {
+          if (typeof preferUnread !== 'number') setUnreadMessages(0)
+        }),
     ]
 
     if (isAdmin) {
@@ -90,12 +96,15 @@ function Topbar({ activeView, onNavigate }) {
 
   useEffect(() => {
     let cancelled = false
-    const run = () => {
-      if (!cancelled) refreshBadges()
+    const run = (opts) => {
+      if (!cancelled) refreshBadges(opts)
     }
     run()
-    const pollId = window.setInterval(run, BADGES_POLL_MS)
-    const onRefresh = () => run()
+    const pollId = window.setInterval(() => run(), BADGES_POLL_MS)
+    const onRefresh = (event) => {
+      const unread = event?.detail?.unread
+      run(typeof unread === 'number' ? { preferUnread: unread } : undefined)
+    }
     const onFocus = () => run()
     window.addEventListener(BADGES_REFRESH_EVENT, onRefresh)
     window.addEventListener('focus', onFocus)

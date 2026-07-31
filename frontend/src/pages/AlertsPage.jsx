@@ -3,7 +3,6 @@ import { Bell, CheckCircle2, History } from 'lucide-react'
 import Topbar from '../components/Topbar.jsx'
 import PageEnter from '../components/PageEnter.jsx'
 import PageLoader from '../components/PageLoader.jsx'
-import SectionWorkspace from '../components/SectionWorkspace.jsx'
 import WelcomeBanner from '../components/WelcomeBanner.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { listAlertes, treatAlert } from '../auth.js'
@@ -268,7 +267,7 @@ function AlertsPage({ onNavigate }) {
   }
 
   const listContent = (
-    <>
+    <div className="alerts-saas-body">
       {message && <div className="reports-success" role="status">{message}</div>}
 
       {loadError && (
@@ -385,7 +384,7 @@ function AlertsPage({ onNavigate }) {
           )}
         </div>
       </section>
-    </>
+    </div>
   )
 
   if (loading) {
@@ -419,26 +418,42 @@ function AlertsPage({ onNavigate }) {
     <div className="app-shell app-shell--alerts dashboard-shell">
       <Topbar activeView="alerts" onNavigate={onNavigate} />
       <PageEnter className="alerts-page-enter">
-        <main className="alerts-page alerts-page--workspace">
+        <main className="profile-layout profile-layout--saas alerts-layout--saas">
           <WelcomeBanner
             kicker="Priorités métier"
             title="Centre d’alertes"
             subtitle="Filtrez, traitez et suivez les alertes actives. Réservé aux responsables."
           />
-          <SectionWorkspace
-            className="section-workspace--fill section-workspace--alerts"
-            title="Alertes"
-            items={navItems}
-            activeId={panel}
-            hideItemDescriptions
-            onChange={(id) => {
-              setMessage('')
-              setFocusAlertId('')
-              setPanel(id)
-            }}
-          >
+
+          <div className="saas-profile-tabs" role="tablist" aria-label="Sections alertes">
+            {navItems.map((item) => {
+              const Icon = item.icon
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={panel === item.id}
+                  className={`saas-profile-tab${panel === item.id ? ' is-active' : ''}`}
+                  onClick={() => {
+                    setMessage('')
+                    setFocusAlertId('')
+                    setPanel(item.id)
+                  }}
+                >
+                  {Icon ? <Icon size={16} aria-hidden="true" /> : null}
+                  {item.label}
+                  {item.badge != null && item.badge !== '' && item.badge > 0 ? (
+                    <span className="saas-profile-tab-badge">{item.badge}</span>
+                  ) : null}
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="saas-section-pane saas-section-pane--alerts">
             {listContent}
-          </SectionWorkspace>
+          </div>
         </main>
       </PageEnter>
 

@@ -1,9 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, Inbox, Plus, Reply, Search, Send, X } from 'lucide-react'
 import Topbar from '../components/Topbar.jsx'
 import PageEnter from '../components/PageEnter.jsx'
 import PageLoader from '../components/PageLoader.jsx'
-import SectionWorkspace from '../components/SectionWorkspace.jsx'
 import WelcomeBanner from '../components/WelcomeBanner.jsx'
 import { LoadingButton } from '../components/reports/ReportsUi.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -313,10 +312,21 @@ function NotificationsPage({ onNavigate }) {
   const [composeOpen, setComposeOpen] = useState(false)
   const [composeInitial, setComposeInitial] = useState(null)
   const [inboxUnread, setInboxUnread] = useState(0)
+  const unreadRef = useRef(0)
+  const refreshGenRef = useRef(0)
 
   const isSent = box === 'sent'
 
+  const applyUnread = useCallback((next) => {
+    const n = Math.max(0, Number(next) || 0)
+    unreadRef.current = n
+    setInboxUnread(n)
+    requestBadgesRefresh({ source: 'notifications', unread: n })
+    return n
+  }, [])
+
   const refresh = useCallback(async ({ silent = false, mailbox = box } = {}) => {
+    const gen = ++refreshGenRef.current
     if (!silent) setLoading(true)
     setError('')
     try {
@@ -324,26 +334,29 @@ function NotificationsPage({ onNavigate }) {
         listNotifications({ limit: 100, box: mailbox }),
         notificationsUnreadCount().catch(() => null),
       ])
+      if (gen !== refreshGenRef.current) return
       const list = Array.isArray(rows) ? rows.filter((n) => !n.alerte_id) : []
       setItems(list)
       setSelectedId((prev) => {
         if (prev != null && list.some((n) => n.id === prev)) return prev
         return list[0]?.id ?? null
       })
+      let nextUnread = unreadRef.current
       if (unreadPayload && typeof unreadPayload.unread === 'number') {
-        setInboxUnread(unreadPayload.unread)
+        nextUnread = unreadPayload.unread
       } else if (mailbox === 'inbox') {
-        setInboxUnread(list.filter((n) => !n.lu).length)
+        nextUnread = list.filter((n) => !n.lu).length
       }
-      requestBadgesRefresh({ source: 'notifications' })
+      applyUnread(nextUnread)
     } catch (err) {
+      if (gen !== refreshGenRef.current) return
       setItems([])
       setSelectedId(null)
       setError(err.message || 'Impossible de charger les messages.')
     } finally {
-      if (!silent) setLoading(false)
+      if (!silent && gen === refreshGenRef.current) setLoading(false)
     }
-  }, [box])
+  }, [box, applyUnread])
 
   useEffect(() => {
     refresh({ mailbox: box })
@@ -352,7 +365,7 @@ function NotificationsPage({ onNavigate }) {
   useEffect(() => {
     const id = window.setInterval(() => {
       refresh({ silent: true, mailbox: box })
-    }, 20000)
+    }, 8000)
     return () => window.clearInterval(id)
   }, [refresh, box])
 
@@ -388,13 +401,30 @@ function NotificationsPage({ onNavigate }) {
     setSelectedId(notif.id)
     setMobileDetailOpen(true)
     if (isSent || notif.lu) return
+
+    // Invalide un refresh en cours pour ne pas écraser le -1 optimiste
+    refreshGenRef.current += 1
+
+    // Optimiste : -1 immédiatement (onglet + navbar)
+    setItems((prev) => prev.map((row) => (row.id === notif.id ? { ...row, lu: true } : row)))
+    applyUnread(unreadRef.current - 1)
+
     try {
       const updated = await markNotificationRead(notif.id)
-      setItems((prev) => prev.map((row) => (row.id === notif.id ? { ...row, ...updated } : row)))
-      setInboxUnread((prev) => Math.max(0, prev - 1))
-      requestBadgesRefresh({ source: 'notifications' })
+      setItems((prev) => prev.map((row) => (row.id === notif.id ? { ...row, ...updated, lu: true } : row)))
+      const payload = await notificationsUnreadCount().catch(() => null)
+      if (payload && typeof payload.unread === 'number') {
+        applyUnread(payload.unread)
+      }
     } catch {
-      // lecture optimiste non bloquante
+      // Re-sync si la lecture a échoué
+      setItems((prev) => prev.map((row) => (row.id === notif.id ? { ...row, lu: false } : row)))
+      const payload = await notificationsUnreadCount().catch(() => null)
+      if (payload && typeof payload.unread === 'number') {
+        applyUnread(payload.unread)
+      } else {
+        applyUnread(unreadRef.current + 1)
+      }
     }
   }
 
@@ -458,14 +488,7 @@ function NotificationsPage({ onNavigate }) {
         ) : items.length === 0 ? (
           <div className="notif-empty-state">
             <p className="notif-empty">{emptyLabel}</p>
-            <button
-              type="button"
-              className="reports-btn reports-btn--primary"
-              onClick={() => openCompose(null)}
-            >
-              <Plus size={16} aria-hidden="true" />
-              Écrire un message
-            </button>
+            <p className="notif-empty-hint">Utilisez « Écrire un message » ci-dessus pour démarrer.</p>
           </div>
         ) : (
           <div className={`notif-split${mobileDetailOpen ? ' show-detail' : ''}`}>
@@ -552,7 +575,7 @@ function NotificationsPage({ onNavigate }) {
     <div className="app-shell app-shell--messaging">
       <Topbar activeView="notifications" onNavigate={onNavigate} />
       <PageEnter className="notif-page-enter">
-        <main className="notifications-layout">
+        <main className="profile-layout profile-layout--saas notifications-layout--saas">
           <WelcomeBanner
             kicker="Échanges internes"
             title="Messagerie"
@@ -563,33 +586,39 @@ function NotificationsPage({ onNavigate }) {
             }
           />
 
-          <SectionWorkspace
-            className="section-workspace--fill section-workspace--messaging"
-            title="Messages"
-            items={navItems}
-            activeId={box}
-            onChange={(next) => {
-              setMessage('')
-              setError('')
-              setSelectedId(null)
-              setMobileDetailOpen(false)
-              setBox(next)
-            }}
-          >
+          <div className="saas-profile-tabs" role="tablist" aria-label="Boîtes de messagerie">
+            {navItems.map((item) => {
+              const Icon = item.icon
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={box === item.id}
+                  className={`saas-profile-tab${box === item.id ? ' is-active' : ''}`}
+                  onClick={() => {
+                    setMessage('')
+                    setError('')
+                    setSelectedId(null)
+                    setMobileDetailOpen(false)
+                    setBox(item.id)
+                  }}
+                >
+                  {Icon ? <Icon size={16} aria-hidden="true" /> : null}
+                  {item.label}
+                  {item.badge != null && item.badge !== '' && item.badge > 0 ? (
+                    <span className="saas-profile-tab-badge">{item.badge}</span>
+                  ) : null}
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="saas-section-pane saas-section-pane--messaging">
             {mailboxPane}
-          </SectionWorkspace>
+          </div>
         </main>
       </PageEnter>
-
-      <button
-        type="button"
-        className="notif-fab"
-        aria-label="Écrire un message"
-        title="Écrire un message"
-        onClick={() => openCompose(null)}
-      >
-        <Plus size={26} strokeWidth={2.4} aria-hidden="true" />
-      </button>
 
       {composeOpen && (
         <ComposeMessageModal

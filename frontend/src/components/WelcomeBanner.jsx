@@ -1,4 +1,4 @@
-import React, { useRef } from 'react'
+import React, { useMemo, useRef } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -6,11 +6,21 @@ import { getDisplayFirstName } from '../utils/userDisplay.js'
 
 gsap.registerPlugin(useGSAP)
 
+/** Salutation selon l’heure locale. */
+export function greetingForHour(date = new Date()) {
+  const h = date.getHours()
+  if (h >= 5 && h < 12) return 'Bonjour'
+  if (h >= 12 && h < 15) return 'Bon après-midi'
+  if (h >= 15 && h < 18) return 'Hello'
+  if (h >= 18 && h < 22) return 'Bonsoir'
+  return 'Salut'
+}
+
 /**
  * Bandeau de bienvenue / contexte de page.
- * - Par défaut : « Un bonjour Prénom ! »
+ * - Par défaut : salutation horaire + prénom
  * - Passer title / kicker / subtitle pour personnaliser une page
- * - variant="admin-import" : message responsable (pas de bonjour)
+ * - variant="admin-import" : message responsable (pas de salutation)
  */
 function WelcomeBanner({
   variant = 'hello',
@@ -22,6 +32,7 @@ function WelcomeBanner({
   const { user, isAdmin, isOperator } = useAuth()
   const ref = useRef(null)
   const firstName = getDisplayFirstName(user)
+  const greet = useMemo(() => greetingForHour(), [])
 
   useGSAP(() => {
     if (!ref.current) return
@@ -39,7 +50,7 @@ function WelcomeBanner({
   const heading = title || (
     isAdminImport
       ? 'Espace responsable — relevés des équipes'
-      : `Un bonjour ${firstName} !`
+      : `${greet} ${firstName} !`
   )
   const sub = subtitle || (
     isAdminImport

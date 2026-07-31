@@ -1,13 +1,14 @@
 import React from 'react'
 import { useTheme } from '../context/ThemeContext.jsx'
 
-const logoIcon = '/assets/images/logo_clair_navbar.jpeg'
+/** Nouveau logo iconique (goutte / énergie) — navbar & pastilles */
+const logoIcon = '/assets/images/logo-navbar.png'
 const logoLight = '/assets/images/clair.jpeg'
 const logoDark = '/assets/images/sombre.jpeg'
 
 /**
- * Logo CarburFlow officiel (frontend/public/assets/images).
- * - icon : pastille navbar
+ * Logo CarburFlow.
+ * - icon : pastille navbar (nouveau logo)
  * - full : wordmark clair / sombre selon le thème
  */
 function BrandLogo({

@@ -6,11 +6,8 @@ import PageEnter from '../components/PageEnter.jsx'
 import PageLoader from '../components/PageLoader.jsx'
 import AutonomyBadge from '../components/AutonomyBadge.jsx'
 import { apiFetch } from '../auth.js'
-import { useAuth } from '../context/AuthContext.jsx'
-import { getDisplayFirstName } from '../utils/userDisplay.js'
 
 function UserHomePage({ onNavigate }) {
-  const { user } = useAuth()
   const [sitesDashboard, setSitesDashboard] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -74,7 +71,6 @@ function UserHomePage({ onNavigate }) {
         <main className="user-home">
           <WelcomeBanner
             kicker="Espace consultation"
-            title={`Bonjour ${getDisplayFirstName(user)}`}
             subtitle="Suivez l’autonomie de vos sites. Vous consultez uniquement — pas d’envoi de relevés."
           />
 

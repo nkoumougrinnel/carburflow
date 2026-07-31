@@ -312,6 +312,7 @@ function GroupsPage({ onNavigate }) {
   // groupe précis (queryGroupId présent, ex. depuis une alerte du Dashboard), on
   // garde le comportement existant : vue détail sur ce groupe.
   const [mode, setMode] = useState(queryMode || (queryGroupId ? 'details' : 'all'))
+  const [selectedGroupId, setSelectedGroupId] = useState(queryGroupId ? String(queryGroupId) : '')
   const [filtering, setFiltering] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
   const [chartPan, setChartPan] = useState(0)
@@ -623,6 +624,17 @@ function GroupsPage({ onNavigate }) {
     }
   }, [groupsData, siteId, startIndex, endIndex])
 
+  const openGroupDetails = (group) => {
+    setSelectedGroupId(String(group.id))
+    setMode('details')
+    onNavigate?.({
+      view: 'groups',
+      groupId: group.id,
+      groupLabel: group.label,
+      mode: 'details',
+    })
+  }
+
   if (initialLoading || !groupsData) {
     return (
       <div className="app-shell dashboard-shell">
@@ -696,7 +708,11 @@ function GroupsPage({ onNavigate }) {
               id="view_mode"
               value={mode}
               disabled={filtering}
-              onChange={(event) => setMode(event.target.value)}
+              onChange={(event) => {
+                const next = event.target.value
+                setMode(next)
+                if (next === 'all') setSelectedGroupId('')
+              }}
             >
               <option value="all">Vue d’ensemble</option>
               <option value="details">Détail</option>
@@ -771,7 +787,20 @@ function GroupsPage({ onNavigate }) {
                       const relatedAlerts = alertsByGroupId.get(String(g.id)) || []
                       const autonomyTitle = getAutonomyHint(autonomyEntity)
                       return (
-                        <tr key={g.id} className={`autonomy-row autonomy-row--${severity}`}>
+                        <tr
+                          key={g.id}
+                          className={`autonomy-row autonomy-row--${severity} dashboard-row-link`}
+                          onClick={() => openGroupDetails(g)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault()
+                              openGroupDetails(g)
+                            }
+                          }}
+                          tabIndex={0}
+                          role="link"
+                          aria-label={`Ouvrir le détail du groupe ${g.label}`}
+                        >
                           <td>{g.label}</td>
                           <td>{siteName}</td>
                           <td>
@@ -780,11 +809,14 @@ function GroupsPage({ onNavigate }) {
                                 type="button"
                                 className="group-alert-chip"
                                 title={relatedAlerts.map((a) => a.title).join(' · ')}
-                                onClick={() => onNavigate?.({
-                                  view: 'alerts',
-                                  groupId: g.id,
-                                  groupLabel: g.label,
-                                })}
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  onNavigate?.({
+                                    view: 'alerts',
+                                    groupId: g.id,
+                                    groupLabel: g.label,
+                                  })
+                                }}
                               >
                                 {relatedAlerts.length} alerte{relatedAlerts.length > 1 ? 's' : ''}
                               </button>
@@ -802,7 +834,9 @@ function GroupsPage({ onNavigate }) {
                               title={autonomyTitle}
                             >
                               <span className="autonomy-cell-value">{formatAutonomyValue(autonomyEntity)}</span>
-                              <span className="autonomy-cell-label">{getAutonomySeverityLabel(severity)}</span>
+                              {severity !== 'unknown' && severity !== 'idle' ? (
+                                <span className="autonomy-cell-label">{getAutonomySeverityLabel(severity)}</span>
+                              ) : null}
                             </div>
                           </td>
                         </tr>
@@ -814,6 +848,7 @@ function GroupsPage({ onNavigate }) {
             </section>
           ) : (
             (groupsData.group_blocks || []).filter((group) => {
+              if (selectedGroupId) return String(group.id) === String(selectedGroupId)
               if (queryGroupId) return String(group.id) === String(queryGroupId)
               if (queryGroupLabel) return String(group.label) === String(queryGroupLabel)
               return true

@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react'
 import { Moon, Sun } from 'lucide-react'
 import { useAuth, homeViewForUser } from '@/context/AuthContext.jsx'
 import { useTheme } from '@/context/ThemeContext.jsx'
-import { publicSitesRequest } from '@/auth.js'
 import { SignInPage } from '@/components/ui/sign-in'
 import { SignUpPage } from '@/components/ui/sign-up'
 import { Button } from '@/components/ui/button'
@@ -22,7 +21,6 @@ function AuthPage({ onNavigate, initialMode = 'login' }) {
   const { login, register, isAuthenticated, isAdmin, isOperator, isViewer } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const [mode, setMode] = useState(initialMode === 'register' ? 'register' : 'login')
-  const [sites, setSites] = useState([])
   const [form, setForm] = useState({
     username: '',
     email: '',
@@ -30,7 +28,6 @@ function AuthPage({ onNavigate, initialMode = 'login' }) {
     last_name: '',
     password: '',
     password_confirm: '',
-    site_id: '',
   })
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -44,13 +41,6 @@ function AuthPage({ onNavigate, initialMode = 'login' }) {
       onNavigate(homeViewForUser({ isAdmin, isOperator, isViewer }))
     }
   }, [isAuthenticated, isAdmin, isOperator, isViewer, onNavigate])
-
-  useEffect(() => {
-    if (mode !== 'register') return
-    publicSitesRequest()
-      .then((data) => setSites(Array.isArray(data) ? data : []))
-      .catch(() => setSites([]))
-  }, [mode])
 
   const updateField = (field) => (event) => {
     setForm((prev) => ({ ...prev, [field]: event.target.value }))
@@ -96,7 +86,6 @@ function AuthPage({ onNavigate, initialMode = 'login' }) {
         last_name: form.last_name.trim(),
         password: form.password,
         password_confirm: form.password_confirm,
-        site_id: form.site_id ? Number(form.site_id) : null,
       })
       onNavigate('viewer')
     } catch (err) {
@@ -123,7 +112,7 @@ function AuthPage({ onNavigate, initialMode = 'login' }) {
           onClick={() => onNavigate('home')}
           className="flex items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <BrandLogo variant="icon" className="size-9 rounded-md object-cover" />
+          <BrandLogo variant="icon" className="size-9 rounded-md object-contain bg-black p-0.5" />
           <span className="font-display text-base font-semibold text-petrol">CarburFlow</span>
         </button>
         <Button variant="ghost" size="sm" onClick={() => onNavigate('home')}>
@@ -177,7 +166,6 @@ function AuthPage({ onNavigate, initialMode = 'login' }) {
           onSignIn={() => switchMode('login')}
           error={error}
           submitting={submitting}
-          sites={sites}
           form={form}
           onFieldChange={updateField}
         />

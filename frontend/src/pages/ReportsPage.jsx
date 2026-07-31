@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Download, Upload, History, Search } from 'lucide-react'
 import Topbar from '../components/Topbar.jsx'
 import PageEnter from '../components/PageEnter.jsx'
-import SectionWorkspace from '../components/SectionWorkspace.jsx'
 import WelcomeBanner from '../components/WelcomeBanner.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import {
@@ -83,8 +82,10 @@ function LoadingButton({
 function initialReportsPane(isAdmin) {
   const pane = new URLSearchParams(window.location.search).get('pane')
   if (pane === 'history' || pane === 'download') return 'download'
+  // Admin : consultation uniquement (pas d’envoi de relevé)
+  if (isAdmin) return 'download'
   if (pane === 'upload') return 'upload'
-  return isAdmin ? 'download' : 'upload'
+  return 'upload'
 }
 
 function ReportsPage({ onNavigate }) {
@@ -119,6 +120,7 @@ function ReportsPage({ onNavigate }) {
     || Boolean(downloadingRapport)
 
   const navItems = useMemo(() => {
+    // Admin : consultation seule — pas de dépôt de relevé
     if (isAdmin) {
       return [
         {
@@ -126,12 +128,6 @@ function ReportsPage({ onNavigate }) {
           label: 'Consulter',
           description: 'Tous les envois et export',
           icon: Download,
-        },
-        {
-          id: 'upload',
-          label: 'Ajouter',
-          description: 'Générer, remplir et envoyer',
-          icon: Upload,
         },
       ]
     }
@@ -665,19 +661,19 @@ function ReportsPage({ onNavigate }) {
     </div>
   )
 
-  const paneContent = pane === 'download' ? downloadPane : uploadPane
+  const paneContent = pane === 'download' ? downloadPane : (isAdmin ? downloadPane : uploadPane)
 
   return (
     <div className="app-shell app-shell--reports">
       <Topbar activeView="reports" onNavigate={onNavigate} />
       <PageEnter className="reports-page-enter">
-        <main className="reports-layout reports-layout--workspace">
+        <main className="profile-layout profile-layout--saas reports-layout--saas">
           <WelcomeBanner
             kicker="Fichiers & dépôt"
             title="Relevés"
             subtitle={
               isAdmin
-                ? 'Téléchargez les modèles, suivez les dépôts et récupérez les fiches.'
+                ? 'Consultez et téléchargez les relevés déposés par les équipes.'
                 : 'Déposez vos relevés et consultez l’historique de vos envois.'
             }
           />
@@ -701,18 +697,33 @@ function ReportsPage({ onNavigate }) {
             </div>
           )}
 
-          <SectionWorkspace
-            className="section-workspace--fill"
-            title="Actions"
-            items={navItems}
-            activeId={pane}
-            onChange={(id) => {
-              clearFeedback()
-              setPane(id)
-            }}
-          >
+          {navItems.length > 1 ? (
+            <div className="saas-profile-tabs" role="tablist" aria-label="Sections relevés">
+              {navItems.map((item) => {
+                const Icon = item.icon
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={pane === item.id}
+                    className={`saas-profile-tab${pane === item.id ? ' is-active' : ''}`}
+                    onClick={() => {
+                      clearFeedback()
+                      setPane(item.id)
+                    }}
+                  >
+                    {Icon ? <Icon size={16} aria-hidden="true" /> : null}
+                    {item.label}
+                  </button>
+                )
+              })}
+            </div>
+          ) : null}
+
+          <div className="saas-section-pane">
             {paneContent}
-          </SectionWorkspace>
+          </div>
         </main>
       </PageEnter>
     </div>

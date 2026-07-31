@@ -49,19 +49,17 @@ export function getAutonomySeverityLabel(severity) {
 
 /**
  * Valeur courte affichée dans les tableaux / pastilles.
- * Jamais "∞" ni "0 h" pour la conso sans horaire : Indéterminée.
+ * Libellés complets (pas d’abréviations Indét. / Sans fct.).
  */
 export function formatAutonomyValue(entity = {}) {
-  if (entity.is_infinite_consumption) return 'Indét.'
-  if (entity.is_sans_fonctionnement) return 'Sans fct.'
-  if (entity.is_infinite_autonomy || entity.formatted_autonomy === '∞') return 'Sans fct.'
-  // Ancien payload « 0h » sans flag : ne jamais afficher comme urgence chiffrée ici
-  // si le backend marque encore 0h pour indéterminée (rétrocompat).
+  if (entity.is_infinite_consumption) return 'Indéterminée'
+  if (entity.is_sans_fonctionnement) return 'Sans fonctionnement'
+  if (entity.is_infinite_autonomy || entity.formatted_autonomy === '∞') return 'Sans fonctionnement'
   if (
     (entity.formatted_autonomy === '0h' || entity.formatted_autonomy === '0 h')
     && entity.is_infinite_consumption
   ) {
-    return 'Indét.'
+    return 'Indéterminée'
   }
   if (entity.formatted_autonomy && entity.formatted_autonomy !== '∞' && entity.formatted_autonomy !== '0h') {
     return String(entity.formatted_autonomy)

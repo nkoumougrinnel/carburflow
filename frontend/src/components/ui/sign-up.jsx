@@ -1,7 +1,6 @@
 import React, { useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { AuthHeroPanel } from '@/components/ui/auth-hero-panel'
-import { cn } from '@/lib/utils'
 
 function GlassInputWrapper({ children }) {
   return (
@@ -31,7 +30,6 @@ export function SignUpPage({
   onSignIn,
   error,
   submitting = false,
-  sites = [],
   form,
   onFieldChange,
 }) {
@@ -113,30 +111,6 @@ export function SignUpPage({
                     placeholder="vous@entreprise.cm"
                     className="w-full rounded-2xl bg-transparent p-4 text-sm text-foreground focus:outline-none"
                   />
-                </GlassInputWrapper>
-              </div>
-
-              <div className="animate-element animate-delay-500 flex flex-col gap-2">
-                <label className="text-sm font-medium text-muted-foreground" htmlFor="sign-up-site">
-                  Site rattaché (optionnel)
-                </label>
-                <GlassInputWrapper>
-                  <select
-                    id="sign-up-site"
-                    name="site_id"
-                    value={form.site_id}
-                    onChange={onFieldChange('site_id')}
-                    className={cn(
-                      'w-full appearance-none rounded-2xl bg-transparent p-4 text-sm text-foreground focus:outline-none',
-                    )}
-                  >
-                    <option value="">— Aucun —</option>
-                    {sites.map((site) => (
-                      <option key={site.id} value={site.id}>
-                        {site.nom_site}
-                      </option>
-                    ))}
-                  </select>
                 </GlassInputWrapper>
               </div>
 
