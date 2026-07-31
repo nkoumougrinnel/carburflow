@@ -10,6 +10,7 @@ import {
   countAlertsBySeverity,
   normalizePersistedAlert,
   pickPreviewAlerts,
+  resolvePrioriteKey,
 } from '../utils/alerts.js'
 
 function DashboardPage({ onNavigate }) {
@@ -227,6 +228,7 @@ function DashboardPage({ onNavigate }) {
         title: `${criticalAutonomySites}`,
         detail: 'Moins de 24 h de temps restant',
         hrefHint: 'En savoir plus',
+        tone: criticalAutonomySites > 0 ? 'danger' : null,
         open: () => goSites(),
       },
       {
@@ -234,6 +236,7 @@ function DashboardPage({ onNavigate }) {
         title: `${activeAlertCount}`,
         detail: activeAlertCount === 1 ? 'Alerte active à traiter' : 'Alertes actives à traiter',
         hrefHint: 'En savoir plus',
+        tone: activeAlertCount > 0 ? 'danger' : null,
         open: () => onNavigate?.({ view: 'alerts' }),
       },
       {
@@ -264,6 +267,10 @@ function DashboardPage({ onNavigate }) {
   const lowAutonomySiteRows = useMemo(() => {
     if (!siteRows.length) return []
     return [...siteRows]
+      .map((site) => ({
+        ...site,
+        site_name: site.site_name || site.nom_site || site.nom || site.label || `Site ${site.id}`,
+      }))
       .filter((s) => {
         // Exclure les sites sans aucune donnée (∞)
         if (s.is_infinite_autonomy) return false
@@ -313,7 +320,15 @@ function DashboardPage({ onNavigate }) {
       .filter((a) => a && !a.traitee)
   }, [dashboardData])
   const alertCounts = useMemo(() => countAlertsBySeverity(alerts), [alerts])
-  const previewAlerts = useMemo(() => pickPreviewAlerts(alerts), [alerts])
+  const previewAlerts = useMemo(() => pickPreviewAlerts(alerts, { maxTotal: 3 }), [alerts])
+
+  const openAlertInCenter = (alert) => {
+    onNavigate?.({
+      view: 'alerts',
+      alertId: alert.id || alert.cle,
+      priority: resolvePrioriteKey(alert) || 'all',
+    })
+  }
 
   if (!dashboardData) {
     return (
@@ -348,7 +363,7 @@ function DashboardPage({ onNavigate }) {
             <button
               key={card.label}
               type="button"
-              className="metric-panel dashboard-summary-card dashboard-summary-card--link"
+              className={`metric-panel dashboard-summary-card dashboard-summary-card--link${card.tone ? ` dashboard-summary-card--${card.tone}` : ''}`}
               onClick={card.open}
               disabled={!card.open}
             >
@@ -386,15 +401,17 @@ function DashboardPage({ onNavigate }) {
               )}
             </div>
           </div>
-          <div className="alert-list">
+          <div className="alert-list alert-list--compact">
             {previewAlerts.length ? previewAlerts.map((alert) => {
               const severity = alert.severity || 'medium'
               const label = alert.priority || 'Moyenne'
               return (
-                <div
+                <button
                   key={alert.id}
-                  className={`alert-item alert-${severity} alert-item--preview`}
+                  type="button"
+                  className={`alert-item alert-item--compact alert-${severity} alert-item--preview alert-item--link`}
                   data-severity={severity}
+                  onClick={() => openAlertInCenter(alert)}
                 >
                   <div className="alert-severity-bar" aria-hidden="true" />
                   <div className="alert-header alert-header--compact">
@@ -403,7 +420,10 @@ function DashboardPage({ onNavigate }) {
                       {label}
                     </span>
                   </div>
-                </div>
+                  {alert.subtitle ? (
+                    <p className="alert-detail alert-detail--preview">{alert.subtitle}</p>
+                  ) : null}
+                </button>
               )
             }) : (
               <div className="alert-empty">

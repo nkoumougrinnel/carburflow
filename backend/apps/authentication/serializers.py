@@ -124,12 +124,25 @@ class LoginSerializer(serializers.Serializer):
 
 
 class ProfileUpdateSerializer(serializers.Serializer):
+    username = serializers.CharField(max_length=150, required=False)
     first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
-    email = serializers.EmailField(required=False, allow_blank=True)
+
+    def validate_username(self, value):
+        username = (value or '').strip()
+        if not username:
+            raise serializers.ValidationError('Le nom d’utilisateur est requis.')
+        qs = User.objects.filter(username__iexact=username)
+        request = self.context.get('request')
+        if request and getattr(request.user, 'pk', None):
+            qs = qs.exclude(pk=request.user.pk)
+        if qs.exists():
+            raise serializers.ValidationError('Ce nom d’utilisateur est déjà pris.')
+        return username
 
     def update(self, instance, validated_data):
-        for field in ('first_name', 'last_name', 'email'):
+        # L’e-mail est l’identifiant de compte : non modifiable ici.
+        for field in ('username', 'first_name', 'last_name'):
             if field in validated_data:
                 value = validated_data[field]
                 setattr(

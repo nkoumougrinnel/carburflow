@@ -32,6 +32,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'core.middleware.CorsMiddleware',
+    'core.middleware.TrustNgrokOriginMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -105,4 +106,10 @@ SPECTACULAR_SETTINGS = {
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
     o for o in os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173').split(',') if o
+]
+
+# Derrière ngrok / tunnels HTTPS (voir TrustNgrokOriginMiddleware)
+TRUST_NGROK_ORIGINS = os.getenv('TRUST_NGROK_ORIGINS', 'false').lower() in {'1', 'true', 'yes', 'on'}
+CSRF_TRUSTED_ORIGINS = [
+    o.strip() for o in os.getenv('CSRF_TRUSTED_ORIGINS', '').split(',') if o.strip()
 ]

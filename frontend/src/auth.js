@@ -42,9 +42,9 @@ function extractErrorMessage(data) {
 }
 
 /**
- * En local Vite : chemins relatifs `/api/v1/...` (proxy).
- * En Docker (`serve` sans proxy) : VITE_API_BASE_URL pointe vers le backend hôte
- * (ex. http://localhost:8001/api/v1) pour éviter de recevoir le HTML du SPA.
+ * En local Vite : chemins relatifs `/api/v1/...` (proxy Vite).
+ * En Docker (nginx) : mêmes chemins relatifs — nginx proxy `/api` → backend.
+ * Optionnel : VITE_API_BASE_URL absolu (ex. autre hôte API).
  */
 export function resolveApiUrl(path) {
   if (!path || /^https?:\/\//i.test(path)) return path
@@ -305,8 +305,8 @@ export async function markNotificationRead(id) {
   return apiFetch(`/api/v1/notifications/${id}/read`, { method: 'POST' })
 }
 
-export async function markAllNotificationsRead() {
-  return apiFetch('/api/v1/notifications/read-all', { method: 'POST' })
+export async function listMessagingAdmins() {
+  return apiFetch('/api/v1/notifications/admins')
 }
 
 export async function sendNotificationMessage(payload) {

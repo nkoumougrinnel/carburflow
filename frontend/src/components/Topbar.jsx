@@ -11,7 +11,6 @@ import {
   X,
   Sun,
   Moon,
-  History,
   UserRound,
   Bell,
   Inbox,
@@ -107,7 +106,7 @@ function Topbar({ activeView, onNavigate }) {
   const adminLinks = [
     { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
     { id: 'alerts', label: 'Alertes', icon: Bell },
-    { id: 'notifications', label: 'Notifications', icon: Inbox },
+    { id: 'notifications', label: 'Messagerie', icon: Inbox },
     { id: 'sites', label: 'Sites', icon: MapPinned },
     { id: 'groups', label: 'Groupes', icon: Zap },
     { id: 'reports', label: 'Relevés', icon: Upload },
@@ -116,16 +115,15 @@ function Topbar({ activeView, onNavigate }) {
 
   const operatorLinks = [
     { id: 'operator', label: 'Accueil', icon: Home },
-    { id: 'notifications', label: 'Notifications', icon: Inbox },
+    { id: 'notifications', label: 'Messagerie', icon: Inbox },
     { id: 'sites', label: 'Sites', icon: MapPinned },
-    { id: 'reports', label: 'Relevé', icon: Upload },
-    { id: 'history', label: 'Historique', icon: History },
+    { id: 'reports', label: 'Relevés', icon: Upload },
     { id: 'profile', label: 'Profil', icon: UserRound },
   ]
 
   const viewerLinks = [
     { id: 'viewer', label: 'Accueil', icon: Home },
-    { id: 'notifications', label: 'Notifications', icon: Inbox },
+    { id: 'notifications', label: 'Messagerie', icon: Inbox },
     { id: 'sites', label: 'Sites', icon: MapPinned },
     { id: 'profile', label: 'Profil', icon: UserRound },
   ]

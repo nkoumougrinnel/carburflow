@@ -135,7 +135,11 @@ class MeAPIView(APIView):
         summary='Mettre à jour le profil',
     )
     def patch(self, request):
-        serializer = ProfileUpdateSerializer(data=request.data, partial=True)
+        serializer = ProfileUpdateSerializer(
+            data=request.data,
+            partial=True,
+            context={'request': request},
+        )
         serializer.is_valid(raise_exception=True)
         serializer.update(request.user, serializer.validated_data)
         return Response(serialize_me(request.user))

@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    MessagingAdminsAPIView,
     NotificationListAPIView,
     NotificationMarkAllReadAPIView,
     NotificationMarkReadAPIView,
@@ -14,6 +15,11 @@ urlpatterns = [
         'notifications/unread-count',
         NotificationUnreadCountAPIView.as_view(),
         name='notifications-unread-count',
+    ),
+    path(
+        'notifications/admins',
+        MessagingAdminsAPIView.as_view(),
+        name='notifications-admins',
     ),
     path(
         'notifications/read-all',

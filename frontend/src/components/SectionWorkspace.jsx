@@ -12,16 +12,21 @@ function SectionWorkspace({
   onChange,
   children,
   className = '',
+  /** Désactivé par défaut : le libellé est déjà dans la sidebar. */
+  hidePaneHead = true,
+  hideItemDescriptions = false,
 }) {
   const active = items.find((item) => item.id === activeId) || items[0]
 
   return (
     <div className={`section-workspace ${className}`.trim()}>
       <aside className="section-workspace-rail" aria-label={title || 'Navigation de section'}>
-        <div className="section-workspace-brand">
-          {title && <div className="section-workspace-title">{title}</div>}
-          {subtitle && <p className="section-workspace-subtitle">{subtitle}</p>}
-        </div>
+        {(title || subtitle) && (
+          <div className="section-workspace-brand">
+            {title && <div className="section-workspace-title">{title}</div>}
+            {subtitle && <p className="section-workspace-subtitle">{subtitle}</p>}
+          </div>
+        )}
 
         <nav className="section-workspace-nav">
           {items.map((item) => {
@@ -47,7 +52,7 @@ function SectionWorkspace({
                       <span className="section-workspace-item-badge">{item.badge}</span>
                     ) : null}
                   </span>
-                  {item.description ? (
+                  {!hideItemDescriptions && item.description ? (
                     <span className="section-workspace-item-desc">{item.description}</span>
                   ) : null}
                 </span>
@@ -58,7 +63,7 @@ function SectionWorkspace({
       </aside>
 
       <div className="section-workspace-main">
-        {active && (
+        {active && !hidePaneHead && (
           <header className="section-workspace-pane-head">
             <h2>{active.label}</h2>
             {active.description ? <p>{active.description}</p> : null}

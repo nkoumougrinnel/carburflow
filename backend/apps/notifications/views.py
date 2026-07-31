@@ -5,37 +5,55 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.api.permissions import IsAdminRole
-
 from .models import Notification
 from .serializers import NotificationSerializer, SendMessageSerializer
-from .services import send_message
+from .services import (
+    admin_recipients,
+    is_admin_recipient,
+    send_message,
+    user_is_messaging_admin,
+)
 
 
 class NotificationListAPIView(APIView):
-    """Boîte de réception de l’utilisateur connecté."""
+    """Boîte de réception ou d’envoi de l’utilisateur connecté."""
 
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
         tags=['Notifications'],
-        summary='Lister mes notifications',
+        summary='Lister mes messages',
         parameters=[
+            OpenApiParameter(
+                name='box',
+                description='inbox (défaut) | sent',
+                required=False,
+                type=str,
+            ),
             OpenApiParameter(name='lu', description='true | false', required=False, type=str),
             OpenApiParameter(name='limit', required=False, type=int),
         ],
     )
     def get(self, request):
-        qs = (
-            Notification.objects.filter(destinataire=request.user)
-            .select_related('expediteur', 'alerte')
-            .order_by('-date_envoi')
-        )
-        lu_param = (request.query_params.get('lu') or '').strip().lower()
-        if lu_param in {'0', 'false', 'non', 'unread'}:
-            qs = qs.filter(lu=False)
-        elif lu_param in {'1', 'true', 'oui', 'read'}:
-            qs = qs.filter(lu=True)
+        box = (request.query_params.get('box') or 'inbox').strip().lower()
+        if box in {'sent', 'outbox', 'envoyes', 'envoyés'}:
+            qs = (
+                Notification.objects.filter(expediteur=request.user, alerte__isnull=True)
+                .select_related('expediteur', 'destinataire', 'alerte')
+                .order_by('-date_envoi')
+            )
+        else:
+            # Messagerie = messages humains uniquement (pas les alertes système)
+            qs = (
+                Notification.objects.filter(destinataire=request.user, alerte__isnull=True)
+                .select_related('expediteur', 'destinataire', 'alerte')
+                .order_by('-date_envoi')
+            )
+            lu_param = (request.query_params.get('lu') or '').strip().lower()
+            if lu_param in {'0', 'false', 'non', 'unread'}:
+                qs = qs.filter(lu=False)
+            elif lu_param in {'1', 'true', 'oui', 'read'}:
+                qs = qs.filter(lu=True)
 
         try:
             limit = min(max(int(request.query_params.get('limit') or 100), 1), 200)
@@ -51,7 +69,11 @@ class NotificationUnreadCountAPIView(APIView):
 
     @extend_schema(tags=['Notifications'], summary='Nombre de messages non lus')
     def get(self, request):
-        count = Notification.objects.filter(destinataire=request.user, lu=False).count()
+        count = Notification.objects.filter(
+            destinataire=request.user,
+            lu=False,
+            alerte__isnull=True,
+        ).count()
         return Response({'unread': count})
 
 
@@ -83,10 +105,31 @@ class NotificationMarkAllReadAPIView(APIView):
         return Response({'detail': 'Messages marqués comme lus.', 'updated': updated})
 
 
-class NotificationSendAPIView(APIView):
-    """Messagerie : un admin envoie un message à un utilisateur."""
+class MessagingAdminsAPIView(APIView):
+    """Liste des responsables joignables par messagerie (tous rôles authentifiés)."""
 
-    permission_classes = [IsAuthenticated, IsAdminRole]
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(tags=['Notifications'], summary='Lister les responsables')
+    def get(self, request):
+        rows = []
+        for user in admin_recipients().order_by('email', 'username')[:100]:
+            if user.pk == request.user.pk:
+                continue
+            name = user.get_full_name().strip() or user.username
+            rows.append({
+                'id': user.id,
+                'email': user.email or '',
+                'username': user.username,
+                'nom': name,
+            })
+        return Response(rows)
+
+
+class NotificationSendAPIView(APIView):
+    """Messagerie : admin → n’importe qui ; utilisateur/opérateur → responsables uniquement."""
+
+    permission_classes = [IsAuthenticated]
 
     @extend_schema(
         request=SendMessageSerializer,
@@ -97,10 +140,19 @@ class NotificationSendAPIView(APIView):
         serializer = SendMessageSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
+        destinataire = data['destinataire']
+
+        if not user_is_messaging_admin(request.user):
+            if not is_admin_recipient(destinataire):
+                return Response(
+                    {'detail': 'Vous ne pouvez écrire qu’à un responsable.'},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
         try:
             notif = send_message(
                 expediteur=request.user,
-                destinataire=data['destinataire'],
+                destinataire=destinataire,
                 contenu=data['contenu'],
                 sujet=data['sujet'],
             )

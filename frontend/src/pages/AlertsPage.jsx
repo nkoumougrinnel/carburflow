@@ -4,11 +4,11 @@ import Topbar from '../components/Topbar.jsx'
 import PageEnter from '../components/PageEnter.jsx'
 import PageLoader from '../components/PageLoader.jsx'
 import SectionWorkspace from '../components/SectionWorkspace.jsx'
+import WelcomeBanner from '../components/WelcomeBanner.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { listAlertes, treatAlert } from '../auth.js'
 import { requestBadgesRefresh } from '../utils/badges.js'
 import {
-  ALERT_TYPE_META,
   PRIORITE_META,
   countAlertsBySeverity,
   filterAlerts,
@@ -126,6 +126,7 @@ function AlertsPage({ onNavigate }) {
     return status === 'treated' || status === 'history' ? 'history' : 'active'
   })
   const [priority, setPriority] = useState(() => new URLSearchParams(window.location.search).get('priority') || 'all')
+  const [focusAlertId, setFocusAlertId] = useState(() => new URLSearchParams(window.location.search).get('alertId') || '')
   const [pendingTreat, setPendingTreat] = useState(null)
 
   const loadAll = useCallback(async () => {
@@ -154,9 +155,10 @@ function AlertsPage({ onNavigate }) {
     const params = new URLSearchParams()
     if (panel === 'history') params.set('status', 'history')
     if (priority !== 'all') params.set('priority', priority)
+    if (focusAlertId) params.set('alertId', focusAlertId)
     const qs = params.toString()
     window.history.replaceState({}, '', qs ? `/alertes/?${qs}` : '/alertes/')
-  }, [panel, priority])
+  }, [panel, priority, focusAlertId])
 
   const alerts = useMemo(
     () => (alertsRaw || []).map(normalizePersistedAlert).filter(Boolean),
@@ -178,18 +180,34 @@ function AlertsPage({ onNavigate }) {
     [alerts],
   )
 
+  useEffect(() => {
+    if (!focusAlertId || loading) return
+    const inActive = activeAlerts.some((a) => String(a.id) === String(focusAlertId))
+    const inHistory = historyAlerts.some((a) => String(a.id) === String(focusAlertId))
+    if (inHistory && !inActive) setPanel('history')
+    else if (inActive) setPanel('active')
+
+    const timer = window.setTimeout(() => {
+      const el = document.getElementById(`alert-card-${focusAlertId}`)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        el.classList.add('is-focused')
+        window.setTimeout(() => el.classList.remove('is-focused'), 2200)
+      }
+    }, 120)
+    return () => window.clearTimeout(timer)
+  }, [focusAlertId, loading, activeAlerts, historyAlerts])
+
   const navItems = useMemo(() => ([
     {
       id: 'active',
       label: 'À traiter',
-      description: 'Alertes actives à valider',
       icon: Bell,
       badge: activeAlerts.length,
     },
     {
       id: 'history',
       label: 'Historique',
-      description: 'Alertes traitées ou ignorées',
       icon: History,
       badge: historyAlerts.length,
     },
@@ -246,7 +264,6 @@ function AlertsPage({ onNavigate }) {
     }))
     setPendingTreat(null)
     setMessage('Alerte marquée comme traitée.')
-    setPanel('history')
     requestBadgesRefresh({ source: 'alerts' })
   }
 
@@ -285,58 +302,45 @@ function AlertsPage({ onNavigate }) {
         </div>
       </section>
 
-      <section className="dashboard-alerts metric-panel alerts-list-panel">
-        <div className="metric-title-row alert-section-head">
-          <div>
-            <span className="metric-label">{panel === 'history' ? 'Historique' : 'Actives'}</span>
-            <h3>
-              {panel === 'history' ? 'Alertes traitées' : 'Alertes à traiter'}
-            </h3>
-          </div>
-          <button type="button" className="dashboard-section-link" onClick={() => onNavigate('dashboard')}>
-            Retour dashboard →
-          </button>
-        </div>
-
-        <div className="alert-list">
+      <section className="alerts-list-panel alerts-list-panel--bare" aria-label={panel === 'history' ? 'Historique' : 'Alertes actives'}>
+        <div className="alert-list alert-list--compact">
           {visible.length ? visible.map((alert) => {
             const severity = alert.severity || 'medium'
             const label = alert.priority || PRIORITE_META[alert.priorite]?.label || 'Moyenne'
-            const typeLabel = ALERT_TYPE_META[alert.type]?.label || alert.type
             const when = panel === 'history'
               ? formatWhen(alert.date_traitement || alert.detected_at)
               : formatWhen(alert.detected_at)
             const author = alert.traite_par_username || alert.traite_par || null
+            const isFocused = focusAlertId && String(focusAlertId) === String(alert.id)
             return (
               <div
                 key={alert.id}
-                className={`alert-item alert-${severity}${panel === 'history' ? ' alert-item--treated' : ''}`}
+                id={`alert-card-${alert.id}`}
+                className={`alert-item alert-item--compact alert-${severity}${panel === 'history' ? ' alert-item--treated' : ''}${isFocused ? ' is-focused' : ''}`}
                 data-severity={severity}
               >
                 <div className="alert-severity-bar" aria-hidden="true" />
-                <div className="alert-header">
-                  <div className="alert-title-wrap">
-                    <span className="alert-type-chip">{typeLabel}</span>
-                    {panel === 'history' && (
-                      <span className={`alert-type-chip ${alert.etat === 'ignoree' ? 'alert-type-chip--ignored' : 'alert-type-chip--treated'}`}>
-                        {alert.etat === 'ignoree' ? 'Ignorée' : 'Traitée'}
-                      </span>
-                    )}
+                <div className="alert-header alert-header--compact">
+                  <div className="alert-title-wrap alert-title-wrap--compact">
                     <strong>{alert.title}</strong>
                   </div>
                   <span className={`alert-level-tag alert-level-tag--${severity}`}>{label}</span>
                 </div>
-                <div className="alert-body">
-                  <AlertSubtitle subtitle={alert.subtitle} />
-                  {panel === 'history' && alert.justification && (
-                    <p className="alert-justification">
-                      <strong>Justification :</strong> {alert.justification}
-                      {author ? ` — ${author}` : ''}
+                <div className="alert-body alert-body--compact">
+                  {alert.subtitle ? (
+                    <p className="alert-detail">
+                      <AlertSubtitle subtitle={alert.subtitle} />
                     </p>
-                  )}
+                  ) : null}
+                  {panel === 'history' && alert.justification ? (
+                    <p className="alert-justification">
+                      <span className="alert-justification-label">Justification</span>
+                      {alert.justification}
+                    </p>
+                  ) : null}
                   <div className="alert-meta-row">
-                    <span>
-                      {panel === 'history' ? `Traité le ${when}` : `Détectée le ${when}`}
+                    <span className="alert-when">
+                      {panel === 'history' ? `Traité le ${when}` : when}
                       {panel === 'history' && author ? ` · ${author}` : ''}
                     </span>
                     <div className="alert-item-actions">
@@ -345,7 +349,7 @@ function AlertsPage({ onNavigate }) {
                         className="alert-more-btn"
                         onClick={() => openAlert(alert)}
                       >
-                        En savoir plus <ArrowRight size={14} aria-hidden="true" />
+                        Voir <ArrowRight size={14} aria-hidden="true" />
                       </button>
                       {isAdmin && panel === 'active' && (
                         <button
@@ -353,8 +357,8 @@ function AlertsPage({ onNavigate }) {
                           className="reports-btn reports-btn--primary alert-treat-btn"
                           onClick={() => { setMessage(''); setPendingTreat(alert) }}
                         >
-                          <CheckCircle2 size={15} aria-hidden="true" />
-                          Marquer traitée
+                          <CheckCircle2 size={14} aria-hidden="true" />
+                          Traiter
                         </button>
                       )}
                     </div>
@@ -403,18 +407,24 @@ function AlertsPage({ onNavigate }) {
       <Topbar activeView="alerts" onNavigate={onNavigate} />
       <PageEnter className="alerts-page-enter">
         <main className="alerts-page alerts-page--workspace">
-          <SectionWorkspace
-            className="section-workspace--fill"
-            title="Alertes"
+          <WelcomeBanner
+            kicker="Priorités métier"
+            title="Centre d’alertes"
             subtitle={
               isAdmin
-                ? 'Traitez les alertes, puis consultez l’historique'
-                : 'Consultez les alertes actives et l’historique'
+                ? 'Filtrez, traitez et suivez les alertes actives.'
+                : 'Consultez les alertes actives et l’historique.'
             }
+          />
+          <SectionWorkspace
+            className="section-workspace--fill section-workspace--alerts"
+            title="Alertes"
             items={navItems}
             activeId={panel}
+            hideItemDescriptions
             onChange={(id) => {
               setMessage('')
+              setFocusAlertId('')
               setPanel(id)
             }}
           >

@@ -18,7 +18,7 @@ import InteractionShell from './components/InteractionShell.jsx'
 import PageLoader from './components/PageLoader.jsx'
 
 const ADMIN_VIEWS = new Set(['home', 'dashboard', 'sites', 'cuves', 'groups', 'reports', 'history', 'profile', 'alerts', 'notifications'])
-const OPERATOR_VIEWS = new Set(['operator', 'sites', 'reports', 'history', 'profile', 'notifications'])
+const OPERATOR_VIEWS = new Set(['operator', 'sites', 'reports', 'profile', 'notifications'])
 const VIEWER_VIEWS = new Set(['viewer', 'sites', 'profile', 'notifications'])
 const PUBLIC_VIEWS = new Set(['home', 'login', 'register'])
 
@@ -112,6 +112,16 @@ function AppRoutes() {
       if (options.priority != null && options.priority !== '' && options.priority !== 'all') {
         params.push(`priority=${encodeURIComponent(options.priority)}`)
       }
+      if (options.alertId != null && options.alertId !== '') {
+        params.push(`alertId=${encodeURIComponent(options.alertId)}`)
+      }
+      if (params.length) nextPath += `?${params.join('&')}`
+    }
+    if (nextView === 'reports') {
+      const params = []
+      if (options.pane != null && options.pane !== '') {
+        params.push(`pane=${encodeURIComponent(options.pane)}`)
+      }
       if (params.length) nextPath += `?${params.join('&')}`
     }
 
@@ -161,7 +171,6 @@ function AppRoutes() {
     if (view === 'operator') return <OperatorHomePage onNavigate={navigate} />
     if (view === 'sites') return <SitesPage onNavigate={navigate} />
     if (view === 'reports') return <ReportsPage onNavigate={navigate} />
-    if (view === 'history') return <HistoryPage onNavigate={navigate} />
     return <OperatorHomePage onNavigate={navigate} />
   }
 

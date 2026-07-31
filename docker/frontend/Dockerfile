@@ -2,8 +2,8 @@ FROM node:20-slim AS build
 
 WORKDIR /app
 
-# URL de l'API vue depuis le navigateur (hôte, pas le réseau Docker)
-ARG VITE_API_BASE_URL=http://localhost:8001/api/v1
+# Vide = chemins relatifs /api/v1 (même origine via nginx) → compatible ngrok
+ARG VITE_API_BASE_URL=
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 
 COPY frontend/package*.json ./
@@ -12,9 +12,8 @@ RUN npm install --force
 COPY frontend/ ./
 RUN npm run build
 
-FROM node:20-slim
-RUN npm install -g serve
-WORKDIR /app
-COPY --from=build /app/dist ./dist
+FROM nginx:1.27-alpine
+COPY docker/frontend/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 5174
-CMD ["serve", "-s", "dist", "-l", "5174"]
+CMD ["nginx", "-g", "daemon off;"]

@@ -3,6 +3,7 @@ import { UserRound, Users } from 'lucide-react'
 import Topbar from '../components/Topbar.jsx'
 import PageEnter from '../components/PageEnter.jsx'
 import SectionWorkspace from '../components/SectionWorkspace.jsx'
+import WelcomeBanner from '../components/WelcomeBanner.jsx'
 import AdminProfilesManager from '../components/AdminProfilesManager.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { LoadingButton } from '../components/reports/ReportsUi.jsx'
@@ -17,9 +18,9 @@ function ProfilePage({ onNavigate }) {
   const { user, role, isAdmin, updateProfile, changePassword } = useAuth()
   const [pane, setPane] = useState('me')
   const [profileForm, setProfileForm] = useState({
+    username: '',
     first_name: '',
     last_name: '',
-    email: '',
   })
   const [passwordForm, setPasswordForm] = useState({
     current_password: '',
@@ -36,9 +37,9 @@ function ProfilePage({ onNavigate }) {
   useEffect(() => {
     if (!user) return
     setProfileForm({
+      username: user.username || '',
       first_name: user.first_name || '',
       last_name: user.last_name || '',
-      email: user.email || '',
     })
   }, [user])
 
@@ -73,9 +74,9 @@ function ProfilePage({ onNavigate }) {
     setSavingProfile(true)
     try {
       await updateProfile({
+        username: profileForm.username.trim(),
         first_name: profileForm.first_name.trim(),
         last_name: profileForm.last_name.trim(),
-        email: profileForm.email.trim(),
       })
       setProfileMsg('Profil mis à jour.')
     } catch (err) {
@@ -110,7 +111,12 @@ function ProfilePage({ onNavigate }) {
       <section className="profile-summary profile-summary--workspace">
         <div>
           <div className="profile-summary-kicker">Compte connecté</div>
-          <h2>{user?.username}</h2>
+          <h2>
+            {[user?.first_name, user?.last_name].filter(Boolean).join(' ')
+              || user?.username
+              || user?.email
+              || 'Compte'}
+          </h2>
           <p>{ROLE_LABELS[role] || 'Utilisateur'}</p>
         </div>
       </section>
@@ -119,12 +125,23 @@ function ProfilePage({ onNavigate }) {
         <form className="profile-card" onSubmit={handleProfileSubmit}>
           <div className="profile-card-head">
             <h2>Informations</h2>
-            <p>Nom, prénom et e-mail visibles dans l’application.</p>
+            <p>L’e-mail est l’identifiant du compte ; le reste est modifiable.</p>
           </div>
 
           <label className="profile-field">
-            <span>Identifiant</span>
-            <input type="text" value={user?.username || ''} disabled readOnly />
+            <span>Identifiant (e-mail)</span>
+            <input type="email" value={user?.email || ''} disabled readOnly />
+          </label>
+
+          <label className="profile-field">
+            <span>Nom d’utilisateur</span>
+            <input
+              type="text"
+              value={profileForm.username}
+              onChange={(e) => setProfileForm((p) => ({ ...p, username: e.target.value }))}
+              autoComplete="username"
+              required
+            />
           </label>
 
           <div className="profile-row">
@@ -147,16 +164,6 @@ function ProfilePage({ onNavigate }) {
               />
             </label>
           </div>
-
-          <label className="profile-field">
-            <span>E-mail</span>
-            <input
-              type="email"
-              value={profileForm.email}
-              onChange={(e) => setProfileForm((p) => ({ ...p, email: e.target.value }))}
-              autoComplete="email"
-            />
-          </label>
 
           {profileMsg && <div className="reports-success" role="status">{profileMsg}</div>}
           {profileErr && <div className="reports-error" role="alert">{profileErr}</div>}
@@ -228,8 +235,7 @@ function ProfilePage({ onNavigate }) {
 
   const content = isAdmin ? (
     <SectionWorkspace
-      title="Comptes"
-      subtitle="Votre profil et la gestion des rôles"
+      title="Navigation"
       items={navItems}
       activeId={pane}
       onChange={setPane}
@@ -238,10 +244,6 @@ function ProfilePage({ onNavigate }) {
     </SectionWorkspace>
   ) : (
     <div className="profile-solo">
-      <div className="profile-solo-head">
-        <h1>Mon profil</h1>
-        <p>Gérez vos informations personnelles et la sécurité de votre compte.</p>
-      </div>
       {mePane}
     </div>
   )
@@ -251,6 +253,15 @@ function ProfilePage({ onNavigate }) {
       <Topbar activeView="profile" onNavigate={onNavigate} />
       <PageEnter>
         <main className="profile-layout">
+          <WelcomeBanner
+            kicker="Identité & accès"
+            title="Comptes"
+            subtitle={
+              isAdmin
+                ? 'Votre profil et la gestion des rôles de l’équipe.'
+                : 'Gérez vos informations personnelles et la sécurité du compte.'
+            }
+          />
           {content}
         </main>
       </PageEnter>

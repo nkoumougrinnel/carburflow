@@ -259,10 +259,80 @@ def _candidates_from_block(block, groupe, cp, site, cuve_j):
     return candidates
 
 
+def _candidates_from_site_blocks(group_blocks, sites_by_cp_id):
+    """
+    Alertes « site urgent » (< 24 h ou 0 h) — une alerte critique par site.
+    Complète les alertes groupe : le compteur Sites urgents du dashboard
+    correspond ainsi à des alertes persistées (priorité critique).
+    """
+    by_site: dict = {}
+    for block in group_blocks:
+        sid = block.get('site_id')
+        if sid is None:
+            continue
+        by_site.setdefault(sid, []).append(block)
+
+    candidates = []
+    for sid, blocks in by_site.items():
+        cp = sites_by_cp_id.get(sid)
+        site = getattr(cp, 'site', None) if cp is not None else None
+        site_name = _site_display_name(cp)
+
+        finite = [
+            float(b['autonomie_hours'])
+            for b in blocks
+            if b.get('autonomie_hours') is not None and not b.get('is_infinite_autonomy')
+        ]
+        any_infinite_cons = any(b.get('is_infinite_consumption') for b in blocks)
+
+        if finite:
+            aut_hours = round(max(finite), 1)
+            is_inf_cons = False
+        elif any_infinite_cons:
+            aut_hours = 0.0
+            is_inf_cons = True
+        else:
+            continue  # ∞ : pas d’alerte site
+
+        if not is_inf_cons and aut_hours >= SEUIL_AUTONOMIE_CRITIQUE_H:
+            continue
+
+        if is_inf_cons:
+            message = (
+                'Site urgent — autonomie critique : 0 h '
+                '(consommation sans delta horaire)'
+                + (f' — {site_name}' if site_name else '')
+            )
+        else:
+            message = (
+                f'Site urgent — autonomie critique : {aut_hours:.1f}h restantes'
+                + (f' — {site_name}' if site_name else '')
+            )
+
+        candidates.append({
+            'cle': Alerte.generer_cle('autonomie_critique', sid, prefix='site'),
+            'type_alerte': 'autonomie_critique',
+            'priorite': 'critique',
+            'message': message,
+            'donnees_contexte': {
+                'cuve_principale_id': sid,
+                'site_name': site_name,
+                'autonomie_heures': aut_hours,
+                'seuil': SEUIL_AUTONOMIE_CRITIQUE_H,
+                'is_site_urgent': True,
+                'is_infinite_consumption': is_inf_cons,
+            },
+            'site': site,
+            'groupe_electrogene': None,
+            'cuve_journaliere': None,
+        })
+    return candidates
+
+
 @transaction.atomic
 def detecter_et_persister_alertes(*, auto_ignorer_levees: bool = True):
     """
-    Parcourt tous les groupes, crée/met à jour les alertes en BD.
+    Parcourt tous les groupes (et sites urgents), crée/met à jour les alertes en BD.
 
     Returns:
         dict: compteurs created / updated / ignored / active_keys
@@ -272,23 +342,27 @@ def detecter_et_persister_alertes(*, auto_ignorer_levees: bool = True):
     sites_by_cp_id = {s.id: s for s in sites}
 
     active_keys = set()
-    created = updated = notified = 0
+    created = updated = 0
 
     for block in group_blocks:
         groupe, cp, site, cuve_j = _resolve_refs(block, groupes_by_id, sites_by_cp_id)
         for payload in _candidates_from_block(block, groupe, cp, site, cuve_j):
             cle = payload.pop('cle')
             active_keys.add(cle)
-            alerte, should_notify = _upsert_active(cle, **payload)
+            _alerte, should_notify = _upsert_active(cle, **payload)
             if should_notify:
                 created += 1
-                try:
-                    from apps.notifications.services import notify_admins_for_alerte
-                    notified += notify_admins_for_alerte(alerte)
-                except Exception:
-                    logger.exception('Échec notification pour alerte %s', alerte.pk)
             else:
                 updated += 1
+
+    for payload in _candidates_from_site_blocks(group_blocks, sites_by_cp_id):
+        cle = payload.pop('cle')
+        active_keys.add(cle)
+        _alerte, should_notify = _upsert_active(cle, **payload)
+        if should_notify:
+            created += 1
+        else:
+            updated += 1
 
     ignored = 0
     if auto_ignorer_levees:
@@ -304,18 +378,17 @@ def detecter_et_persister_alertes(*, auto_ignorer_levees: bool = True):
                 ignored += 1
 
     logger.info(
-        'Alertes détectées: created=%s updated=%s ignored=%s actives=%s notified=%s',
+        'Alertes détectées: created=%s updated=%s ignored=%s actives=%s',
         created,
         updated,
         ignored,
         len(active_keys),
-        notified,
     )
     return {
         'created': created,
         'updated': updated,
         'ignored': ignored,
         'active': len(active_keys),
-        'notified': notified,
+        'notified': 0,
         'detected_at': timezone.now().isoformat(),
     }

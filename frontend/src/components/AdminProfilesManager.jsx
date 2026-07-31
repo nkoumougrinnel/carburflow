@@ -242,7 +242,11 @@ function AdminProfilesManager() {
               <dl className="users-admin-meta">
                 <div>
                   <dt>Identifiant</dt>
-                  <dd>{selected.username}</dd>
+                  <dd>{selected.email || '—'}</dd>
+                </div>
+                <div>
+                  <dt>Nom d’utilisateur</dt>
+                  <dd>{selected.username || '—'}</dd>
                 </div>
                 <div>
                   <dt>Rôle actuel</dt>

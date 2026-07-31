@@ -41,9 +41,11 @@ sudo usermod -aG docker "$USER"
 ```
 
 Services :
-- API : http://localhost:8001/api/v1/
-- Front : http://localhost:5174/
+- Front (+ API via nginx) : http://localhost:5174/
+- API directe : http://localhost:8001/api/v1/
 - Postgres : localhost:5432 (`carburflow` / `carburflow`)
+
+Accès Internet (ngrok) : un tunnel sur **5174** suffit — voir [`ngrok.md`](ngrok.md).
 
 Données initiales : au premier démarrage (`RUN_SEED=1`), le backend lance `seed_accounts` puis `reset_and_import` si aucun site n’existe. Les CSV viennent de `data/imports/` (copiés dans l’image). Pour tout recharger : `docker compose -f docker/docker-compose.yml down -v` puis `make docker-up`, ou `RUN_IMPORT_FORCE=1`.
 

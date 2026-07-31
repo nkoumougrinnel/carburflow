@@ -13,7 +13,7 @@ User = get_user_model()
 
 
 def admin_recipients():
-    """Utilisateurs destinataires des alertes système (admins)."""
+    """Utilisateurs destinataires des alertes système / messages (admins)."""
     return (
         User.objects.filter(is_active=True)
         .filter(
@@ -28,6 +28,25 @@ def admin_recipients():
         )
         .distinct()
     )
+
+
+def user_is_messaging_admin(user) -> bool:
+    if not user or not getattr(user, 'is_authenticated', False):
+        return False
+    if user.is_superuser or user.is_staff:
+        return True
+    profil = getattr(user, 'profil', None)
+    role = getattr(profil, 'role', None)
+    return role in {
+        ProfilUtilisateur.ROLE_SUPER_ADMIN,
+        ProfilUtilisateur.ROLE_ADMIN,
+    }
+
+
+def is_admin_recipient(user) -> bool:
+    if not user:
+        return False
+    return admin_recipients().filter(pk=user.pk).exists()
 
 
 def create_notification(
@@ -86,6 +105,8 @@ def send_message(*, expediteur, destinataire, contenu, sujet=''):
     text = (contenu or '').strip()
     if not text:
         raise ValueError('Le message ne peut pas être vide.')
+    if getattr(destinataire, 'pk', None) == getattr(expediteur, 'pk', None):
+        raise ValueError('Vous ne pouvez pas vous envoyer un message à vous-même.')
     return create_notification(
         destinataire=destinataire,
         expediteur=expediteur,

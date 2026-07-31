@@ -259,16 +259,19 @@ export function countAlertsBySeverity(alerts = []) {
   }
 }
 
-/** Aperçu dashboard : max par priorité, plafonné. */
-export function pickPreviewAlerts(alerts = [], { perSeverity = 2, maxTotal = 6 } = {}) {
-  const buckets = { critique: [], haute: [], moyenne: [], basse: [] }
-  alerts.forEach((a) => {
-    const key = resolvePrioriteKey(a)
-    if (buckets[key] && buckets[key].length < perSeverity) {
-      buckets[key].push(a)
-    }
-  })
-  return [...buckets.critique, ...buckets.haute, ...buckets.moyenne, ...buckets.basse].slice(0, maxTotal)
+/** Aperçu dashboard : priorité critique d’abord, max 3. */
+export function pickPreviewAlerts(alerts = [], { maxTotal = 3 } = {}) {
+  const rank = { critique: 0, haute: 1, moyenne: 2, basse: 3 }
+  return [...alerts]
+    .sort((a, b) => {
+      const ra = rank[resolvePrioriteKey(a)] ?? 9
+      const rb = rank[resolvePrioriteKey(b)] ?? 9
+      if (ra !== rb) return ra - rb
+      const ta = new Date(a.detected_at || 0).getTime()
+      const tb = new Date(b.detected_at || 0).getTime()
+      return tb - ta
+    })
+    .slice(0, maxTotal)
 }
 
 export function filterAlerts(

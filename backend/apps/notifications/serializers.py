@@ -7,6 +7,9 @@ from .models import Notification
 class NotificationSerializer(serializers.ModelSerializer):
     expediteur_username = serializers.SerializerMethodField()
     expediteur_nom = serializers.SerializerMethodField()
+    destinataire_username = serializers.SerializerMethodField()
+    destinataire_nom = serializers.SerializerMethodField()
+    destinataire_email = serializers.SerializerMethodField()
     alerte_id = serializers.IntegerField(source='alerte.id', read_only=True, allow_null=True)
     alerte_priorite = serializers.CharField(
         source='alerte.priorite',
@@ -34,6 +37,10 @@ class NotificationSerializer(serializers.ModelSerializer):
             'expediteur',
             'expediteur_username',
             'expediteur_nom',
+            'destinataire',
+            'destinataire_username',
+            'destinataire_nom',
+            'destinataire_email',
             'alerte_id',
             'alerte_priorite',
             'alerte_type',
@@ -50,6 +57,22 @@ class NotificationSerializer(serializers.ModelSerializer):
             return 'Système'
         name = obj.expediteur.get_full_name().strip()
         return name or obj.expediteur.username
+
+    def get_destinataire_username(self, obj):
+        if obj.destinataire_id:
+            return obj.destinataire.username
+        return None
+
+    def get_destinataire_nom(self, obj):
+        if not obj.destinataire_id:
+            return None
+        name = obj.destinataire.get_full_name().strip()
+        return name or obj.destinataire.username
+
+    def get_destinataire_email(self, obj):
+        if not obj.destinataire_id:
+            return None
+        return obj.destinataire.email or ''
 
 
 class SendMessageSerializer(serializers.Serializer):

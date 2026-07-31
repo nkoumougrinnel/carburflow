@@ -7,14 +7,16 @@ import { getDisplayFirstName } from '../utils/userDisplay.js'
 gsap.registerPlugin(useGSAP)
 
 /**
- * Bandeau de bienvenue.
+ * Bandeau de bienvenue / contexte de page.
  * - Par défaut : « Un bonjour Prénom ! »
+ * - Passer title / kicker / subtitle pour personnaliser une page
  * - variant="admin-import" : message responsable (pas de bonjour)
  */
 function WelcomeBanner({
   variant = 'hello',
   title,
   subtitle,
+  kicker,
   className = '',
 }) {
   const { user, isAdmin, isOperator } = useAuth()
@@ -33,6 +35,7 @@ function WelcomeBanner({
   }, { scope: ref })
 
   const isAdminImport = variant === 'admin-import'
+  const isCustom = Boolean(title || kicker)
   const heading = title || (
     isAdminImport
       ? 'Espace responsable — relevés des équipes'
@@ -45,20 +48,19 @@ function WelcomeBanner({
         ? 'Voici votre tableau de bord CarburFlow. Tout est prêt pour piloter vos sites.'
         : isOperator
           ? 'Bienvenue dans votre espace opérateur.'
-          : 'Bienvenue. Consultez les sites et gérez votre profil.'
+          : 'Bienvenue dans votre espace de consultation.'
   )
+  const eyebrow = kicker || (isAdminImport ? 'Relevés · Responsable' : 'CarburFlow')
 
   return (
     <section
       ref={ref}
-      className={`welcome-banner ${isAdminImport ? 'welcome-banner--admin' : ''} ${className}`.trim()}
-      aria-label="Bienvenue"
+      className={`welcome-banner ${isAdminImport ? 'welcome-banner--admin' : ''} ${isCustom ? 'welcome-banner--page' : ''} ${className}`.trim()}
+      aria-label={title || 'Bienvenue'}
     >
       <div className="welcome-banner-glow" aria-hidden="true" />
       <div className="welcome-banner-body">
-        <p className="welcome-banner-kicker">
-          {isAdminImport ? 'Relevés · Responsable' : 'CarburFlow'}
-        </p>
+        <p className="welcome-banner-kicker">{eyebrow}</p>
         <h1 className="welcome-banner-title">{heading}</h1>
         <p className="welcome-banner-sub">{sub}</p>
       </div>

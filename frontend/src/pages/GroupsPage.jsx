@@ -572,7 +572,11 @@ function GroupsPage({ onNavigate }) {
 
       <PageEnter>
       <main className={`groups-grid ${filtering ? 'is-filtering' : ''}`}>
-        <WelcomeBanner subtitle="Tous les groupes d’abord — affinez avec les filtres si besoin." />
+        <WelcomeBanner
+          kicker="Machines & consommation"
+          title="Groupes électrogènes"
+          subtitle="Heures, conso et écarts — affinez avec les filtres si besoin."
+        />
         <form className="groups-filter-bar" onSubmit={(event) => event.preventDefault()}>
           <div className="filter-field">
             <label htmlFor="rapport_debut">Période — début</label>

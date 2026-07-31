@@ -3,6 +3,7 @@ import { Download, Upload, History, Search } from 'lucide-react'
 import Topbar from '../components/Topbar.jsx'
 import PageEnter from '../components/PageEnter.jsx'
 import SectionWorkspace from '../components/SectionWorkspace.jsx'
+import WelcomeBanner from '../components/WelcomeBanner.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import {
   downloadFicheHebdo,
@@ -79,11 +80,18 @@ function LoadingButton({
   )
 }
 
+function initialReportsPane(isAdmin) {
+  const pane = new URLSearchParams(window.location.search).get('pane')
+  if (!isAdmin && pane === 'history') return 'history'
+  if (isAdmin && (pane === 'download' || pane === 'upload')) return pane
+  return isAdmin ? 'download' : 'upload'
+}
+
 function ReportsPage({ onNavigate }) {
   const { isAdmin } = useAuth()
   const inputRef = useRef(null)
   const errorRef = useRef(null)
-  const [pane, setPane] = useState(() => (isAdmin ? 'download' : 'upload'))
+  const [pane, setPane] = useState(() => initialReportsPane(isAdmin))
   const [dragging, setDragging] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [uploadName, setUploadName] = useState('')
@@ -625,6 +633,15 @@ function ReportsPage({ onNavigate }) {
       <Topbar activeView="reports" onNavigate={onNavigate} />
       <PageEnter className="reports-page-enter">
         <main className="reports-layout reports-layout--workspace">
+          <WelcomeBanner
+            kicker="Fichiers & dépôt"
+            title="Relevés"
+            subtitle={
+              isAdmin
+                ? 'Téléchargez les modèles, suivez les dépôts et récupérez les fiches.'
+                : 'Déposez vos relevés et consultez l’historique de vos envois.'
+            }
+          />
           {(uploading || downloadingFiche || downloadingNorme || downloadingRapport) && (
             <div className="reports-toast-loading" role="status" aria-live="polite">
               <Spinner size={22} />
@@ -647,8 +664,7 @@ function ReportsPage({ onNavigate }) {
 
           <SectionWorkspace
             className="section-workspace--fill"
-            title="Relevés"
-            subtitle={isAdmin ? 'Télécharger ou ajouter un fichier' : 'Envoyer et suivre vos relevés'}
+            title="Actions"
             items={navItems}
             activeId={pane}
             onChange={(id) => {

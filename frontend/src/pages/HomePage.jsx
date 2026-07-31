@@ -367,7 +367,7 @@ function HomePage({ onNavigate }) {
               </p>
               <ul className="reveal-item space-y-3 text-sm text-muted-foreground">
                 <li><strong className="text-foreground">Responsable</strong> — dashboard, alertes, sites, groupes, relevés.</li>
-                <li><strong className="text-foreground">Opérateur</strong> — sites, dépôt de relevé, historique.</li>
+                <li><strong className="text-foreground">Opérateur</strong> — sites et relevés (envoi + historique).</li>
                 <li><strong className="text-foreground">Utilisateur</strong> — consultation des sites et profil.</li>
               </ul>
               <div className="reveal-item flex flex-wrap gap-3">

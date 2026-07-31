@@ -381,7 +381,11 @@ function SitesPage({ onNavigate }) {
 
       <PageEnter>
       <main className="groups-grid">
-        <WelcomeBanner subtitle="Tous les sites d’abord — affinez avec les filtres si besoin." />
+        <WelcomeBanner
+          kicker="Suivi terrain"
+          title="Sites"
+          subtitle="Niveaux, autonomie et consommation — affinez avec les filtres si besoin."
+        />
         <form className="groups-filter-bar" onSubmit={(event) => event.preventDefault()}>
           <div className="filter-field">
             <label htmlFor="site-start">Période — début</label>
