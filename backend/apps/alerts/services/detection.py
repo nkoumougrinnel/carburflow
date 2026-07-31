@@ -215,10 +215,6 @@ def _candidates_from_block(block, groupe, cp, site, cuve_j):
 
     latest_consumption = _last_period_value(block.get('consumption'), 0.0)
     latest_hours = _last_period_value(block.get('hours_run'), 0.0)
-    hours_series = block.get('hours_run') or []
-    cons_series = block.get('consumption') or []
-    latest_hours_raw = hours_series[-1] if hours_series else None
-    latest_cons_raw = cons_series[-1] if cons_series else None
 
     if latest_consumption > 0 and not (latest_hours > 0):
         candidates.append({
@@ -255,28 +251,8 @@ def _candidates_from_block(block, groupe, cp, site, cuve_j):
             },
         })
 
-    if (
-        bool(block.get('is_infinite_autonomy'))
-        and not bool(block.get('is_infinite_consumption'))
-        and not bool(block.get('is_sans_fonctionnement'))
-    ):
-        reason = block.get('indet_reason') or 'données insuffisantes pour calculer le temps restant'
-        candidates.append({
-            'cle': Alerte.generer_cle('autonomie_indeterminee', gid),
-            'type_alerte': 'autonomie_indeterminee',
-            'priorite': 'moyenne',
-            'message': (
-                f'Autonomie indéterminée — Groupe {label}'
-                + (f' ({site_name})' if site_name else '')
-                + f' : {reason}'
-            ),
-            'donnees_contexte': {
-                **base_ctx,
-                'indet_reason': reason,
-                'hours_n': latest_hours_raw,
-                'consumption_n': latest_cons_raw,
-            },
-        })
+    # Plus d’alerte « autonomie indéterminée » : non calculable ≠ urgence à traiter.
+    # (Les anciennes alertes de ce type sont ignorées au prochain passage de détection.)
 
     mean = float(block.get('mean_hourly_consumption_deduite') or 0.0)
     latest_hourly = block.get('latest_hourly_consumption')
@@ -309,9 +285,9 @@ def _candidates_from_block(block, groupe, cp, site, cuve_j):
 
 def _candidates_from_site_blocks(group_blocks, sites_by_cp_id):
     """
-    Alertes « site urgent » (< 24 h ou 0 h) — une alerte critique par site.
-    Complète les alertes groupe : le compteur Sites urgents du dashboard
-    correspond ainsi à des alertes persistées (priorité critique).
+    Alertes « site urgent » (< 24 h d’autonomie chiffrée) — une alerte critique par site.
+    Les sites en autonomie indéterminée (conso sans delta horaire) ou sans fonctionnement
+    ne génèrent PAS d’alerte d’urgence.
     """
     by_site: dict = {}
     for block in group_blocks:
@@ -326,36 +302,27 @@ def _candidates_from_site_blocks(group_blocks, sites_by_cp_id):
         site = getattr(cp, 'site', None) if cp is not None else None
         site_name = _site_display_name(cp)
 
+        # Autonomie saine uniquement (hors indéterminée / sans fonctionnement)
         finite = [
             float(b['autonomie_hours'])
             for b in blocks
-            if b.get('autonomie_hours') is not None and not b.get('is_infinite_autonomy')
+            if b.get('autonomie_hours') is not None
+            and not b.get('is_infinite_autonomy')
+            and not b.get('is_infinite_consumption')
+            and not b.get('is_sans_fonctionnement')
         ]
-        any_infinite_cons = any(b.get('is_infinite_consumption') for b in blocks)
-
-        if finite:
-            aut_hours = round(max(finite), 1)
-            is_inf_cons = False
-        elif any_infinite_cons:
-            aut_hours = 0.0
-            is_inf_cons = True
-        else:
-            continue  # ∞ : pas d’alerte site
-
-        if not is_inf_cons and aut_hours >= SEUIL_AUTONOMIE_CRITIQUE_H:
+        if not finite:
+            # Indéterminée / sans fonctionnement / pas de données → pas d’alerte site urgente
             continue
 
-        if is_inf_cons:
-            message = (
-                'Site urgent — autonomie critique : 0 h '
-                '(consommation sans delta horaire)'
-                + (f' — {site_name}' if site_name else '')
-            )
-        else:
-            message = (
-                f'Site urgent — autonomie critique : {aut_hours:.1f}h restantes'
-                + (f' — {site_name}' if site_name else '')
-            )
+        aut_hours = round(max(finite), 1)
+        if aut_hours >= SEUIL_AUTONOMIE_CRITIQUE_H:
+            continue
+
+        message = (
+            f'Site urgent — autonomie critique : {aut_hours:.1f}h restantes'
+            + (f' — {site_name}' if site_name else '')
+        )
 
         candidates.append({
             'cle': Alerte.generer_cle('autonomie_critique', sid, prefix='site'),
@@ -368,7 +335,7 @@ def _candidates_from_site_blocks(group_blocks, sites_by_cp_id):
                 'autonomie_heures': aut_hours,
                 'seuil': SEUIL_AUTONOMIE_CRITIQUE_H,
                 'is_site_urgent': True,
-                'is_infinite_consumption': is_inf_cons,
+                'is_infinite_consumption': False,
             },
             'site': site,
             'groupe_electrogene': None,

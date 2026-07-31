@@ -157,30 +157,45 @@ class SitesDashboardAPIView(APIView):
                 'datasets': site_datasets,
             })
 
-            # --- Autonomie du site = max() des autonomies de ses groupes ---
-            # Le site tient tant qu'au moins un groupe rattaché tient : on prend le
-            # groupe le plus autonome (le plus sain), pas le plus critique. Un groupe
-            # en is_infinite_consumption (0h, conso avérée sans heures) ne l'emporte
-            # que si AUCUN groupe du site n'a d'autonomie finie — sinon un site avec un
-            # groupe sain et un groupe à 0h serait à tort ramené à 0h alors qu'il tient
-            # grâce à l'autre groupe.
-            finite_hours = [g['autonomie_hours'] for g in site_groups if g['autonomie_hours'] is not None]
-            if finite_hours:
-                aut_hours = round(max(finite_hours), 1)
+            # --- Autonomie du site ---
+            # Priorité : max des autonomies « saines » (chiffrées).
+            # Groupes indéterminés (conso sans horaire) / sans fonctionnement exclus du max.
+            # Si aucun groupe sain → Indéterminée ou Sans fonctionnement (jamais « 0 h urgent »).
+            healthy_hours = [
+                g['autonomie_hours'] for g in site_groups
+                if g.get('autonomie_hours') is not None
+                and not g.get('is_infinite_consumption')
+                and not g.get('is_sans_fonctionnement')
+                and not g.get('is_infinite_autonomy')
+            ]
+            if healthy_hours:
+                aut_hours = round(max(healthy_hours), 1)
                 fmt_aut = calc.formater_autonomie(aut_hours)
-                has_infinite_cons, is_infinite_aut = False, False
-            elif any(g['is_infinite_consumption'] for g in site_groups):
-                aut_hours, fmt_aut = 0.0, "0h"
-                has_infinite_cons, is_infinite_aut = True, False
+                has_infinite_cons = False
+                is_infinite_aut = False
+                is_sans_fct = False
+            elif any(g.get('is_infinite_consumption') for g in site_groups):
+                aut_hours, fmt_aut = None, None
+                has_infinite_cons = True
+                is_infinite_aut = False
+                is_sans_fct = False
+            elif any(g.get('is_sans_fonctionnement') or g.get('is_infinite_autonomy') for g in site_groups):
+                aut_hours, fmt_aut = None, None
+                has_infinite_cons = False
+                is_infinite_aut = True
+                is_sans_fct = True
             else:
-                aut_hours, fmt_aut = None, "∞"
-                has_infinite_cons, is_infinite_aut = False, True
+                aut_hours, fmt_aut = None, None
+                has_infinite_cons = False
+                is_infinite_aut = True
+                is_sans_fct = False
 
             autonomy_by_site[str(site_id)] = {
                 'autonomie_hours': aut_hours,
                 'formatted_autonomy': fmt_aut,
                 'is_infinite_consumption': has_infinite_cons,
                 'is_infinite_autonomy': is_infinite_aut,
+                'is_sans_fonctionnement': is_sans_fct,
             }
 
             groups_by_site[str(site_id)] = [
@@ -446,32 +461,29 @@ class DashboardOverviewAPIView(APIView):
             if site is None:
                 continue
 
-            finite_hours = [g['autonomie_hours'] for g in site_groups if g['autonomie_hours'] is not None]
+            finite_hours = [
+                g['autonomie_hours'] for g in site_groups
+                if g.get('autonomie_hours') is not None
+                and not g.get('is_infinite_consumption')
+                and not g.get('is_sans_fonctionnement')
+                and not g.get('is_infinite_autonomy')
+            ]
             if finite_hours:
                 aut_hours = round(max(finite_hours), 1)
                 site['autonomie_hours'] = aut_hours
                 site['formatted_autonomy'] = calc.formater_autonomie(aut_hours)
                 site['is_infinite_consumption'] = False
                 site['is_infinite_autonomy'] = False
-                site['is_sans_fonctionnement'] = (
-                    aut_hours == 0
-                    and any(g.get('is_sans_fonctionnement') for g in site_groups)
-                    and not any(g.get('is_infinite_consumption') for g in site_groups)
-                )
-                if site['is_sans_fonctionnement']:
-                    site['indet_reason'] = next(
-                        (g.get('indet_reason') for g in site_groups if g.get('indet_reason')),
-                        'Sans fonctionnement sur la semaine N',
-                    )
-            elif any(g['is_infinite_consumption'] for g in site_groups):
-                site['autonomie_hours'] = 0.0
-                site['formatted_autonomy'] = '0h'
+                site['is_sans_fonctionnement'] = False
+            elif any(g.get('is_infinite_consumption') for g in site_groups):
+                site['autonomie_hours'] = None
+                site['formatted_autonomy'] = None
                 site['is_infinite_consumption'] = True
                 site['is_infinite_autonomy'] = False
                 site['is_sans_fonctionnement'] = False
             elif any(g.get('is_sans_fonctionnement') for g in site_groups):
-                site['autonomie_hours'] = 0.0
-                site['formatted_autonomy'] = '0h'
+                site['autonomie_hours'] = None
+                site['formatted_autonomy'] = None
                 site['is_infinite_consumption'] = False
                 site['is_infinite_autonomy'] = False
                 site['is_sans_fonctionnement'] = True
@@ -484,10 +496,10 @@ class DashboardOverviewAPIView(APIView):
                 site['formatted_autonomy'] = '∞'
                 site['is_infinite_consumption'] = False
                 site['is_infinite_autonomy'] = True
-                site['is_sans_fonctionnement'] = False
+                site['is_sans_fonctionnement'] = True
                 site['indet_reason'] = next(
                     (g.get('indet_reason') for g in site_groups if g.get('indet_reason')),
-                    None,
+                    'Données insuffisantes → sans fonctionnement.',
                 )
 
         # --- Alertes (persistées en BD au dépôt de fiche) ---
@@ -495,11 +507,14 @@ class DashboardOverviewAPIView(APIView):
         from apps.alerts.serializers import AlerteListSerializer
 
         def _site_is_critical(site):
-            if site['is_infinite_consumption']:
-                return True
-            if site['autonomie_hours'] is not None:
+            # Indéterminée / sans fonctionnement : pas une urgence d’autonomie chiffrée
+            if site.get('is_infinite_consumption'):
+                return False
+            if site.get('is_sans_fonctionnement') or site.get('is_infinite_autonomy'):
+                return False
+            if site.get('autonomie_hours') is not None:
                 return site['autonomie_hours'] <= self.AUTONOMY_CRITICAL_HOURS
-            return site['autonomy'] is not None and site['autonomy'] <= self.AUTONOMY_CRITICAL_THRESHOLD
+            return site.get('autonomy') is not None and site['autonomy'] <= self.AUTONOMY_CRITICAL_THRESHOLD
 
         alertes_qs = (
             Alerte.objects.filter(etat__in=Alerte.ETATS_ACTIFS)
@@ -507,6 +522,21 @@ class DashboardOverviewAPIView(APIView):
             .order_by('-date_apparition', '-id')
         )
         alerts = AlerteListSerializer(alertes_qs, many=True).data
+
+        def _is_indet_autonomy_alert(item):
+            """Autonomie indéterminée / ancien « 0 h urgent » : ne pas compter comme alerte."""
+            type_alerte = item.get('type') or item.get('type_alerte') or ''
+            if type_alerte == 'autonomie_indeterminee':
+                return True
+            ctx = item.get('donnees_contexte') or item.get('context') or {}
+            if ctx.get('is_infinite_consumption'):
+                return True
+            msg = f"{item.get('title') or ''} {item.get('message') or ''} {item.get('subtitle') or ''}".lower()
+            if 'autonomie indéterminée' in msg or 'consommation sans delta' in msg:
+                return True
+            return False
+
+        alerts = [a for a in alerts if not _is_indet_autonomy_alert(a)]
         severity_rank = {'critical': 0, 'high': 1, 'medium': 2, 'low': 3}
         alerts = sorted(
             alerts,

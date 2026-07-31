@@ -444,15 +444,23 @@ def calculer_groupes(
         )
 
         indet_reason = None
-        if mean_hourly_consumption_deduite > 0 and volume_proportionnel is not None:
+        if is_infinite_consumption:
+            # Conso sans delta horaire → autonomie indéterminée (pas de valeur chiffrée)
+            is_infinite_autonomy = False
+            autonomy_hours = None
+            formatted_autonomy = None
+            indet_reason = (
+                'Consommation détectée sans delta horaire : autonomie indéterminée.'
+            )
+        elif mean_hourly_consumption_deduite > 0 and volume_proportionnel is not None:
             is_infinite_autonomy = False
             autonomy_hours = volume_proportionnel / mean_hourly_consumption_deduite
             formatted_autonomy = formater_autonomie(autonomy_hours)
         elif is_sans_fonctionnement:
             # Zéro relevé ≠ indéterminée : le groupe n’a pas fonctionné
             is_infinite_autonomy = False
-            autonomy_hours = 0.0
-            formatted_autonomy = '0h'
+            autonomy_hours = None
+            formatted_autonomy = None
             indet_reason = (
                 'Delta horaire semaine N = 0 h'
                 + (
@@ -463,7 +471,7 @@ def calculer_groupes(
                 + ' → sans fonctionnement.'
             )
         else:
-            # Pas de conso horaire moyenne significative → autonomie indéterminée
+            # Pas de conso horaire moyenne significative → sans fonctionnement (ex-∞)
             is_infinite_autonomy = True
             autonomy_hours = None
             formatted_autonomy = "∞"
@@ -475,7 +483,7 @@ def calculer_groupes(
             if latest_hours_n is None and latest_cons_n is None:
                 reasons.append('pas de relevé sur la semaine N')
             indet_reason = (
-                'Indéterminée : ' + (' · '.join(reasons) if reasons else 'données insuffisantes')
+                'Sans fonctionnement : ' + (' · '.join(reasons) if reasons else 'données insuffisantes')
             )
 
         group_blocks.append({
