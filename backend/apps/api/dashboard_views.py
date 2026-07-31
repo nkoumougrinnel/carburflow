@@ -206,8 +206,8 @@ class DashboardOverviewAPIView(APIView):
         return float(statistics.fmean(numeric)) if numeric else 0.0
 
     def _mean_positive(self, values):
-        """Moyenne alignée sur la page Groupes : ignore None et les 0."""
-        numeric = [float(v) for v in values if v is not None and float(v) > 0]
+        """Moyenne des valeurs numériques : ignore None, conserve les 0."""
+        numeric = [float(v) for v in values if v is not None]
         return float(statistics.fmean(numeric)) if numeric else 0.0
 
     def _last_numeric(self, values, default=0.0):
@@ -311,10 +311,17 @@ class DashboardOverviewAPIView(APIView):
             site_groups = group_blocks_by_site.get(site.id, [])
             consumption_series = calc.somme_conso_groupes(site_groups, len(reports))
 
-            # Moyenne = périodes avec conso > 0 uniquement (comme page Groupes)
+            # Moyenne = périodes avec valeur numérique (None exclus, 0 inclus)
             avg_consumption = round(self._mean_positive(consumption_series), 1)
             latest_consumption = self._last_numeric(consumption_series)
+            previous_consumption = None
+            if len(consumption_series) >= 2 and consumption_series[-2] is not None:
+                previous_consumption = round(float(consumption_series[-2]), 1)
             latest_volume = self._last_numeric(volume_series)
+            numeric_cons = self._numeric_values(consumption_series, positive_only=False)
+            consumption_stddev = (
+                round(statistics.pstdev(numeric_cons), 1) if len(numeric_cons) > 1 else None
+            )
 
             site_rows.append({
                 'id': site.id,
@@ -322,12 +329,16 @@ class DashboardOverviewAPIView(APIView):
                 'label': _site_display_name(site),
                 'avg_consumption': avg_consumption,
                 'latest_consumption': latest_consumption,
+                'previous_consumption': previous_consumption,
+                'consumption_stddev': consumption_stddev,
                 'latest_volume': latest_volume,
                 'autonomy': None,
                 'autonomie_hours': None,
                 'formatted_autonomy': None,
                 'is_infinite_consumption': False,
                 'is_infinite_autonomy': False,
+                'is_sans_fonctionnement': False,
+                'indet_reason': None,
             })
             site_latest_volume_map[site.id] = latest_volume
 
@@ -345,7 +356,7 @@ class DashboardOverviewAPIView(APIView):
             avg_hours = round(self._mean_positive(hours_series), 1)
             latest_hours = round(float(hours_series[-1]), 1) if hours_series and hours_series[-1] is not None else 0.0
 
-            numeric_consumption = self._numeric_values(consumption_series, positive_only=True)
+            numeric_consumption = self._numeric_values(consumption_series, positive_only=False)
             variance_pct = 0.0
             if avg_consumption > 0 and len(numeric_consumption) > 1:
                 variance_pct = round((statistics.pstdev(numeric_consumption) / avg_consumption) * 100, 1)
@@ -384,6 +395,8 @@ class DashboardOverviewAPIView(APIView):
                 'formatted_autonomy': block['formatted_autonomy'],
                 'is_infinite_consumption': bool(block.get('is_infinite_consumption') or cons_sans_delta),
                 'is_infinite_autonomy': block['is_infinite_autonomy'],
+                'is_sans_fonctionnement': bool(block.get('is_sans_fonctionnement')),
+                'indet_reason': block.get('indet_reason'),
                 'latest_main_volume': block['latest_main_volume'],
                 'mean_hourly_consumption': block['mean_hourly_consumption'],
                 'mean_hourly_consumption_deduite': block['mean_hourly_consumption_deduite'],
@@ -411,16 +424,42 @@ class DashboardOverviewAPIView(APIView):
                 site['formatted_autonomy'] = calc.formater_autonomie(aut_hours)
                 site['is_infinite_consumption'] = False
                 site['is_infinite_autonomy'] = False
+                site['is_sans_fonctionnement'] = (
+                    aut_hours == 0
+                    and any(g.get('is_sans_fonctionnement') for g in site_groups)
+                    and not any(g.get('is_infinite_consumption') for g in site_groups)
+                )
+                if site['is_sans_fonctionnement']:
+                    site['indet_reason'] = next(
+                        (g.get('indet_reason') for g in site_groups if g.get('indet_reason')),
+                        'Sans fonctionnement sur la semaine N',
+                    )
             elif any(g['is_infinite_consumption'] for g in site_groups):
                 site['autonomie_hours'] = 0.0
                 site['formatted_autonomy'] = '0h'
                 site['is_infinite_consumption'] = True
                 site['is_infinite_autonomy'] = False
+                site['is_sans_fonctionnement'] = False
+            elif any(g.get('is_sans_fonctionnement') for g in site_groups):
+                site['autonomie_hours'] = 0.0
+                site['formatted_autonomy'] = '0h'
+                site['is_infinite_consumption'] = False
+                site['is_infinite_autonomy'] = False
+                site['is_sans_fonctionnement'] = True
+                site['indet_reason'] = next(
+                    (g.get('indet_reason') for g in site_groups if g.get('indet_reason')),
+                    'Sans fonctionnement sur la semaine N',
+                )
             else:
                 site['autonomie_hours'] = None
                 site['formatted_autonomy'] = '∞'
                 site['is_infinite_consumption'] = False
                 site['is_infinite_autonomy'] = True
+                site['is_sans_fonctionnement'] = False
+                site['indet_reason'] = next(
+                    (g.get('indet_reason') for g in site_groups if g.get('indet_reason')),
+                    None,
+                )
 
         # --- Alertes (persistées en BD au dépôt de fiche) ---
         from apps.alerts.models import Alerte

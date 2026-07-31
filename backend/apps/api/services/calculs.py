@@ -434,15 +434,49 @@ def calculer_groupes(
         # Anomalie « conso sans delta horaire » : indépendante du calcul d’autonomie
         is_infinite_consumption = bool(has_infinite_cons)
 
+        latest_hours_n = hours_run[-1] if hours_run else None
+        latest_cons_n = consumed_deltas[-1] if consumed_deltas else None
+        # Relevé présent avec 0 h (et pas de conso sans horaire) → sans fonctionnement
+        is_sans_fonctionnement = (
+            not is_infinite_consumption
+            and latest_hours_n is not None
+            and float(latest_hours_n) == 0.0
+        )
+
+        indet_reason = None
         if mean_hourly_consumption_deduite > 0 and volume_proportionnel is not None:
             is_infinite_autonomy = False
             autonomy_hours = volume_proportionnel / mean_hourly_consumption_deduite
             formatted_autonomy = formater_autonomie(autonomy_hours)
+        elif is_sans_fonctionnement:
+            # Zéro relevé ≠ indéterminée : le groupe n’a pas fonctionné
+            is_infinite_autonomy = False
+            autonomy_hours = 0.0
+            formatted_autonomy = '0h'
+            indet_reason = (
+                'Delta horaire semaine N = 0 h'
+                + (
+                    f' · consommation semaine N = {latest_cons_n:.1f} L'
+                    if latest_cons_n is not None
+                    else ''
+                )
+                + ' → sans fonctionnement.'
+            )
         else:
-            # Pas de conso horaire moyenne significative (« - ») → autonomie indéterminée
+            # Pas de conso horaire moyenne significative → autonomie indéterminée
             is_infinite_autonomy = True
             autonomy_hours = None
             formatted_autonomy = "∞"
+            reasons = []
+            if volume_proportionnel is None:
+                reasons.append('volume cuve indisponible')
+            if mean_hourly_consumption_deduite <= 0:
+                reasons.append('aucune conso horaire moyenne calculable (valeurs manquantes)')
+            if latest_hours_n is None and latest_cons_n is None:
+                reasons.append('pas de relevé sur la semaine N')
+            indet_reason = (
+                'Indéterminée : ' + (' · '.join(reasons) if reasons else 'données insuffisantes')
+            )
 
         group_blocks.append({
             'id': groupe.id,
@@ -468,6 +502,8 @@ def calculer_groupes(
             'formatted_autonomy': formatted_autonomy,
             'is_infinite_autonomy': is_infinite_autonomy,
             'is_infinite_consumption': is_infinite_consumption,
+            'is_sans_fonctionnement': is_sans_fonctionnement,
+            'indet_reason': indet_reason,
             'latest_main_volume': latest_main_volume,
             'latest_daily_volume': latest_daily_volume,
             'color': '#0b3d7a',

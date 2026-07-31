@@ -1,4 +1,5 @@
 from django.contrib.auth.models import User
+from django.db.models import Q
 from django.middleware.csrf import get_token
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
@@ -224,17 +225,17 @@ class AdminStaffUsersAPIView(APIView):
 
 
 class AdminUserSearchAPIView(APIView):
-    """Recherche d’utilisateurs par e-mail (admin) — tous rôles, pour élire."""
+    """Recherche d’utilisateurs par e-mail ou nom (admin)."""
 
     permission_classes = [IsAuthenticated, IsAdminRole]
 
     @extend_schema(
         tags=['Auth'],
-        summary='Rechercher un utilisateur par e-mail',
+        summary='Rechercher un utilisateur par e-mail ou nom',
         parameters=[
             OpenApiParameter(
                 name='email',
-                description='Fragment ou adresse e-mail',
+                description='Fragment d’e-mail, nom ou identifiant',
                 required=True,
                 type=str,
             ),
@@ -244,12 +245,17 @@ class AdminUserSearchAPIView(APIView):
         email = (request.query_params.get('email') or '').strip()
         if len(email) < 2:
             return Response(
-                {'detail': 'Indiquez au moins 2 caractères d’e-mail.'},
+                {'detail': 'Indiquez au moins 2 caractères.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         qs = (
-            User.objects.filter(email__icontains=email)
+            User.objects.filter(
+                Q(email__icontains=email)
+                | Q(username__icontains=email)
+                | Q(first_name__icontains=email)
+                | Q(last_name__icontains=email)
+            )
             .select_related('profil', 'profil__site')
             .order_by('email', 'username')[:20]
         )

@@ -28,6 +28,8 @@ TYPES_DETECTES = (
     'autonomie_critique',
     'autonomie_preventive',
     'conso_sans_horaire',
+    'horaire_sans_conso',
+    'autonomie_indeterminee',
     'ecart_conso',
 )
 
@@ -213,6 +215,11 @@ def _candidates_from_block(block, groupe, cp, site, cuve_j):
 
     latest_consumption = _last_period_value(block.get('consumption'), 0.0)
     latest_hours = _last_period_value(block.get('hours_run'), 0.0)
+    hours_series = block.get('hours_run') or []
+    cons_series = block.get('consumption') or []
+    latest_hours_raw = hours_series[-1] if hours_series else None
+    latest_cons_raw = cons_series[-1] if cons_series else None
+
     if latest_consumption > 0 and not (latest_hours > 0):
         candidates.append({
             'cle': Alerte.generer_cle('conso_sans_horaire', gid),
@@ -227,6 +234,47 @@ def _candidates_from_block(block, groupe, cp, site, cuve_j):
                 **base_ctx,
                 'quantite_conso': latest_consumption,
                 'compteur_horaire': latest_hours,
+            },
+        })
+
+    if latest_hours > 0 and not (latest_consumption > 0):
+        candidates.append({
+            'cle': Alerte.generer_cle('horaire_sans_conso', gid),
+            'type_alerte': 'horaire_sans_conso',
+            'priorite': 'haute',
+            'message': (
+                'Delta horaire élevé sans consommation enregistrée '
+                f'— Groupe {label}'
+                + (f' ({site_name})' if site_name else '')
+                + f' ({latest_hours:.1f} h / {latest_consumption:.1f} L)'
+            ),
+            'donnees_contexte': {
+                **base_ctx,
+                'quantite_conso': latest_consumption,
+                'compteur_horaire': latest_hours,
+            },
+        })
+
+    if (
+        bool(block.get('is_infinite_autonomy'))
+        and not bool(block.get('is_infinite_consumption'))
+        and not bool(block.get('is_sans_fonctionnement'))
+    ):
+        reason = block.get('indet_reason') or 'données insuffisantes pour calculer le temps restant'
+        candidates.append({
+            'cle': Alerte.generer_cle('autonomie_indeterminee', gid),
+            'type_alerte': 'autonomie_indeterminee',
+            'priorite': 'moyenne',
+            'message': (
+                f'Autonomie indéterminée — Groupe {label}'
+                + (f' ({site_name})' if site_name else '')
+                + f' : {reason}'
+            ),
+            'donnees_contexte': {
+                **base_ctx,
+                'indet_reason': reason,
+                'hours_n': latest_hours_raw,
+                'consumption_n': latest_cons_raw,
             },
         })
 
