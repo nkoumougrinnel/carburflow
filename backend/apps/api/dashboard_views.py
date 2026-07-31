@@ -107,6 +107,7 @@ class SitesDashboardAPIView(APIView):
         consumption_series = []
         hours_series = []
         autonomy_by_site = {}
+        groups_by_site = {}
 
         for idx, site in enumerate(sites):
             site_id = site.id
@@ -143,6 +144,7 @@ class SitesDashboardAPIView(APIView):
             for group_idx, gb in enumerate(site_groups):
                 if any((v or 0) > 0 for v in gb['hours_run']):
                     site_datasets.append({
+                        'id': gb['id'],
                         'label': gb['label'],
                         'data': gb['hours_run'],
                         'borderColor': group_colors[group_idx % len(group_colors)],
@@ -181,12 +183,26 @@ class SitesDashboardAPIView(APIView):
                 'is_infinite_autonomy': is_infinite_aut,
             }
 
+            groups_by_site[str(site_id)] = [
+                {
+                    'id': gb['id'],
+                    'label': gb['label'],
+                    'autonomie_hours': gb.get('autonomie_hours'),
+                    'formatted_autonomy': gb.get('formatted_autonomy'),
+                    'is_infinite_consumption': bool(gb.get('is_infinite_consumption')),
+                    'is_infinite_autonomy': bool(gb.get('is_infinite_autonomy')),
+                    'is_sans_fonctionnement': bool(gb.get('is_sans_fonctionnement')),
+                }
+                for gb in site_groups
+            ]
+
         return Response({
             'labels': labels,
             'volumeSeries': volume_series,
             'hoursSeries': hours_series,
             'consumptionSeries': consumption_series,
             'autonomyBySite': autonomy_by_site,
+            'groupsBySite': groups_by_site,
             'defaultSiteId': sites[0].id if sites else None,
         })
         
@@ -379,6 +395,18 @@ class DashboardOverviewAPIView(APIView):
             cons_sans_delta = cons_sans_delta_n or bool(block.get('is_infinite_consumption'))
             has_anomaly = bool(is_abnormal or cons_sans_delta)
 
+            previous_hourly = None
+            if len(hours_series) >= 2 and len(consumption_series) >= 2:
+                h_prev = hours_series[-2]
+                c_prev = consumption_series[-2]
+                if (
+                    h_prev is not None
+                    and float(h_prev) > 0
+                    and c_prev is not None
+                    and float(c_prev) > 0
+                ):
+                    previous_hourly = round(float(c_prev) / float(h_prev), 3)
+
             group_rows.append({
                 'id': block['id'],
                 'label': block['label'],
@@ -401,6 +429,7 @@ class DashboardOverviewAPIView(APIView):
                 'mean_hourly_consumption': block['mean_hourly_consumption'],
                 'mean_hourly_consumption_deduite': block['mean_hourly_consumption_deduite'],
                 'latest_hourly_consumption': block['latest_hourly_consumption'],
+                'previous_hourly_consumption': previous_hourly,
                 'is_abnormal': is_abnormal,
                 'has_anomaly': has_anomaly,
             })

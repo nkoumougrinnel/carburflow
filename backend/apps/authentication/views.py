@@ -289,9 +289,9 @@ class AdminSetRoleAPIView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        if user.pk == request.user.pk and api_role != 'admin':
+        if (user.pk == request.user.pk):
             return Response(
-                {'detail': 'Vous ne pouvez pas retirer votre propre rôle administrateur.'},
+                {'detail': 'Vous ne pouvez pas modifier votre propre rôle.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
