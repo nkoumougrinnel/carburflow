@@ -129,6 +129,7 @@ function SitesPage({ onNavigate }) {
           })),
           consumptionSeries: data.consumptionSeries || [],
           autonomyBySite: data.autonomyBySite || {},
+          groupsBySite: data.groupsBySite || {},
           defaultSiteId: data.defaultSiteId,
         });
       } catch (error) {
@@ -255,6 +256,32 @@ function SitesPage({ onNavigate }) {
     if (!sitesDashboard?.autonomyBySite || !siteId) return null
     return sitesDashboard.autonomyBySite[String(siteId)] || null
   }, [sitesDashboard, siteId])
+
+  const siteAttachedGroups = useMemo(() => {
+    if (!sitesDashboard?.groupsBySite || !siteId || mode !== 'details') return []
+    return sitesDashboard.groupsBySite[String(siteId)] || []
+  }, [sitesDashboard, siteId, mode])
+
+  const openGroup = (group) => {
+    onNavigate?.({
+      view: 'groups',
+      groupId: group.id,
+      groupLabel: group.label,
+      mode: 'details',
+    })
+  }
+
+  const openSiteDetails = (site) => {
+    const id = String(site.id)
+    setSiteId(id)
+    setMode('details')
+    onNavigate?.({
+      view: 'sites',
+      siteId: id,
+      siteName: site.nom_site,
+      mode: 'details',
+    })
+  }
 
   const siteTableRows = useMemo(() => {
     if (!sitesDashboard?.volumeSeries?.length) return []
@@ -441,7 +468,20 @@ function SitesPage({ onNavigate }) {
                     const siteAut = sitesDashboard?.autonomyBySite?.[String(site.id)] || {}
                     const severity = getAutonomySeverity(siteAut)
                     return (
-                      <tr key={site.id} className={`autonomy-row autonomy-row--${severity}`}>
+                      <tr
+                        key={site.id}
+                        className={`autonomy-row autonomy-row--${severity} dashboard-row-link`}
+                        onClick={() => openSiteDetails(site)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault()
+                            openSiteDetails(site)
+                          }
+                        }}
+                        tabIndex={0}
+                        role="link"
+                        aria-label={`Ouvrir le détail du site ${site.nom_site}`}
+                      >
                         <td>{site.nom_site}</td>
                         <td>{site.hours.total.toFixed(1)}</td>
                         <td>{site.hours.mean.toFixed(1)}</td>
@@ -481,6 +521,41 @@ function SitesPage({ onNavigate }) {
                 <span className="metric-label">Sites</span>
                 <h2>{selectedSite?.nom_site || 'Tous les sites'}</h2>
               </div>
+
+              {mode === 'details' && selectedSite && (
+                <section className="site-attached-groups" aria-label="Groupes rattachés">
+                  <div className="site-attached-groups-head">
+                    <strong>Groupes rattachés</strong>
+                    <span>
+                      {siteAttachedGroups.length
+                        ? `${siteAttachedGroups.length} groupe${siteAttachedGroups.length > 1 ? 's' : ''}`
+                        : 'Aucun'}
+                    </span>
+                  </div>
+                  {siteAttachedGroups.length > 0 ? (
+                    <ul className="site-attached-groups-list">
+                      {siteAttachedGroups.map((group) => (
+                        <li key={group.id}>
+                          <button
+                            type="button"
+                            className="site-attached-group-link"
+                            onClick={() => openGroup(group)}
+                            title={`Ouvrir le groupe ${group.label}`}
+                          >
+                            <span className="site-attached-group-name">{group.label}</span>
+                            <AutonomyBadge entity={group} size="sm" showLabel={false} />
+                            <span className="site-attached-group-cta">Voir →</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="site-attached-groups-empty">
+                      Aucun groupe électrogène rattaché à ce site.
+                    </p>
+                  )}
+                </section>
+              )}
 
               {/* 3 graphiques côte à côte */}
               <div className="site-metrics-grid" style={{ 

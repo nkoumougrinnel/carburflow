@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { Bell, ArrowRight, CheckCircle2, History } from 'lucide-react'
+import { Bell, CheckCircle2, History } from 'lucide-react'
 import Topbar from '../components/Topbar.jsx'
 import PageEnter from '../components/PageEnter.jsx'
 import PageLoader from '../components/PageLoader.jsx'
@@ -12,6 +12,7 @@ import {
   PRIORITE_META,
   countAlertsBySeverity,
   filterAlerts,
+  isIndeterminateAutonomyAlert,
   normalizePersistedAlert,
   splitAlertSubtitle,
 } from '../utils/alerts.js'
@@ -166,7 +167,7 @@ function AlertsPage({ onNavigate }) {
   )
 
   const activeAlerts = useMemo(
-    () => alerts.filter((a) => !a.traitee && a.etat !== 'ignoree'),
+    () => alerts.filter((a) => !a.traitee && a.etat !== 'ignoree' && !isIndeterminateAutonomyAlert(a)),
     [alerts],
   )
   const historyAlerts = useMemo(
@@ -209,9 +210,8 @@ function AlertsPage({ onNavigate }) {
       id: 'history',
       label: 'Historique',
       icon: History,
-      badge: historyAlerts.length,
     },
-  ]), [activeAlerts.length, historyAlerts.length])
+  ]), [activeAlerts.length])
 
   const counts = useMemo(() => countAlertsBySeverity(activeAlerts), [activeAlerts])
   const historyCounts = useMemo(() => countAlertsBySeverity(historyAlerts), [historyAlerts])
@@ -316,8 +316,17 @@ function AlertsPage({ onNavigate }) {
               <div
                 key={alert.id}
                 id={`alert-card-${alert.id}`}
-                className={`alert-item alert-item--compact alert-${severity}${panel === 'history' ? ' alert-item--treated' : ''}${isFocused ? ' is-focused' : ''}`}
+                role="button"
+                tabIndex={0}
+                className={`alert-item alert-item--compact alert-item--clickable alert-${severity}${panel === 'history' ? ' alert-item--treated' : ''}${isFocused ? ' is-focused' : ''}`}
                 data-severity={severity}
+                onClick={() => openAlert(alert)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    openAlert(alert)
+                  }
+                }}
               >
                 <div className="alert-severity-bar" aria-hidden="true" />
                 <div className="alert-header alert-header--compact">
@@ -342,27 +351,24 @@ function AlertsPage({ onNavigate }) {
                     <span className="alert-when">
                       {panel === 'history' ? `Traité le ${when}` : when}
                       {panel === 'history' && author ? ` · ${author}` : ''}
+                      {' · '}
+                      {alert.target === 'groups' ? 'Ouvrir le groupe' : 'Ouvrir le site'}
                     </span>
-                    <div className="alert-item-actions">
-                      <button
-                        type="button"
-                        className="alert-more-btn"
-                        onClick={() => openAlert(alert)}
-                      >
-                        Voir <ArrowRight size={14} aria-hidden="true" />
-                      </button>
-                      {isAdmin && panel === 'active' && (
-                        <button
-                          type="button"
-                          className="reports-btn reports-btn--primary alert-treat-btn"
-                          onClick={() => { setMessage(''); setPendingTreat(alert) }}
-                        >
-                          <CheckCircle2 size={14} aria-hidden="true" />
-                          Traiter
-                        </button>
-                      )}
-                    </div>
                   </div>
+                  {isAdmin && panel === 'active' && (
+                    <button
+                      type="button"
+                      className="alert-treat-btn-lg"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        setMessage('')
+                        setPendingTreat(alert)
+                      }}
+                    >
+                      <CheckCircle2 size={18} aria-hidden="true" />
+                      Traiter maintenant
+                    </button>
+                  )}
                 </div>
               </div>
             )
@@ -395,8 +401,15 @@ function AlertsPage({ onNavigate }) {
     return (
       <div className="app-shell app-shell--alerts dashboard-shell">
         <Topbar activeView="alerts" onNavigate={onNavigate} />
-        <div className="loading-state" style={{ marginTop: 24 }}>
-          {loadError}
+        <div className="loading-state alerts-fatal-error" style={{ marginTop: 24 }}>
+          <p>{loadError}</p>
+          <button
+            type="button"
+            className="reports-btn reports-btn--primary"
+            onClick={() => window.location.reload()}
+          >
+            Réessayer
+          </button>
         </div>
       </div>
     )
@@ -410,11 +423,7 @@ function AlertsPage({ onNavigate }) {
           <WelcomeBanner
             kicker="Priorités métier"
             title="Centre d’alertes"
-            subtitle={
-              isAdmin
-                ? 'Filtrez, traitez et suivez les alertes actives.'
-                : 'Consultez les alertes actives et l’historique.'
-            }
+            subtitle="Filtrez, traitez et suivez les alertes actives. Réservé aux responsables."
           />
           <SectionWorkspace
             className="section-workspace--fill section-workspace--alerts"

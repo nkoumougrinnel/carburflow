@@ -1,26 +1,35 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { Search, ShieldCheck, UserRound } from 'lucide-react'
+import { Search, ShieldCheck, UserRound, X } from 'lucide-react'
 import PageLoader from './PageLoader.jsx'
 import { LoadingButton } from './reports/ReportsUi.jsx'
 import { listStaffUsers, searchUsersByEmail, setUserRole } from '../auth.js'
+import { useAuth } from '../context/AuthContext.jsx'
 
 const ROLE_OPTIONS = [
-  { value: 'admin', label: 'Administrateur' },
-  { value: 'operateur', label: 'Agent / Opérateur' },
-  { value: 'user', label: 'Utilisateur' },
+  { value: 'admin', label: 'Responsable' },
+  { value: 'operateur', label: 'Opérateur' },
+  { value: 'user', label: 'Consultation' },
 ]
 
 const ROLE_LABELS = {
-  admin: 'Administrateur',
-  operateur: 'Agent / Opérateur',
-  user: 'Utilisateur',
+  admin: 'Responsable',
+  operateur: 'Opérateur',
+  user: 'Consultation',
 }
 
 function isPrivilegedRole(role) {
   return role === 'admin' || role === 'operateur'
 }
 
+function isSameUser(a, b) {
+  if (!a || !b) return false
+  if (a.id != null && b.id != null && String(a.id) === String(b.id)) return true
+  if (a.email && b.email && String(a.email).toLowerCase() === String(b.email).toLowerCase()) return true
+  return false
+}
+
 function AdminProfilesManager() {
+  const { user: currentUser } = useAuth()
   const [emailQuery, setEmailQuery] = useState('')
   const [staffList, setStaffList] = useState([])
   const [searchResults, setSearchResults] = useState(null)
@@ -29,6 +38,7 @@ function AdminProfilesManager() {
   const [loadingStaff, setLoadingStaff] = useState(true)
   const [searching, setSearching] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
 
@@ -38,6 +48,8 @@ function AdminProfilesManager() {
     () => displayList.find((u) => u.id === selectedId) || null,
     [displayList, selectedId],
   )
+
+  const isSelf = isSameUser(selected, currentUser)
 
   const loadStaff = useCallback(async ({ keepSelection = true } = {}) => {
     setLoadingStaff(true)
@@ -80,7 +92,7 @@ function AdminProfilesManager() {
       return
     }
     if (q.length < 2) {
-      setError('Indiquez au moins 2 caractères d’e-mail.')
+      setError('Indiquez au moins 2 caractères.')
       return
     }
     setSearching(true)
@@ -90,7 +102,7 @@ function AdminProfilesManager() {
       setSearchResults(list)
       setSelectedId(list[0]?.id ?? null)
       if (!list.length) {
-        setMessage('Aucun utilisateur trouvé pour cet e-mail.')
+        setMessage('Aucun utilisateur trouvé.')
       }
     } catch (err) {
       setSearchResults([])
@@ -109,8 +121,15 @@ function AdminProfilesManager() {
     setSelectedId(staffList[0]?.id ?? null)
   }
 
+  const requestApplyRole = () => {
+    if (!selected?.email || roleDraft === selected.role || isSelf) return
+    setError('')
+    setMessage('')
+    setConfirmOpen(true)
+  }
+
   const applyRole = async () => {
-    if (!selected?.email) return
+    if (!selected?.email || isSelf) return
     setError('')
     setMessage('')
     setSaving(true)
@@ -121,6 +140,7 @@ function AdminProfilesManager() {
       })
       const updated = result?.user
       setMessage(result?.detail || 'Rôle mis à jour.')
+      setConfirmOpen(false)
 
       if (!updated) return
 
@@ -155,22 +175,29 @@ function AdminProfilesManager() {
   }
 
   const listTitle = searchResults
-    ? `Résultats de recherche (${displayList.length})`
-    : `Admins et agents (${displayList.length})`
+    ? `Résultats (${displayList.length})`
+    : `Équipe (${displayList.length})`
 
   return (
-    <section className="users-admin-embed">
+    <section className="users-admin-embed users-admin-embed--saas">
+      <header className="users-admin-saas-head">
+        <div>
+          <h2>Équipe & rôles</h2>
+          <p>Cherchez un compte, attribuez Responsable, Opérateur ou Consultation.</p>
+        </div>
+      </header>
+
       {message && <div className="reports-success" role="status">{message}</div>}
       {error && <div className="reports-error" role="alert">{error}</div>}
 
-      <form className="users-admin-search" onSubmit={runSearch}>
+      <form className="users-admin-search users-admin-search--saas" onSubmit={runSearch}>
         <label className="users-admin-field">
-          <span>Chercher par e-mail (tous les comptes)</span>
+          <span>Rechercher un compte</span>
           <input
             type="search"
             value={emailQuery}
             onChange={(e) => setEmailQuery(e.target.value)}
-            placeholder="ex. marie@entreprise.com"
+            placeholder="Nom, e-mail…"
             autoComplete="off"
           />
         </label>
@@ -186,7 +213,7 @@ function AdminProfilesManager() {
           </LoadingButton>
           {searchResults && (
             <button type="button" className="reports-btn reports-btn--ghost" onClick={clearSearch}>
-              Voir admins / agents
+              Voir l’équipe
             </button>
           )}
         </div>
@@ -197,40 +224,51 @@ function AdminProfilesManager() {
       )}
 
       {!loadingStaff && !searching && (
-        <div className="users-admin-results">
+        <div className="users-admin-results users-admin-results--saas">
           <div className="users-admin-list">
             <h3>{listTitle}</h3>
             {displayList.length === 0 ? (
-              <p className="users-admin-empty">
-                {searchResults
-                  ? 'Aucun compte trouvé.'
-                  : 'Aucun administrateur ni agent pour le moment.'}
-              </p>
+              <div className="users-admin-empty-block">
+                <p className="users-admin-empty">
+                  {searchResults
+                    ? 'Aucun compte trouvé.'
+                    : 'Aucun responsable ni opérateur pour le moment.'}
+                </p>
+                <p className="users-admin-empty-hint">
+                  Pour ajouter un accès, cherchez l’e-mail d’un compte déjà créé, puis enregistrez son rôle.
+                </p>
+              </div>
             ) : (
               <ul>
-                {displayList.map((user) => (
-                  <li key={user.id}>
-                    <button
-                      type="button"
-                      className={`users-admin-result${selectedId === user.id ? ' is-active' : ''}`}
-                      onClick={() => setSelectedId(user.id)}
-                    >
-                      <span className="users-admin-result-main">
-                        <strong>{user.full_name || user.username}</strong>
-                        <span>{user.email || '—'}</span>
-                      </span>
-                      <span className={`users-admin-role-chip users-admin-role-chip--${user.role}`}>
-                        {ROLE_LABELS[user.role] || user.role}
-                      </span>
-                    </button>
-                  </li>
-                ))}
+                {displayList.map((user) => {
+                  const selfRow = isSameUser(user, currentUser)
+                  return (
+                    <li key={user.id}>
+                      <button
+                        type="button"
+                        className={`users-admin-result${selectedId === user.id ? ' is-active' : ''}`}
+                        onClick={() => setSelectedId(user.id)}
+                      >
+                        <span className="users-admin-result-main">
+                          <strong>
+                            {user.full_name || user.username}
+                            {selfRow ? ' (vous)' : ''}
+                          </strong>
+                          <span>{user.email || '—'}</span>
+                        </span>
+                        <span className={`users-admin-role-chip users-admin-role-chip--${user.role}`}>
+                          {ROLE_LABELS[user.role] || user.role}
+                        </span>
+                      </button>
+                    </li>
+                  )
+                })}
               </ul>
             )}
           </div>
 
           {selected && (
-            <div className="users-admin-detail">
+            <div className="users-admin-detail users-admin-detail--saas">
               <div className="users-admin-detail-head">
                 <UserRound size={20} aria-hidden="true" />
                 <div>
@@ -260,28 +298,104 @@ function AdminProfilesManager() {
                 )}
               </dl>
 
-              <label className="users-admin-field">
-                <span>Nouveau rôle</span>
-                <select value={roleDraft} onChange={(e) => setRoleDraft(e.target.value)}>
-                  {ROLE_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </label>
+              {isSelf ? (
+                <div className="users-admin-self-lock" role="status">
+                  Vous ne pouvez pas modifier votre propre rôle. Demandez à un autre responsable si besoin.
+                </div>
+              ) : (
+                <>
+                  <label className="users-admin-field">
+                    <span>Nouveau rôle</span>
+                    <select value={roleDraft} onChange={(e) => setRoleDraft(e.target.value)}>
+                      {ROLE_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </label>
 
+                  <LoadingButton
+                    className="reports-btn--primary"
+                    loading={saving && !confirmOpen}
+                    loadingText="Enregistrement…"
+                    disabled={roleDraft === selected.role}
+                    type="button"
+                    onClick={requestApplyRole}
+                  >
+                    <ShieldCheck size={16} aria-hidden="true" />
+                    Enregistrer le rôle
+                  </LoadingButton>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {confirmOpen && selected && !isSelf && (
+        <div
+          className="rapport-modal-backdrop"
+          role="presentation"
+          onClick={() => !saving && setConfirmOpen(false)}
+        >
+          <div
+            className="rapport-modal users-role-confirm-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="users-role-confirm-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="rapport-modal-head">
+              <div>
+                <p className="rapport-modal-kicker">Comptes</p>
+                <h2 id="users-role-confirm-title">Confirmer le rôle</h2>
+                <p>{selected.full_name || selected.username || selected.email}</p>
+              </div>
+              <button
+                type="button"
+                className="rapport-modal-close"
+                onClick={() => setConfirmOpen(false)}
+                aria-label="Fermer"
+                disabled={saving}
+              >
+                <X size={18} aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="users-role-confirm-body">
+              <div className="users-role-confirm-flow">
+                <span className={`users-admin-role-chip users-admin-role-chip--${selected.role}`}>
+                  {ROLE_LABELS[selected.role] || selected.role}
+                </span>
+                <span className="users-role-confirm-arrow" aria-hidden="true">→</span>
+                <span className={`users-admin-role-chip users-admin-role-chip--${roleDraft}`}>
+                  {ROLE_LABELS[roleDraft] || roleDraft}
+                </span>
+              </div>
+              <p className="users-role-confirm-hint">
+                Ce changement prend effet immédiatement pour les accès de la personne.
+              </p>
+            </div>
+
+            <div className="rapport-modal-actions">
+              <button
+                type="button"
+                className="reports-btn reports-btn--ghost"
+                onClick={() => setConfirmOpen(false)}
+                disabled={saving}
+              >
+                Annuler
+              </button>
               <LoadingButton
                 className="reports-btn--primary"
                 loading={saving}
                 loadingText="Enregistrement…"
-                disabled={roleDraft === selected.role}
                 type="button"
                 onClick={applyRole}
               >
-                <ShieldCheck size={16} aria-hidden="true" />
-                Élire / appliquer le rôle
+                Confirmer
               </LoadingButton>
             </div>
-          )}
+          </div>
         </div>
       )}
     </section>

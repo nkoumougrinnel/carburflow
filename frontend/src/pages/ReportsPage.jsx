@@ -82,8 +82,8 @@ function LoadingButton({
 
 function initialReportsPane(isAdmin) {
   const pane = new URLSearchParams(window.location.search).get('pane')
-  if (!isAdmin && pane === 'history') return 'history'
-  if (isAdmin && (pane === 'download' || pane === 'upload')) return pane
+  if (pane === 'history' || pane === 'download') return 'download'
+  if (pane === 'upload') return 'upload'
   return isAdmin ? 'download' : 'upload'
 }
 
@@ -110,6 +110,8 @@ function ReportsPage({ onNavigate }) {
   const [searching, setSearching] = useState(false)
   const [matchedRapports, setMatchedRapports] = useState([])
   const [selectedRapportId, setSelectedRapportId] = useState('')
+  /** Consulter : filtre « période » ou « tous les envois » */
+  const [consultFilter, setConsultFilter] = useState('period')
 
   const busy = uploading
     || downloadingFiche
@@ -121,8 +123,8 @@ function ReportsPage({ onNavigate }) {
       return [
         {
           id: 'download',
-          label: 'Télécharger',
-          description: 'Récupérer un relevé par période',
+          label: 'Consulter',
+          description: 'Tous les envois et export',
           icon: Download,
         },
         {
@@ -141,9 +143,9 @@ function ReportsPage({ onNavigate }) {
         icon: Upload,
       },
       {
-        id: 'history',
+        id: 'download',
         label: 'Mes envois',
-        description: 'Relevés déjà transmis',
+        description: 'Consulter et télécharger',
         icon: History,
       },
     ]
@@ -167,7 +169,7 @@ function ReportsPage({ onNavigate }) {
   }, [])
 
   useEffect(() => {
-    if (pane === 'history') {
+    if (pane === 'download') {
       refreshHistory()
     } else if (pane === 'upload') {
       normeMeta().catch(() => {})
@@ -277,7 +279,7 @@ function ReportsPage({ onNavigate }) {
     try {
       const result = await uploadRapport(file)
       setMessage(result.detail || 'Votre fichier a bien été enregistré.')
-      if (pane === 'history') await refreshHistory({ silent: true })
+      if (pane === 'download') await refreshHistory({ silent: true })
     } catch (err) {
       setError(err.message || 'Votre fichier n’a pas pu être importé.')
       setImportErrors(Array.isArray(err.errors) ? err.errors : (err.data?.errors || []))
@@ -333,115 +335,232 @@ function ReportsPage({ onNavigate }) {
 
   const downloadPane = (
     <section className="reports-download-flow">
-      <form className="reports-period-form" onSubmit={handleSearchPeriod}>
-        <label className="reports-period-field">
-          <span>Date de début</span>
-          <input
-            type="date"
-            value={periodDebut}
-            onChange={(e) => setPeriodDebut(e.target.value)}
-            required
-          />
-        </label>
-        <label className="reports-period-field">
-          <span>Date de fin</span>
-          <input
-            type="date"
-            value={periodFin}
-            onChange={(e) => setPeriodFin(e.target.value)}
-            required
-          />
-        </label>
-        <LoadingButton
-          className="reports-btn--primary"
-          loading={searching}
-          loadingText="Recherche…"
-          type="submit"
+      <div className="reports-consult-filters" role="tablist" aria-label="Mode de consultation">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={consultFilter === 'period'}
+          className={`reports-consult-filter${consultFilter === 'period' ? ' is-active' : ''}`}
+          onClick={() => setConsultFilter('period')}
         >
           <Search size={16} aria-hidden="true" />
-          Afficher les détails
-        </LoadingButton>
-      </form>
+          Par période
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={consultFilter === 'all'}
+          className={`reports-consult-filter${consultFilter === 'all' ? ' is-active' : ''}`}
+          onClick={() => setConsultFilter('all')}
+        >
+          <History size={16} aria-hidden="true" />
+          {isAdmin ? 'Tous les envois' : 'Mes envois'}
+          {rapports.length > 0 ? (
+            <span className="reports-consult-filter-count">{rapports.length}</span>
+          ) : null}
+        </button>
+      </div>
 
       {feedbackBlocks}
 
-      <div className="reports-download-result">
-        {!hasSearched && (
-          <p className="reports-empty">
-            Sélectionnez un intervalle, puis cliquez sur « Afficher les détails ».
-            Tous les relevés qui chevauchent cette période seront listés.
-          </p>
-        )}
+      {consultFilter === 'period' ? (
+        <>
+          <form className="reports-period-form" onSubmit={handleSearchPeriod}>
+            <label className="reports-period-field">
+              <span>Date de début</span>
+              <input
+                type="date"
+                value={periodDebut}
+                onChange={(e) => setPeriodDebut(e.target.value)}
+                required
+              />
+            </label>
+            <label className="reports-period-field">
+              <span>Date de fin</span>
+              <input
+                type="date"
+                value={periodFin}
+                onChange={(e) => setPeriodFin(e.target.value)}
+                required
+              />
+            </label>
+            <LoadingButton
+              className="reports-btn--primary"
+              loading={searching}
+              loadingText="Recherche…"
+              type="submit"
+            >
+              <Search size={16} aria-hidden="true" />
+              Afficher les détails
+            </LoadingButton>
+          </form>
 
-        {hasSearched && !searching && matchedRapports.length > 0 && (
-          <>
-            {matchedRapports.length > 1 && (
-              <div className="reports-match-picker" role="listbox" aria-label="Relevés trouvés">
-                {matchedRapports.map((r) => (
-                  <button
-                    key={r.id}
-                    type="button"
-                    role="option"
-                    aria-selected={String(r.id) === String(selectedRapportId)}
-                    className={`reports-match-card${String(r.id) === String(selectedRapportId) ? ' is-active' : ''}`}
-                    onClick={() => setSelectedRapportId(String(r.id))}
-                  >
-                    <strong>Relevé n°{r.id}</strong>
-                    <span>{formatDate(r.date_debut)} → {formatDate(r.date_fin)}</span>
-                    <span>{r.lignes_count ?? 0} ligne(s) · {r.created_by_username || '—'}</span>
-                  </button>
-                ))}
-              </div>
+          <div className="reports-download-result">
+            {!hasSearched && (
+              <p className="reports-empty">
+                Sélectionnez un intervalle, puis cliquez sur « Afficher les détails ».
+                Tous les relevés qui chevauchent cette période seront listés.
+              </p>
             )}
 
-            {selectedRapport && (
-              <article className="reports-download-details">
-                <header>
-                  <h3>Relevé n°{selectedRapport.id}</h3>
-                  <p>
-                    Période {formatDate(selectedRapport.date_debut)} → {formatDate(selectedRapport.date_fin)}
-                  </p>
-                </header>
-                <dl className="reports-download-meta-grid">
-                  <div>
-                    <dt>Importé par</dt>
-                    <dd>{selectedRapport.created_by_username || 'Non indiqué'}</dd>
+            {hasSearched && !searching && matchedRapports.length > 0 && (
+              <>
+                {matchedRapports.length > 1 && (
+                  <div className="reports-match-picker" role="listbox" aria-label="Relevés trouvés">
+                    {matchedRapports.map((r) => (
+                      <button
+                        key={r.id}
+                        type="button"
+                        role="option"
+                        aria-selected={String(r.id) === String(selectedRapportId)}
+                        className={`reports-match-card${String(r.id) === String(selectedRapportId) ? ' is-active' : ''}`}
+                        onClick={() => setSelectedRapportId(String(r.id))}
+                      >
+                        <strong>Relevé n°{r.id}</strong>
+                        <span>{formatDate(r.date_debut)} → {formatDate(r.date_fin)}</span>
+                        <span>{r.lignes_count ?? 0} ligne(s) · {r.created_by_username || '—'}</span>
+                      </button>
+                    ))}
                   </div>
-                  <div>
-                    <dt>Lignes</dt>
-                    <dd>{selectedRapport.lignes_count ?? 0}</dd>
-                  </div>
-                  <div>
-                    <dt>Créé le</dt>
-                    <dd>{formatDate(selectedRapport.date_creation)}</dd>
-                  </div>
-                </dl>
-              </article>
-            )}
-          </>
-        )}
-      </div>
+                )}
 
-      {selectedRapport && (
-        <div className="reports-download-actions">
-          <LoadingButton
-            className="reports-btn--primary"
-            loading={downloadingRapport === `${selectedRapport.id}:xlsx`}
-            loadingText="Téléchargement…"
-            disabled={busy && downloadingRapport !== `${selectedRapport.id}:xlsx`}
-            onClick={() => handleDownloadRapport(selectedRapport.id, 'xlsx')}
-          >
-            Télécharger Excel
-          </LoadingButton>
-          <LoadingButton
-            className="reports-btn--ghost"
-            loading={downloadingRapport === `${selectedRapport.id}:csv`}
-            loadingText="Téléchargement…"
-            disabled={busy && downloadingRapport !== `${selectedRapport.id}:csv`}
-            onClick={() => handleDownloadRapport(selectedRapport.id, 'csv')}
-          >
-            Télécharger CSV
-          </LoadingButton>
+                {selectedRapport && (
+                  <>
+                    <div className="reports-download-sticky-actions">
+                      <LoadingButton
+                        className="reports-btn--primary"
+                        loading={downloadingRapport === `${selectedRapport.id}:xlsx`}
+                        loadingText="Téléchargement…"
+                        disabled={busy && downloadingRapport !== `${selectedRapport.id}:xlsx`}
+                        onClick={() => handleDownloadRapport(selectedRapport.id, 'xlsx')}
+                      >
+                        Télécharger Excel
+                      </LoadingButton>
+                      <LoadingButton
+                        className="reports-btn--ghost"
+                        loading={downloadingRapport === `${selectedRapport.id}:csv`}
+                        loadingText="Téléchargement…"
+                        disabled={busy && downloadingRapport !== `${selectedRapport.id}:csv`}
+                        onClick={() => handleDownloadRapport(selectedRapport.id, 'csv')}
+                      >
+                        Télécharger CSV
+                      </LoadingButton>
+                    </div>
+                    <article className="reports-download-details">
+                      <header>
+                        <h3>Relevé n°{selectedRapport.id}</h3>
+                        <p>
+                          Période {formatDate(selectedRapport.date_debut)} → {formatDate(selectedRapport.date_fin)}
+                        </p>
+                      </header>
+                      <dl className="reports-download-meta-grid">
+                        <div>
+                          <dt>Importé par</dt>
+                          <dd>{selectedRapport.created_by_username || 'Non indiqué'}</dd>
+                        </div>
+                        <div>
+                          <dt>Lignes</dt>
+                          <dd>{selectedRapport.lignes_count ?? 0}</dd>
+                        </div>
+                        <div>
+                          <dt>Créé le</dt>
+                          <dd>{formatDate(selectedRapport.date_creation)}</dd>
+                        </div>
+                      </dl>
+                    </article>
+                  </>
+                )}
+              </>
+            )}
+
+            {hasSearched && !searching && matchedRapports.length === 0 && (
+              <p className="reports-empty">Aucun relevé ne chevauche cette période.</p>
+            )}
+          </div>
+        </>
+      ) : (
+        <div className="reports-history reports-history--workspace reports-history--consult">
+          <div className="reports-history-head">
+            <div>
+              <h2>{isAdmin ? 'Tous les envois' : 'Mes envois'}</h2>
+              <p className="reports-history-sub">
+                {rapports.length} relevé{rapports.length > 1 ? 's' : ''}
+              </p>
+            </div>
+            <div className="reports-history-tools">
+              <LoadingButton
+                className="reports-btn--ghost"
+                loading={loadingList}
+                loadingText="Actualisation…"
+                onClick={() => refreshHistory()}
+                disabled={busy && !loadingList}
+              >
+                Actualiser
+              </LoadingButton>
+            </div>
+          </div>
+
+          {loadingList ? (
+            <div className="reports-skeleton" aria-busy="true" aria-label="Chargement">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="reports-skeleton-row">
+                  <span /><span /><span /><span />
+                </div>
+              ))}
+            </div>
+          ) : rapports.length === 0 ? (
+            <div className="reports-empty-state">
+              <p className="reports-empty">Aucun relevé pour l’instant.</p>
+              <button
+                type="button"
+                className="reports-btn reports-btn--primary"
+                onClick={() => setPane('upload')}
+              >
+                Déposer un relevé
+              </button>
+            </div>
+          ) : (
+            <div className="reports-cards">
+              {rapports.map((r) => {
+                const keyX = `${r.id}:xlsx`
+                const keyC = `${r.id}:csv`
+                return (
+                  <article key={r.id} className="reports-card">
+                    <div className="reports-card-main">
+                      <div className="reports-card-title">Relevé n°{r.id}</div>
+                      <div className="reports-card-meta">
+                        Période : <strong>{formatDate(r.date_debut)} → {formatDate(r.date_fin)}</strong>
+                      </div>
+                      <div className="reports-card-meta">
+                        {r.lignes_count ?? 0} ligne(s)
+                        {r.created_by_username ? ` · ${r.created_by_username}` : ''}
+                      </div>
+                    </div>
+                    <div className="reports-card-actions">
+                      <LoadingButton
+                        className="reports-btn--primary reports-btn--download"
+                        loading={downloadingRapport === keyX}
+                        loadingText="Téléchargement…"
+                        disabled={busy && downloadingRapport !== keyX}
+                        onClick={() => handleDownloadRapport(r.id, 'xlsx')}
+                      >
+                        Excel
+                      </LoadingButton>
+                      <LoadingButton
+                        className="reports-btn--ghost"
+                        loading={downloadingRapport === keyC}
+                        loadingText="Téléchargement…"
+                        disabled={busy && downloadingRapport !== keyC}
+                        onClick={() => handleDownloadRapport(r.id, 'csv')}
+                      >
+                        CSV
+                      </LoadingButton>
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
     </section>
@@ -487,6 +606,9 @@ function ReportsPage({ onNavigate }) {
             <li>Sélectionnez l’état de fonctionnement dans la liste déroulante (F / P / HS).</li>
             <li>Pour ajouter un site non répertorié, utilisez la section basse dédiée dans l’Excel.</li>
           </ul>
+          <p className="reports-legend-fp-hs">
+            <strong>F</strong> = Fonctionne · <strong>P</strong> = Partiel · <strong>HS</strong> = Hors service
+          </p>
         </article>
 
         <article className="reports-howto-card">
@@ -543,90 +665,7 @@ function ReportsPage({ onNavigate }) {
     </div>
   )
 
-  const historyPane = (
-    <section className="reports-history reports-history--workspace reports-pane-scroll">
-      <div className="reports-history-head">
-        <div>
-          <p className="reports-history-sub">
-            Retrouvez ici vos envois récents. Vous pouvez les re-télécharger si besoin.
-          </p>
-        </div>
-        <div className="reports-history-tools">
-          <LoadingButton
-            className="reports-btn--ghost"
-            loading={loadingList}
-            loadingText="Actualisation…"
-            onClick={() => refreshHistory()}
-            disabled={busy && !loadingList}
-          >
-            Actualiser la liste
-          </LoadingButton>
-        </div>
-      </div>
-
-      {loadingList ? (
-        <div className="reports-skeleton" aria-busy="true" aria-label="Chargement">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="reports-skeleton-row">
-              <span />
-              <span />
-              <span />
-              <span />
-            </div>
-          ))}
-        </div>
-      ) : rapports.length === 0 ? (
-        <p className="reports-empty">
-          Aucun rapport pour l’instant. Commencez par l’onglet Ajouter.
-        </p>
-      ) : (
-        <div className="reports-cards">
-          {rapports.map((r) => {
-            const keyX = `${r.id}:xlsx`
-            const keyC = `${r.id}:csv`
-            return (
-              <article key={r.id} className="reports-card">
-                <div className="reports-card-main">
-                  <div className="reports-card-title">Rapport n°{r.id}</div>
-                  <div className="reports-card-meta">
-                    Période : <strong>{formatDate(r.date_debut)} → {formatDate(r.date_fin)}</strong>
-                  </div>
-                  <div className="reports-card-meta">
-                    {r.lignes_count ?? 0} ligne(s) de relevé
-                  </div>
-                </div>
-                <div className="reports-card-actions">
-                  <LoadingButton
-                    className="reports-btn--primary reports-btn--download"
-                    loading={downloadingRapport === keyX}
-                    loadingText="Téléchargement…"
-                    disabled={busy && downloadingRapport !== keyX}
-                    onClick={() => handleDownloadRapport(r.id, 'xlsx')}
-                  >
-                    Télécharger Excel
-                  </LoadingButton>
-                  <LoadingButton
-                    className="reports-btn--ghost"
-                    loading={downloadingRapport === keyC}
-                    loadingText="Téléchargement…"
-                    disabled={busy && downloadingRapport !== keyC}
-                    onClick={() => handleDownloadRapport(r.id, 'csv')}
-                  >
-                    CSV
-                  </LoadingButton>
-                </div>
-              </article>
-            )
-          })}
-        </div>
-      )}
-      {feedbackBlocks}
-    </section>
-  )
-
-  let paneContent = uploadPane
-  if (pane === 'download') paneContent = downloadPane
-  if (pane === 'history') paneContent = historyPane
+  const paneContent = pane === 'download' ? downloadPane : uploadPane
 
   return (
     <div className="app-shell app-shell--reports">

@@ -69,7 +69,7 @@ const BENEFITS = [
   {
     icon: ShieldCheck,
     title: 'Rôles clairement séparés',
-    text: 'Admin, opérateur et utilisateur — chacun voit exactement ce qu’il doit faire.',
+    text: 'Responsable, opérateur et consultation — chacun voit exactement ce qu’il doit faire.',
     image: ILLU.team,
   },
 ]
@@ -363,12 +363,12 @@ function HomePage({ onNavigate }) {
                 Trois rôles, une même plateforme
               </h2>
               <p className="reveal-head text-lg text-muted-foreground">
-                Administrateur, opérateur et utilisateur : chacun accède exactement à ce dont il a besoin.
+                Responsable, opérateur et consultation : chacun accède exactement à ce dont il a besoin.
               </p>
               <ul className="reveal-item space-y-3 text-sm text-muted-foreground">
                 <li><strong className="text-foreground">Responsable</strong> — dashboard, alertes, sites, groupes, relevés.</li>
                 <li><strong className="text-foreground">Opérateur</strong> — sites et relevés (envoi + historique).</li>
-                <li><strong className="text-foreground">Utilisateur</strong> — consultation des sites et profil.</li>
+                <li><strong className="text-foreground">Consultation</strong> — lecture des sites et profil.</li>
               </ul>
               <div className="reveal-item flex flex-wrap gap-3">
                 <Button onClick={() => onNavigate('login')}>

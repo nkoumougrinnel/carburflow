@@ -150,7 +150,7 @@ function OperatorHomePage({ onNavigate }) {
                 <button
                   type="button"
                   className="reports-btn reports-btn--ghost"
-                  onClick={() => onNavigate({ view: 'reports', pane: 'history' })}
+                  onClick={() => onNavigate({ view: 'reports', pane: 'download' })}
                 >
                   Voir les relevés
                 </button>
@@ -169,7 +169,7 @@ function OperatorHomePage({ onNavigate }) {
                       <button
                         type="button"
                         className="op-home-report-row"
-                        onClick={() => onNavigate({ view: 'reports', pane: 'history' })}
+                        onClick={() => onNavigate({ view: 'reports', pane: 'download' })}
                       >
                         <span className="op-home-report-id">n°{r.id}</span>
                         <span className="op-home-report-period">

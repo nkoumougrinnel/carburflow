@@ -47,9 +47,9 @@ function HistoryPage({ onNavigate }) {
     setDownloadingRapport(`${rapportId}:${format}`)
     try {
       await downloadRapport(rapportId, format)
-      setMessage(`Le rapport n°${rapportId} a été téléchargé.`)
+      setMessage(`Le relevé n°${rapportId} a été téléchargé.`)
     } catch (err) {
-      setError(err.message || 'Impossible de télécharger ce rapport.')
+      setError(err.message || 'Impossible de télécharger ce relevé.')
     } finally {
       setDownloadingRapport('')
     }
@@ -71,36 +71,75 @@ function HistoryPage({ onNavigate }) {
             subtitle={isAdmin ? 'Fichiers reçus des équipes.' : 'Retrouvez et téléchargez vos envois.'}
           />
           {message && <div className="reports-success" role="status">{message}</div>}
-          {error && <div className="reports-error-panel" role="alert"><div className="reports-error-panel-head"><strong>Problème</strong><p>{error}</p></div></div>}
+          {error && (
+            <div className="reports-error-panel" role="alert">
+              <div className="reports-error-panel-head">
+                <strong>Problème</strong>
+                <p>{error}</p>
+              </div>
+            </div>
+          )}
 
           <section className={`reports-history ${isAdmin ? 'reports-history--admin' : ''}`}>
             <div className="reports-history-head">
               <div>
-                <h2>{isAdmin ? 'Tous les rapports' : 'Mes envois'}</h2>
-                <p className="reports-history-sub">{rapports.length} rapport{rapports.length > 1 ? 's' : ''}</p>
+                <h2>{isAdmin ? 'Tous les envois' : 'Mes envois'}</h2>
+                <p className="reports-history-sub">
+                  {rapports.length} relevé{rapports.length > 1 ? 's' : ''}
+                </p>
               </div>
               <div className="reports-history-tools">
-                <LoadingButton className="reports-btn--ghost" loading={loadingList} onClick={() => refresh()}>Actualiser</LoadingButton>
+                <LoadingButton className="reports-btn--ghost" loading={loadingList} onClick={() => refresh()}>
+                  Actualiser
+                </LoadingButton>
                 {(isAdmin || rapports.length > 3) && (
                   <label className="reports-search">
                     <span className="sr-only">Rechercher</span>
-                    <input type="search" placeholder="Chercher…" value={query} onChange={(e) => setQuery(e.target.value)} />
+                    <input
+                      type="search"
+                      placeholder="N°, auteur, date…"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                    />
                   </label>
                 )}
-                {!isAdmin && (
-                  <LoadingButton className="reports-btn--primary" onClick={() => onNavigate('reports')}>Nouveau relevé</LoadingButton>
-                )}
+                <LoadingButton className="reports-btn--primary" onClick={() => onNavigate('reports')}>
+                  Déposer un relevé
+                </LoadingButton>
               </div>
             </div>
 
             {loadingList ? (
-              <div className="reports-skeleton" aria-busy="true">{[1, 2, 3].map((i) => <div key={i} className="reports-skeleton-row"><span /><span /><span /><span /></div>)}</div>
+              <div className="reports-skeleton" aria-busy="true">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="reports-skeleton-row">
+                    <span /><span /><span /><span />
+                  </div>
+                ))}
+              </div>
             ) : filteredRapports.length === 0 ? (
-              <p className="reports-empty">{query ? 'Aucun résultat.' : 'Aucun rapport pour l’instant.'}</p>
+              <div className="reports-empty-state">
+                <p className="reports-empty">
+                  {query ? 'Aucun résultat pour cette recherche.' : 'Aucun relevé pour l’instant.'}
+                </p>
+                {!query && (
+                  <LoadingButton className="reports-btn--primary" onClick={() => onNavigate('reports')}>
+                    Déposer un relevé
+                  </LoadingButton>
+                )}
+              </div>
             ) : isAdmin ? (
               <div className="reports-table-wrap">
                 <table className="reports-table">
-                  <thead><tr><th>Rapport</th><th>Période</th><th>Lignes</th><th>Importé par</th><th>Actions</th></tr></thead>
+                  <thead>
+                    <tr>
+                      <th>Relevé</th>
+                      <th>Période</th>
+                      <th>Lignes</th>
+                      <th>Importé par</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
                   <tbody>
                     {filteredRapports.map((r) => (
                       <tr key={r.id}>
@@ -110,8 +149,22 @@ function HistoryPage({ onNavigate }) {
                         <td>{r.created_by_username || '—'}</td>
                         <td>
                           <div className="reports-card-actions reports-table-actions">
-                            <LoadingButton className="reports-btn--primary" loading={downloadingRapport === `${r.id}:xlsx`} disabled={busy && downloadingRapport !== `${r.id}:xlsx`} onClick={() => handleDownloadRapport(r.id, 'xlsx')}>Excel</LoadingButton>
-                            <LoadingButton className="reports-btn--ghost" loading={downloadingRapport === `${r.id}:csv`} disabled={busy && downloadingRapport !== `${r.id}:csv`} onClick={() => handleDownloadRapport(r.id, 'csv')}>CSV</LoadingButton>
+                            <LoadingButton
+                              className="reports-btn--primary"
+                              loading={downloadingRapport === `${r.id}:xlsx`}
+                              disabled={busy && downloadingRapport !== `${r.id}:xlsx`}
+                              onClick={() => handleDownloadRapport(r.id, 'xlsx')}
+                            >
+                              Excel
+                            </LoadingButton>
+                            <LoadingButton
+                              className="reports-btn--ghost"
+                              loading={downloadingRapport === `${r.id}:csv`}
+                              disabled={busy && downloadingRapport !== `${r.id}:csv`}
+                              onClick={() => handleDownloadRapport(r.id, 'csv')}
+                            >
+                              CSV
+                            </LoadingButton>
                           </div>
                         </td>
                       </tr>
@@ -124,13 +177,29 @@ function HistoryPage({ onNavigate }) {
                 {filteredRapports.map((r) => (
                   <article key={r.id} className="reports-card">
                     <div className="reports-card-main">
-                      <div className="reports-card-title">Rapport n°{r.id}</div>
-                      <div className="reports-card-meta">Période : <strong>{formatDate(r.date_debut)} → {formatDate(r.date_fin)}</strong></div>
+                      <div className="reports-card-title">Relevé n°{r.id}</div>
+                      <div className="reports-card-meta">
+                        Période : <strong>{formatDate(r.date_debut)} → {formatDate(r.date_fin)}</strong>
+                      </div>
                       <div className="reports-card-meta">{r.lignes_count ?? 0} ligne(s)</div>
                     </div>
                     <div className="reports-card-actions">
-                      <LoadingButton className="reports-btn--primary" loading={downloadingRapport === `${r.id}:xlsx`} disabled={busy && downloadingRapport !== `${r.id}:xlsx`} onClick={() => handleDownloadRapport(r.id, 'xlsx')}>Excel</LoadingButton>
-                      <LoadingButton className="reports-btn--ghost" loading={downloadingRapport === `${r.id}:csv`} disabled={busy && downloadingRapport !== `${r.id}:csv`} onClick={() => handleDownloadRapport(r.id, 'csv')}>CSV</LoadingButton>
+                      <LoadingButton
+                        className="reports-btn--primary"
+                        loading={downloadingRapport === `${r.id}:xlsx`}
+                        disabled={busy && downloadingRapport !== `${r.id}:xlsx`}
+                        onClick={() => handleDownloadRapport(r.id, 'xlsx')}
+                      >
+                        Excel
+                      </LoadingButton>
+                      <LoadingButton
+                        className="reports-btn--ghost"
+                        loading={downloadingRapport === `${r.id}:csv`}
+                        disabled={busy && downloadingRapport !== `${r.id}:csv`}
+                        onClick={() => handleDownloadRapport(r.id, 'csv')}
+                      >
+                        CSV
+                      </LoadingButton>
                     </div>
                   </article>
                 ))}

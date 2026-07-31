@@ -15,19 +15,22 @@ export function formatAutonomy(hours) {
 }
 
 /**
- * Niveau de temps restant pour l'UI : critical | medium | low | ok | unknown
- * - critical : < 24h ou consommation sans delta horaire (0 h)
+ * Niveau de temps restant pour l'UI : critical | medium | low | ok | idle | unknown
+ * - critical : autonomie réelle < 24 h
  * - medium   : 24–36 h
  * - low      : 36–72 h
  * - ok       : ≥ 72 h
- * - unknown  : pas assez de données
+ * - unknown  : consommation sans horaire (ex-0 h) → Indéterminée, pas d’autonomie
+ * - idle     : sans fonctionnement (ex-Indéterminée / données à 0)
  */
 export function getAutonomySeverity(entity = {}) {
-  // Pas de conso horaire moyenne → indéterminée (prioritaire sur le cas 0 h)
-  if (entity.is_infinite_autonomy || entity.formatted_autonomy === '∞') return 'unknown'
-  if (entity.is_infinite_consumption) return 'critical'
+  // Conso sans delta horaire : pas d’autonomie chiffrée → Indéterminée
+  if (entity.is_infinite_consumption) return 'unknown'
+  // Données manquantes / zéros → Sans fonctionnement
+  if (entity.is_sans_fonctionnement) return 'idle'
+  if (entity.is_infinite_autonomy || entity.formatted_autonomy === '∞') return 'idle'
   const hrs = entity.autonomie_hours
-  if (hrs == null || Number.isNaN(Number(hrs))) return 'unknown'
+  if (hrs == null || Number.isNaN(Number(hrs))) return 'idle'
   if (hrs < 24) return 'critical'
   if (hrs < 36) return 'medium'
   if (hrs < 72) return 'low'
@@ -39,18 +42,28 @@ export function getAutonomySeverityLabel(severity) {
   if (severity === 'medium') return 'À surveiller'
   if (severity === 'low') return 'Attention'
   if (severity === 'ok') return 'Confortable'
+  if (severity === 'idle') return 'Sans fonctionnement'
   if (severity === 'unknown') return 'Indéterminée'
   return 'Non disponible'
 }
 
 /**
  * Valeur courte affichée dans les tableaux / pastilles.
- * Jamais "∞" : le client doit comprendre tout de suite.
+ * Jamais "∞" ni "0 h" pour la conso sans horaire : Indéterminée.
  */
 export function formatAutonomyValue(entity = {}) {
-  if (entity.is_infinite_autonomy || entity.formatted_autonomy === '∞') return 'Indét.'
-  if (entity.is_infinite_consumption) return '0 h'
-  if (entity.formatted_autonomy && entity.formatted_autonomy !== '∞') {
+  if (entity.is_infinite_consumption) return 'Indét.'
+  if (entity.is_sans_fonctionnement) return 'Sans fct.'
+  if (entity.is_infinite_autonomy || entity.formatted_autonomy === '∞') return 'Sans fct.'
+  // Ancien payload « 0h » sans flag : ne jamais afficher comme urgence chiffrée ici
+  // si le backend marque encore 0h pour indéterminée (rétrocompat).
+  if (
+    (entity.formatted_autonomy === '0h' || entity.formatted_autonomy === '0 h')
+    && entity.is_infinite_consumption
+  ) {
+    return 'Indét.'
+  }
+  if (entity.formatted_autonomy && entity.formatted_autonomy !== '∞' && entity.formatted_autonomy !== '0h') {
     return String(entity.formatted_autonomy)
       .replace(/(\d+)j(\d+)h/, '$1 j $2 h')
       .replace(/(\d+)j$/, '$1 j')
@@ -64,11 +77,16 @@ export function formatAutonomyValue(entity = {}) {
  * Phrase d’aide au survol / accessibilité.
  */
 export function getAutonomyHint(entity = {}) {
-  if (entity.is_infinite_autonomy || entity.formatted_autonomy === '∞') {
-    return 'Pas assez de données (conso horaire moyenne indisponible) pour calculer le temps restant.'
-  }
   if (entity.is_infinite_consumption) {
-    return 'Consommation détectée sans delta horaire : stock à risque.'
+    return 'Consommation détectée sans delta horaire : autonomie indéterminée (non calculable).'
+  }
+  if (entity.is_sans_fonctionnement) {
+    return entity.indet_reason
+      || 'Pas de fonctionnement relevé sur la période (valeurs à 0).'
+  }
+  if (entity.is_infinite_autonomy || entity.formatted_autonomy === '∞') {
+    return entity.indet_reason
+      || 'Données insuffisantes pour un fonctionnement calculable → sans fonctionnement.'
   }
   const severity = getAutonomySeverity(entity)
   if (severity === 'critical') return 'Moins de 24 heures de temps restant — action rapide recommandée.'
@@ -91,12 +109,14 @@ export const METRIC_LABELS = {
   consumptionMean: 'Consommation moyenne (L)',
   hourlyConsumptionMean: 'Consommation horaire moy. (L/h)',
   consumptionWeekN: 'Consommation semaine N (L)',
+  consumptionWeekN1: 'Consommation semaine N-1 (L)',
   hoursDeltaMean: 'Delta horaire moyen (h)',
+  hoursDeltaWeekN: 'Delta horaire semaine N (h)',
   autonomyRemaining: 'Temps restant',
   noPreviousPeriod: 'Pas de période précédente pour comparer',
   consumption: 'Consommation',
   hourlyConsumption: 'Consommation horaire',
   hoursDelta: 'Delta horaire',
-  consumptionWeekN1: 'Consommation semaine N-1 (L)',
-  hoursDeltaWeekN: 'Delta horaire semaine N (h)',
+  sansFonctionnement: 'Sans fonctionnement',
+  indeterminee: 'Indéterminée',
 }

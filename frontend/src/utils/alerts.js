@@ -20,6 +20,8 @@ export const ALERT_TYPE_META = {
   autonomie_critique: { label: 'Autonomie critique' },
   autonomie_preventive: { label: 'Autonomie préventive' },
   conso_sans_horaire: { label: 'Conso. sans horaire' },
+  horaire_sans_conso: { label: 'Horaire sans conso.' },
+  autonomie_indeterminee: { label: 'Autonomie indéterminée' },
   ecart_conso: { label: 'Écart consommation' },
   // alias historiques (compat)
   critique: { label: 'Autonomie critique' },
@@ -75,6 +77,7 @@ export function normalizePersistedAlert(alert) {
     || PRIORITE_META[alert.priorite]?.label
     || meta.label
   )
+  const ctx = alert.donnees_contexte || alert.context || {}
   return {
     ...alert,
     id: alert.id || alert.cle || `alerte-${alert.db_id}`,
@@ -88,7 +91,26 @@ export function normalizePersistedAlert(alert) {
     traitee: alert.traitee === true || alert.etat === 'traitee',
     detected_at: alert.detected_at || alert.date_apparition || null,
     target: alert.target || (alert.group_id ? 'groups' : 'site'),
+    is_infinite_consumption: !!(alert.is_infinite_consumption || ctx.is_infinite_consumption),
+    donnees_contexte: ctx,
   }
+}
+
+/**
+ * Autonomie indéterminée (conso sans delta) : pas une alerte d’urgence.
+ * Filtre les anciennes alertes « 0 h urgent » encore en BD.
+ */
+export function isIndeterminateAutonomyAlert(alert) {
+  if (!alert) return false
+  const type = alert.type || alert.type_alerte
+  if (type === 'autonomie_indeterminee') return true
+  if (alert.is_infinite_consumption) return true
+  const ctx = alert.donnees_contexte || alert.context || {}
+  if (ctx.is_infinite_consumption) return true
+  const msg = `${alert.title || ''} ${alert.message || ''} ${alert.subtitle || ''}`.toLowerCase()
+  if (msg.includes('autonomie indéterminée')) return true
+  if (msg.includes('consommation sans delta')) return true
+  return false
 }
 
 function isConsSansDelta(g) {
@@ -110,24 +132,9 @@ export function buildDashboardAlerts(siteRows = [], groupRows = [], detectedAt =
   const stamp = detectedAt instanceof Date ? detectedAt.toISOString() : String(detectedAt)
 
   const autonomyAlerts = siteRows.flatMap((site) => {
-    if (site.is_infinite_autonomy) return []
-
-    if (site.is_infinite_consumption) {
-      return [{
-        id: `site-critique-0h-${site.id}`,
-        type: 'critique',
-        target: 'site',
-        priority: 'Critique',
-        priority_level: 'critical',
-        severity: 'critical',
-        site_id: site.id,
-        site_name: site.site_name,
-        title: `Site ${site.site_name} — autonomie critique : 0 h`,
-        subtitle: `Consommation de carburant détectée (moy. ${site.avg_consumption.toFixed(1)} L) mais aucun delta horaire enregistré — temps restant indéterminé.`,
-        is_infinite_consumption: true,
-        detected_at: stamp,
-      }]
-    }
+    // Indéterminée / sans fonctionnement : pas d’alerte d’autonomie
+    if (site.is_infinite_consumption) return []
+    if (site.is_infinite_autonomy || site.is_sans_fonctionnement) return []
 
     if (site.autonomie_hours == null) return []
 

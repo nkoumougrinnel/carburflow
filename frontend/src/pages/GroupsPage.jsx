@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import Topbar from '../components/Topbar.jsx'
 import WelcomeBanner from '../components/WelcomeBanner.jsx'
-import { apiFetch } from '../auth.js'
+import { apiFetch, listAlertes } from '../auth.js'
 import AutonomyBadge from '../components/AutonomyBadge.jsx'
 import PageLoader from '../components/PageLoader.jsx'
 import PageEnter from '../components/PageEnter.jsx'
@@ -9,12 +9,25 @@ import { useChartPalette } from '../hooks/useChartPalette.js'
 import { createChart, defaultPeriodIndices, MAX_CHART_WEEKS, seriesPointRadius, toChartLabels, visibleChartRange, xAxisTicks } from '../utils/chartAxis.js'
 import {
   formatAutonomyValue,
+  getAutonomyHint,
   getAutonomySeverity,
   getAutonomySeverityLabel,
   METRIC_LABELS,
 } from '../utils/format.js'
+import { normalizePersistedAlert } from '../utils/alerts.js'
 
 const isFiniteNumber = (value) => typeof value === 'number' && Number.isFinite(value)
+
+const lastFinite = (values = []) => {
+  for (let i = values.length - 1; i >= 0; i -= 1) {
+    if (isFiniteNumber(values[i])) return values[i]
+  }
+  return null
+}
+
+const formatMetric = (value, digits = 1) => (
+  isFiniteNumber(value) ? value.toFixed(digits) : '—'
+)
 
 const extractPower = (value) => {
   if (value == null || value === '') return 0
@@ -23,9 +36,48 @@ const extractPower = (value) => {
 }
 
 /** Autonomie = (volume_CP × proportion + CJ) / conso_horaire_moyenne.
- * Sans conso moyenne significative (« - ») → autonomie indéterminée.
+ * Conso sans delta horaire → Indéterminée.
+ * Données manquantes / ex-∞ → Sans fonctionnement.
  */
-const buildGroupAutonomyEntity = (group, allBlocks = [], meanHourlyLh = null) => {
+const buildGroupAutonomyEntity = (group, allBlocks = [], meanHourlyLh = null, hoursWindow = [], consWindow = []) => {
+  const weekHours = lastFinite(hoursWindow)
+  const weekCons = lastFinite(consWindow)
+  const backendSansFct = Boolean(group.is_sans_fonctionnement)
+  const windowSansFct = (
+    isFiniteNumber(weekHours) && weekHours === 0
+    && !(isFiniteNumber(weekCons) && weekCons > 0)
+  )
+  const isSansFonctionnement = backendSansFct || windowSansFct
+
+  if (group.is_infinite_consumption) {
+    return {
+      ...group,
+      autonomie_hours: null,
+      formatted_autonomy: null,
+      is_infinite_consumption: true,
+      is_sans_fonctionnement: false,
+      is_infinite_autonomy: false,
+      indet_reason: group.indet_reason
+        || 'Consommation sans delta horaire : autonomie indéterminée.',
+    }
+  }
+
+  if (isSansFonctionnement) {
+    return {
+      ...group,
+      autonomie_hours: null,
+      formatted_autonomy: null,
+      is_infinite_autonomy: false,
+      is_infinite_consumption: false,
+      is_sans_fonctionnement: true,
+      indet_reason: group.indet_reason || (
+        `Delta horaire semaine N = ${formatMetric(weekHours)} h`
+        + (weekCons != null ? ` · consommation = ${formatMetric(weekCons)} L` : '')
+        + ' → sans fonctionnement.'
+      ),
+    }
+  }
+
   // Uniquement la moyenne affichée dans les métriques (pas de fallback backend)
   const mean = isFiniteNumber(meanHourlyLh) && meanHourlyLh > 0 ? meanHourlyLh : null
 
@@ -33,9 +85,11 @@ const buildGroupAutonomyEntity = (group, allBlocks = [], meanHourlyLh = null) =>
     return {
       ...group,
       autonomie_hours: null,
-      formatted_autonomy: '∞',
+      formatted_autonomy: null,
       is_infinite_autonomy: true,
       is_infinite_consumption: false,
+      is_sans_fonctionnement: true,
+      indet_reason: group.indet_reason || 'Aucune conso horaire moyenne calculable → sans fonctionnement.',
     }
   }
 
@@ -44,9 +98,11 @@ const buildGroupAutonomyEntity = (group, allBlocks = [], meanHourlyLh = null) =>
     return {
       ...group,
       autonomie_hours: null,
-      formatted_autonomy: '∞',
+      formatted_autonomy: null,
       is_infinite_autonomy: true,
       is_infinite_consumption: false,
+      is_sans_fonctionnement: true,
+      indet_reason: group.indet_reason || 'Volume cuve principale indisponible → sans fonctionnement.',
     }
   }
 
@@ -71,12 +127,14 @@ const buildGroupAutonomyEntity = (group, allBlocks = [], meanHourlyLh = null) =>
     formatted_autonomy: null,
     is_infinite_autonomy: false,
     is_infinite_consumption: false,
+    is_sans_fonctionnement: false,
   }
 }
 
 
 const buildDerivedMetric = (values = []) => {
-  const normalizedValues = (values || []).filter(isFiniteNumber).filter((value) => value > 0)
+  // Ignore uniquement les null/absents — les 0 entrent dans la moyenne
+  const normalizedValues = (values || []).filter(isFiniteNumber)
   if (!normalizedValues.length) {
     return {
       total: 0,
@@ -109,19 +167,8 @@ const buildDerivedMetric = (values = []) => {
 
 const safeNum = (value) => (isFiniteNumber(value) ? value : 0)
 
-const lastFinite = (values = []) => {
-  for (let i = values.length - 1; i >= 0; i -= 1) {
-    if (isFiniteNumber(values[i])) return values[i]
-  }
-  return null
-}
-
-const formatMetric = (value, digits = 1) => (
-  isFiniteNumber(value) ? value.toFixed(digits) : '—'
-)
-
 /** Stats sur une série (semaine N / N-1 / total / moyenne).
- * Ignore les null (pas de relevé) — ne les transforme pas en 0.
+ * Ignore les null (pas de relevé) — les 0 entrent dans la moyenne.
  */
 const buildPeriodSeriesStats = (values = []) => {
   const series = values || []
@@ -130,7 +177,6 @@ const buildPeriodSeriesStats = (values = []) => {
   }
   const finite = series.filter(isFiniteNumber)
   const total = finite.reduce((sum, value) => sum + value, 0)
-  const nonZeroCount = finite.filter((v) => v > 0).length
   const weekN = lastFinite(series)
   let weekN1 = null
   if (series.length > 1) {
@@ -145,7 +191,7 @@ const buildPeriodSeriesStats = (values = []) => {
     weekN,
     weekN1,
     total: finite.length ? total : null,
-    mean: nonZeroCount > 0 ? total / nonZeroCount : (finite.length ? 0 : null),
+    mean: finite.length ? total / finite.length : null,
   }
 }
 
@@ -213,13 +259,16 @@ const buildHourlyRateSeries = (hours = [], consumption = []) => {
 }
 
 /**
- * Métriques L/h : uniquement les taux significatifs (> 0).
- * Exclus : 0 L/h, ∞, absents, 0h+0L → tiret s’il ne reste rien.
+ * Métriques L/h : taux numériques (0 inclus). Exclus : ∞ et absents.
  */
 const buildHourlyConsumptionStats = (hours = [], consumption = []) => {
   const series = buildHourlyRateSeries(hours, consumption)
   const rates = series.data
-    .map((value, index) => (series.kinds[index] === 'normal' && value > 0 ? value : null))
+    .map((value, index) => {
+      const kind = series.kinds[index]
+      if (kind === 'normal' || kind === 'zero') return value
+      return null
+    })
     .filter(isFiniteNumber)
 
   if (!rates.length) {
@@ -251,6 +300,7 @@ const buildHourlyConsumptionStats = (hours = [], consumption = []) => {
 function GroupsPage({ onNavigate }) {
   const chartPalette = useChartPalette()
   const [groupsData, setGroupsData] = useState(null)
+  const [groupAlerts, setGroupAlerts] = useState([])
   const [rapportDebut, setRapportDebut] = useState('')
   const [rapportFin, setRapportFin] = useState('')
   const [siteId, setSiteId] = useState('')
@@ -266,6 +316,19 @@ function GroupsPage({ onNavigate }) {
   const [initialLoading, setInitialLoading] = useState(true)
   const [chartPan, setChartPan] = useState(0)
   const filterSeq = useRef(0)
+
+  const alertsByGroupId = useMemo(() => {
+    const map = new Map()
+    groupAlerts.forEach((alert) => {
+      const gid = alert.group_id ?? alert.groupe_id ?? alert.donnees_contexte?.groupe_id
+      if (gid == null) return
+      const key = String(gid)
+      const list = map.get(key) || []
+      list.push(alert)
+      map.set(key, list)
+    })
+    return map
+  }, [groupAlerts])
 
   const reportChoices = useMemo(() => (groupsData?.rapport_choices || groupsData?.report_choices || []), [groupsData])
   const rapportDebutIndex = useMemo(() => {
@@ -335,6 +398,15 @@ function GroupsPage({ onNavigate }) {
   useEffect(() => {
     // Premier chargement : tous les groupes / tous les sites
     loadGroupsData()
+    listAlertes({ etat: 'actives' })
+      .then((rows) => {
+        const list = (Array.isArray(rows) ? rows : [])
+          .map(normalizePersistedAlert)
+          .filter(Boolean)
+          .filter((a) => !a.traitee)
+        setGroupAlerts(list)
+      })
+      .catch(() => setGroupAlerts([]))
   }, [])
 
   const runFilters = async (next = {}) => {
@@ -638,22 +710,22 @@ function GroupsPage({ onNavigate }) {
               <span className="metric-label">Synthèse du site</span>
               <h2>{selectedSite?.nom_site || 'Site'}</h2>
             </div>
-            <div className="summary-strip">
+              <div className="summary-strip">
               <div className="summary-chip">
                 <span>Consommation horaire moyenne</span>
                 <strong>{formatMetric(siteBlockStats.hourly.mean, 2)} L/h</strong>
               </div>
               <div className="summary-chip">
-                <span>Consommation semaine N</span>
+                <span>Consommation moyenne N</span>
                 <strong>{formatMetric(siteBlockStats.consumption.weekN)} L</strong>
               </div>
               <div className="summary-chip">
-                <span>Consommation totale (période)</span>
-                <strong>{formatMetric(siteBlockStats.consumption.total)} L</strong>
+                <span>Consommation moyenne N-1</span>
+                <strong>{formatMetric(siteBlockStats.consumption.weekN1)} L</strong>
               </div>
               <div className="summary-chip">
-                <span>Delta horaire moyen</span>
-                <strong>{formatMetric(siteBlockStats.hours.mean)} h</strong>
+                <span>Delta horaire semaine N</span>
+                <strong>{formatMetric(siteBlockStats.hours.weekN)} h</strong>
               </div>
             </div>
           </section>
@@ -672,9 +744,11 @@ function GroupsPage({ onNavigate }) {
                     <tr>
                       <th>Groupe</th>
                       <th>Site</th>
-                      <th>{METRIC_LABELS.hourlyConsumptionMean}</th>
+                      <th>Alertes</th>
                       <th>{METRIC_LABELS.consumptionWeekN}</th>
-                      <th>{METRIC_LABELS.hoursDeltaMean}</th>
+                      <th>{METRIC_LABELS.consumptionWeekN1}</th>
+                      <th>{METRIC_LABELS.consumptionMean}</th>
+                      <th>{METRIC_LABELS.hoursDeltaWeekN}</th>
                       <th>{METRIC_LABELS.autonomyRemaining}</th>
                     </tr>
                   </thead>
@@ -686,22 +760,47 @@ function GroupsPage({ onNavigate }) {
                       const hourly = buildHourlyConsumptionStats(hoursWindow, consWindow)
                       const consumption = buildPeriodSeriesStats(consWindow)
                       const hours = buildPeriodSeriesStats(hoursWindow)
-                      // Même calcul d’autonomie que la vue détail (pas le flag backend 0 h)
                       const autonomyEntity = buildGroupAutonomyEntity(
                         g,
                         groupsData.group_blocks || [],
                         hourly.mean,
+                        hoursWindow,
+                        consWindow,
                       )
                       const severity = getAutonomySeverity(autonomyEntity)
+                      const relatedAlerts = alertsByGroupId.get(String(g.id)) || []
+                      const autonomyTitle = getAutonomyHint(autonomyEntity)
                       return (
                         <tr key={g.id} className={`autonomy-row autonomy-row--${severity}`}>
                           <td>{g.label}</td>
                           <td>{siteName}</td>
-                          <td>{formatMetric(hourly.mean, 2)}</td>
-                          <td>{formatMetric(consumption.weekN)}</td>
-                          <td>{formatMetric(hours.mean)}</td>
                           <td>
-                            <div className={`autonomy-cell autonomy-cell--${severity}`} title={formatAutonomyValue(autonomyEntity)}>
+                            {relatedAlerts.length ? (
+                              <button
+                                type="button"
+                                className="group-alert-chip"
+                                title={relatedAlerts.map((a) => a.title).join(' · ')}
+                                onClick={() => onNavigate?.({
+                                  view: 'alerts',
+                                  groupId: g.id,
+                                  groupLabel: g.label,
+                                })}
+                              >
+                                {relatedAlerts.length} alerte{relatedAlerts.length > 1 ? 's' : ''}
+                              </button>
+                            ) : (
+                              <span className="group-alert-none">—</span>
+                            )}
+                          </td>
+                          <td>{formatMetric(consumption.weekN)}</td>
+                          <td>{formatMetric(consumption.weekN1)}</td>
+                          <td>{formatMetric(consumption.mean)}</td>
+                          <td>{formatMetric(hours.weekN)}</td>
+                          <td>
+                            <div
+                              className={`autonomy-cell autonomy-cell--${severity}`}
+                              title={autonomyTitle}
+                            >
                               <span className="autonomy-cell-value">{formatAutonomyValue(autonomyEntity)}</span>
                               <span className="autonomy-cell-label">{getAutonomySeverityLabel(severity)}</span>
                             </div>
@@ -728,20 +827,47 @@ function GroupsPage({ onNavigate }) {
                   group,
                   groupsData.group_blocks || [],
                   hourlyStats.mean,
+                  hoursWindow,
+                  consumptionWindow,
                 )
                 const severity = getAutonomySeverity(autonomyEntity)
+                const relatedAlerts = alertsByGroupId.get(String(group.id)) || []
                 return (
+                  <>
                   <div className={`group-autonomy-hero group-autonomy-hero--${severity}`}>
                     <div className="group-autonomy-hero-copy">
                       <span className="group-autonomy-hero-kicker">Temps restant</span>
                       <p className="group-autonomy-hero-hint">
-                        Avant rupture de stock pour ce groupe, d’après les derniers relevés.
+                        {getAutonomyHint(autonomyEntity)}
                       </p>
                     </div>
                     <div className="group-autonomy-hero-value-wrap">
                       <AutonomyBadge entity={autonomyEntity} size="lg" />
                     </div>
                   </div>
+                  {relatedAlerts.length > 0 && (
+                    <div className="group-related-alerts" role="region" aria-label="Alertes du groupe">
+                      <strong>Alertes liées</strong>
+                      <ul>
+                        {relatedAlerts.map((alert) => (
+                          <li key={alert.id}>
+                            <button
+                              type="button"
+                              className="group-related-alert-link"
+                              onClick={() => onNavigate?.({
+                                view: 'alerts',
+                                alertId: alert.id,
+                                groupId: group.id,
+                              })}
+                            >
+                              {alert.title}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  </>
                 )
               })()}
               <div className="group-card-head">
@@ -806,7 +932,7 @@ function GroupsPage({ onNavigate }) {
                             <strong>{formatMetric(consumptionStats.total)} L</strong>
                           </div>
                           <div>
-                            <span>Consommation moyenne</span>
+                            <span>Consommation moyenne (null exclus)</span>
                             <strong>{formatMetric(consumptionStats.mean)} L</strong>
                           </div>
                         </div>
@@ -814,7 +940,7 @@ function GroupsPage({ onNavigate }) {
 
                       <div className="metric-stat-block">
                         <span className="curve-title">Consommation horaire</span>
-                        <p className="group-block-note">Sur les valeurs non nulles</p>
+                        <p className="group-block-note">Sur les valeurs non nulles (0 inclus)</p>
                         {hourlyStats.noData ? (
                           <div className="group-stats">
                             <div>

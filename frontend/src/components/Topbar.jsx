@@ -20,14 +20,31 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { useTheme } from '../context/ThemeContext.jsx'
 import { listAlertes, notificationsUnreadCount } from '../auth.js'
 import { BADGES_REFRESH_EVENT } from '../utils/badges.js'
+import { isIndeterminateAutonomyAlert, normalizePersistedAlert } from '../utils/alerts.js'
 import { getDisplayFullName } from '../utils/userDisplay.js'
 
 const BADGES_POLL_MS = 15000
+const ACTIVE_ALERT_ETATS = new Set(['nouvelle', 'en_cours'])
+
+function countActiveAlertsForBadge(rows) {
+  if (!Array.isArray(rows)) return 0
+  return rows
+    .map(normalizePersistedAlert)
+    .filter((alert) => {
+      if (!alert) return false
+      // Historique (traitées / ignorées) exclus du badge topbar
+      if (alert.traitee || alert.etat === 'traitee' || alert.etat === 'ignoree') return false
+      if (alert.etat && !ACTIVE_ALERT_ETATS.has(alert.etat)) return false
+      if (isIndeterminateAutonomyAlert(alert)) return false
+      return true
+    })
+    .length
+}
 
 function roleLabel(isAdmin, isOperator) {
   if (isAdmin) return 'Responsable'
   if (isOperator) return 'Opérateur'
-  return 'Utilisateur'
+  return 'Consultation'
 }
 
 function roleChipClass(isAdmin, isOperator) {
@@ -61,7 +78,7 @@ function Topbar({ activeView, onNavigate }) {
     if (isAdmin) {
       tasks.push(
         listAlertes({ etat: 'actives' })
-          .then((rows) => setActiveAlertsCount(Array.isArray(rows) ? rows.length : 0))
+          .then((rows) => setActiveAlertsCount(countActiveAlertsForBadge(rows)))
           .catch(() => setActiveAlertsCount(0)),
       )
     } else {

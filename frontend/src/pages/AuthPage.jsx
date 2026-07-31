@@ -106,15 +106,6 @@ function AuthPage({ onNavigate, initialMode = 'login' }) {
     }
   }
 
-  const fillDemoInputs = (username, password) => {
-    requestAnimationFrame(() => {
-      const userInput = document.getElementById('sign-in-username')
-      const passInput = document.getElementById('sign-in-password')
-      if (userInput) userInput.value = username
-      if (passInput) passInput.value = password
-    })
-  }
-
   return (
     <div className="relative bg-background text-foreground min-h-[100dvh]">
       {submitting && (
@@ -171,34 +162,6 @@ function AuthPage({ onNavigate, initialMode = 'login' }) {
           onCreateAccount={() => switchMode('register')}
           error={error}
           submitting={submitting}
-          demoSlot={
-            <div className="animate-element animate-delay-200 flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => fillDemoInputs('admin', 'admin')}
-              >
-                Démo admin
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => fillDemoInputs('operateur', 'operateur123')}
-              >
-                Démo opérateur
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => fillDemoInputs('user', 'user123')}
-              >
-                Démo utilisateur
-              </Button>
-            </div>
-          }
         />
       ) : (
         <SignUpPage

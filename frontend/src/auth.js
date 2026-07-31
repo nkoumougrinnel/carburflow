@@ -258,7 +258,7 @@ export async function listAlertes(params = {}) {
     if (value != null && value !== '') query.set(key, String(value))
   })
   const qs = query.toString()
-  return apiFetch(`/api/v1/alertes/${qs ? `?${qs}` : ''}`)
+  return apiFetch(qs ? `/api/v1/alertes/?${qs}` : '/api/v1/alertes/')
 }
 
 export async function listAlertTreatments() {

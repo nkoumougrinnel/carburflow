@@ -51,6 +51,9 @@ function UserHomePage({ onNavigate }) {
   const autonomyBySite = sitesDashboard?.autonomyBySite || {}
   const criticalCount = sites.filter((site) => {
     const entity = autonomyBySite[String(site.id)] || autonomyBySite[site.id] || {}
+    if (entity.is_infinite_consumption || entity.is_infinite_autonomy || entity.is_sans_fonctionnement) {
+      return false
+    }
     const hrs = entity.autonomie_hours
     return hrs != null && Number(hrs) < 24
   }).length
@@ -99,7 +102,7 @@ function UserHomePage({ onNavigate }) {
             </article>
             <article className="user-home-stat">
               <span className="user-home-stat-label">Votre rôle</span>
-              <strong className="user-home-stat-value user-home-stat-value--sm">Utilisateur</strong>
+              <strong className="user-home-stat-value user-home-stat-value--sm">Consultation</strong>
               <span className="user-home-stat-hint">Pas d’envoi de relevé</span>
             </article>
           </section>

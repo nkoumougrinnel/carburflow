@@ -6,7 +6,6 @@ import CuvesPage from './pages/CuvesPage.jsx'
 import GroupsPage from './pages/GroupsPage.jsx'
 import AuthPage from './pages/AuthPage.jsx'
 import ReportsPage from './pages/ReportsPage.jsx'
-import HistoryPage from './pages/HistoryPage.jsx'
 import OperatorHomePage from './pages/OperatorHomePage.jsx'
 import UserHomePage from './pages/UserHomePage.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
@@ -17,7 +16,7 @@ import { ThemeProvider } from './context/ThemeContext.jsx'
 import InteractionShell from './components/InteractionShell.jsx'
 import PageLoader from './components/PageLoader.jsx'
 
-const ADMIN_VIEWS = new Set(['home', 'dashboard', 'sites', 'cuves', 'groups', 'reports', 'history', 'profile', 'alerts', 'notifications'])
+const ADMIN_VIEWS = new Set(['home', 'dashboard', 'sites', 'cuves', 'groups', 'reports', 'profile', 'alerts', 'notifications'])
 const OPERATOR_VIEWS = new Set(['operator', 'sites', 'reports', 'profile', 'notifications'])
 const VIEWER_VIEWS = new Set(['viewer', 'sites', 'profile', 'notifications'])
 const PUBLIC_VIEWS = new Set(['home', 'login', 'register'])
@@ -29,7 +28,7 @@ function resolveViewFromPath(pathname) {
   if (pathname.startsWith('/dashboard')) return 'dashboard'
   if (pathname.startsWith('/alertes')) return 'alerts'
   if (pathname.startsWith('/notifications')) return 'notifications'
-  if (pathname.startsWith('/historique')) return 'history'
+  if (pathname.startsWith('/historique')) return 'reports'
   if (pathname.startsWith('/operateur')) return 'operator'
   if (pathname.startsWith('/espace')) return 'viewer'
   if (pathname.startsWith('/profil')) return 'profile'
@@ -64,7 +63,6 @@ function pathForView(view) {
     cuves: '/cuves/',
     groups: '/groupes/',
     reports: '/rapports/',
-    history: '/historique/',
     alerts: '/alertes/',
     notifications: '/notifications/',
     login: '/login/',
@@ -180,7 +178,6 @@ function AppRoutes() {
   if (view === 'cuves') return <CuvesPage onNavigate={navigate} />
   if (view === 'groups') return <GroupsPage onNavigate={navigate} />
   if (view === 'reports') return <ReportsPage onNavigate={navigate} />
-  if (view === 'history') return <HistoryPage onNavigate={navigate} />
   return <HomePage onNavigate={navigate} />
 }
 
