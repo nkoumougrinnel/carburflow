@@ -387,14 +387,14 @@ function ReportsPage({ onNavigate }) {
               type="submit"
             >
               <Search size={16} aria-hidden="true" />
-              Afficher les détails
+              Voir les relevés
             </LoadingButton>
           </form>
 
           <div className="reports-download-result">
             {!hasSearched && (
               <p className="reports-empty">
-                Sélectionnez un intervalle, puis cliquez sur « Afficher les détails ».
+                Sélectionnez un intervalle, puis cliquez sur « Voir les relevés ».
                 Tous les relevés qui chevauchent cette période seront listés.
               </p>
             )}
@@ -652,6 +652,7 @@ function ReportsPage({ onNavigate }) {
               <>
                 <div className="reports-dropzone-title">Déposez votre fichier ici</div>
                 <p>ou cliquez pour le choisir · Excel (.xlsx) ou CSV</p>
+                <p className="reports-dropzone-helper">Formats acceptés : .xlsx, .csv · 10 Mo max</p>
               </>
             )}
           </section>
@@ -671,11 +672,7 @@ function ReportsPage({ onNavigate }) {
           <WelcomeBanner
             kicker="Fichiers & dépôt"
             title="Relevés"
-            subtitle={
-              isAdmin
-                ? 'Consultez et téléchargez les relevés déposés par les équipes.'
-                : 'Déposez vos relevés et consultez l’historique de vos envois.'
-            }
+            subtitle="3 étapes : générez la fiche, remplissez-la, déposez-la ici."
           />
           {(uploading || downloadingFiche || downloadingNorme || downloadingRapport) && (
             <div className="reports-toast-loading" role="status" aria-live="polite">
