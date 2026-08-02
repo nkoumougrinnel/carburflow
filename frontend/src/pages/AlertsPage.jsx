@@ -41,16 +41,94 @@ function formatWhen(value) {
   return date.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
 }
 
-function TreatAlertModal({ alert, onClose, onConfirm }) {
+const REASON_PRESETS = [
+  { id: 'resolved-on-site', label: 'Résolu sur site', text: 'Résolu directement sur site par l’équipe terrain.' },
+  { id: 'false-positive', label: 'Faux positif', text: 'Faux positif détecté à la vérification — aucune action requise.' },
+  { id: 'followup', label: 'Suivi en cours', text: 'Suivi en cours — alerte transmise à l’équipe responsable pour traitement.' },
+]
+const MIN_JUSTIF = 20
+const MAX_JUSTIF = 280
+
+function KpiStrip({ counts }) {
+  const tiles = [
+    { tone: 'critical', label: 'Critiques', value: counts.critique || 0 },
+    { tone: 'high', label: 'Hautes', value: counts.haute || 0 },
+    { tone: 'medium', label: 'Moyennes', value: counts.moyenne || 0 },
+    { tone: 'low', label: 'Basses', value: counts.basse || 0 },
+  ]
+  return (
+    <div className="cf-kpi-strip" aria-label="Récapitulatif par sévérité">
+      {tiles.map((t) => (
+        <div key={t.tone} className={`cf-kpi-tile cf-kpi-tile--${t.tone}`}>
+          <div className="cf-kpi-tile-copy">
+            <span className="cf-kpi-tile-label">{t.label}</span>
+            <span className="cf-kpi-tile-value">{t.value}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function PeriodChips({ value, onChange }) {
+  const opts = [
+    { id: '7d', label: '7 jours' },
+    { id: '30d', label: '30 jours' },
+    { id: '90d', label: '90 jours' },
+    { id: 'all', label: 'Tout' },
+  ]
+  return (
+    <div className="cf-period-chips" role="group" aria-label="Filtrer par période">
+      {opts.map((o) => (
+        <button
+          key={o.id}
+          type="button"
+          className={`cf-period-chip${value === o.id ? ' is-active' : ''}`}
+          onClick={() => onChange(o.id)}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function filterByPeriod(rows, period) {
+  if (period === 'all' || !period) return rows
+  const days = { '7d': 7, '30d': 30, '90d': 90 }[period]
+  if (!days) return rows
+  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000
+  return rows.filter((r) => {
+    const stamp = r.date_traitement || r.detected_at
+    if (!stamp) return false
+    const t = new Date(stamp).getTime()
+    return Number.isFinite(t) && t >= cutoff
+  })
+}
+
+function TreatAlertModal({ alert, onClose, onConfirm, title }) {
   const [justification, setJustification] = useState('')
+  const [reasonId, setReasonId] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+
+  const applyReason = (preset) => {
+    setReasonId(preset.id)
+    setJustification(preset.text)
+  }
+
+  const len = justification.trim().length
+  const tooShort = len > 0 && len < MIN_JUSTIF
 
   const submit = async (e) => {
     e.preventDefault()
     const text = justification.trim()
-    if (text.length < 5) {
-      setError('Indiquez une justification d’au moins 5 caractères.')
+    if (text.length < MIN_JUSTIF) {
+      setError(`Justification trop courte (${MIN_JUSTIF} caractères minimum).`)
+      return
+    }
+    if (text.length > MAX_JUSTIF) {
+      setError(`Justification trop longue (${MAX_JUSTIF} caractères maximum).`)
       return
     }
     setSaving(true)
@@ -79,7 +157,7 @@ function TreatAlertModal({ alert, onClose, onConfirm }) {
         <div className="rapport-modal-head">
           <div>
             <p className="rapport-modal-kicker">Validation admin</p>
-            <h2 id="alert-treat-title">Marquer comme traitée</h2>
+            <h2 id="alert-treat-title">{title || 'Marquer comme traitée'}</h2>
             <p>{alert.title}</p>
           </div>
           <button type="button" className="rapport-modal-close" onClick={onClose} aria-label="Fermer">
@@ -88,17 +166,31 @@ function TreatAlertModal({ alert, onClose, onConfirm }) {
         </div>
 
         <form className="rapport-modal-form" onSubmit={submit}>
+          <div className="cf-reason-chips" role="group" aria-label="Justifications rapides">
+            {REASON_PRESETS.map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                className={`cf-reason-chip${reasonId === preset.id ? ' is-active' : ''}`}
+                onClick={() => applyReason(preset)}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
           <label className="alert-treat-field">
             <span>Justification du traitement</span>
             <textarea
               value={justification}
-              onChange={(e) => setJustification(e.target.value)}
+              onChange={(e) => { setJustification(e.target.value); setReasonId('') }}
               rows={5}
-              placeholder="Expliquez pourquoi cette alerte est considérée comme traitée…"
+              placeholder={`Expliquez en ${MIN_JUSTIF} caractères minimum pourquoi cette alerte est traitée…`}
               required
-              minLength={5}
               autoFocus
             />
+            <span className={`cf-reason-counter${tooShort ? ' is-error' : ''}`}>
+              {len}/{MAX_JUSTIF}
+            </span>
           </label>
           {error && <p className="alert-treat-error" role="alert">{error}</p>}
           <div className="rapport-modal-actions">
@@ -127,7 +219,10 @@ function AlertsPage({ onNavigate }) {
   })
   const [priority, setPriority] = useState(() => new URLSearchParams(window.location.search).get('priority') || 'all')
   const [focusAlertId, setFocusAlertId] = useState(() => new URLSearchParams(window.location.search).get('alertId') || '')
+  const [period, setPeriod] = useState('all')
   const [pendingTreat, setPendingTreat] = useState(null)
+  const [bulkSelection, setBulkSelection] = useState([])
+  const [bulkModal, setBulkModal] = useState(false)
 
   const loadAll = useCallback(async () => {
     setLoading(true)
@@ -217,14 +312,18 @@ function AlertsPage({ onNavigate }) {
 
   const filterStatus = panel === 'history' ? 'history' : 'active'
   const sourceAlerts = panel === 'history' ? historyAlerts : activeAlerts
+  const periodFiltered = useMemo(
+    () => filterByPeriod(sourceAlerts, period),
+    [sourceAlerts, period],
+  )
   const visible = useMemo(
-    () => filterAlerts(sourceAlerts, {
+    () => filterAlerts(periodFiltered, {
       priority,
       type: 'all',
       dateRange: 'all',
       status: filterStatus,
     }),
-    [sourceAlerts, priority, filterStatus],
+    [periodFiltered, priority, filterStatus],
   )
 
   const openAlert = (alert) => {
@@ -263,11 +362,60 @@ function AlertsPage({ onNavigate }) {
     }))
     setPendingTreat(null)
     setMessage('Alerte marquée comme traitée.')
+    setBulkSelection((prev) => prev.filter((id) => id !== alert.id))
     requestBadgesRefresh({ source: 'alerts' })
   }
 
+  const confirmBulkTreat = async (justification) => {
+    if (!bulkSelection.length) return
+    const targets = visible.filter((a) => bulkSelection.includes(a.id))
+    for (const alert of targets) {
+      try {
+        const result = await treatAlert({
+          cle: alert.id,
+          justification,
+          title: alert.title,
+          subtitle: alert.subtitle,
+          type: alert.type,
+          severity: alert.severity,
+          site_id: alert.site_id || null,
+          group_id: alert.group_id || null,
+        })
+        const saved = result?.alerte
+        setAlertsRaw((prev) => prev.map((row) => {
+          const cle = row.cle || row.id
+          if (cle !== alert.id) return row
+          return {
+            ...row,
+            etat: 'traitee',
+            traitee: true,
+            justification: saved?.justification || justification,
+            date_traitement: saved?.date_traitement || new Date().toISOString(),
+            traite_par_username: saved?.traite_par_username || null,
+          }
+        }))
+      } catch {
+        // on continue le lot — chaque échec sera vu dans l’historique comme non traitée
+      }
+    }
+    setBulkModal(false)
+    setBulkSelection([])
+    setMessage(`${targets.length} alerte${targets.length > 1 ? 's' : ''} marquée${targets.length > 1 ? 's' : ''} comme traitée${targets.length > 1 ? 's' : ''}.`)
+    requestBadgesRefresh({ source: 'alerts' })
+  }
+
+  const toggleSelection = (id) => {
+    setBulkSelection((prev) => (
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    ))
+  }
+
+  const kpiForPanel = panel === 'history' ? historyCounts : counts
+
   const listContent = (
     <div className="alerts-saas-body">
+      <KpiStrip counts={kpiForPanel} />
+
       {message && <div className="reports-success" role="status">{message}</div>}
 
       {loadError && (
@@ -279,10 +427,24 @@ function AlertsPage({ onNavigate }) {
         </div>
       )}
 
+      {isAdmin && panel === 'active' && bulkSelection.length > 0 && (
+        <div className="cf-bulk-bar">
+          <span>{bulkSelection.length} alerte{bulkSelection.length > 1 ? 's' : ''} sélectionnée{bulkSelection.length > 1 ? 's' : ''}</span>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" className="reports-btn reports-btn--ghost" onClick={() => setBulkSelection([])}>
+              Tout désélectionner
+            </button>
+            <button type="button" onClick={() => setBulkModal(true)}>
+              Résoudre la sélection
+            </button>
+          </div>
+        </div>
+      )}
+
       <section className="alerts-filters alerts-filters--compact" aria-label="Filtrer par priorité">
         <div className="alerts-priority-strip">
           {[
-            { id: 'all', label: 'Toutes', count: panel === 'history' ? historyCounts.total : counts.total, tone: 'all' },
+            { id: 'all', label: 'Toutes les alertes', count: panel === 'history' ? historyCounts.total : counts.total, tone: 'all' },
             { id: 'critique', label: 'Critique', count: panel === 'history' ? historyCounts.critique : counts.critique, tone: 'critical' },
             { id: 'haute', label: 'Haute', count: panel === 'history' ? historyCounts.haute : counts.haute, tone: 'high' },
             { id: 'moyenne', label: 'Moyenne', count: panel === 'history' ? historyCounts.moyenne : counts.moyenne, tone: 'medium' },
@@ -299,7 +461,15 @@ function AlertsPage({ onNavigate }) {
             </button>
           ))}
         </div>
+        <p className="alerts-strip-helper">
+          Cliquez sur une priorité pour filtrer la liste.{' '}
+          {panel === 'history' ? 'Période appliquée à droite.' : ''}
+        </p>
       </section>
+
+      {panel === 'history' && (
+        <PeriodChips value={period} onChange={setPeriod} />
+      )}
 
       <section className="alerts-list-panel alerts-list-panel--bare" aria-label={panel === 'history' ? 'Historique' : 'Alertes actives'}>
         <div className="alert-list alert-list--compact">
@@ -311,6 +481,7 @@ function AlertsPage({ onNavigate }) {
               : formatWhen(alert.detected_at)
             const author = alert.traite_par_username || alert.traite_par || null
             const isFocused = focusAlertId && String(focusAlertId) === String(alert.id)
+            const isSelected = bulkSelection.includes(alert.id)
             return (
               <div
                 key={alert.id}
@@ -327,6 +498,19 @@ function AlertsPage({ onNavigate }) {
                   }
                 }}
               >
+                {isAdmin && panel === 'active' && (
+                  <span
+                    role="checkbox"
+                    aria-checked={isSelected}
+                    tabIndex={0}
+                    className={`alert-select-flag${isSelected ? ' is-checked' : ''}`}
+                    onClick={(e) => { e.stopPropagation(); toggleSelection(alert.id) }}
+                    onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.stopPropagation(); e.preventDefault(); toggleSelection(alert.id) } }}
+                    aria-label="Sélectionner pour traitement groupé"
+                  >
+                    {isSelected ? '✓' : ''}
+                  </span>
+                )}
                 <div className="alert-severity-bar" aria-hidden="true" />
                 <div className="alert-header alert-header--compact">
                   <div className="alert-title-wrap alert-title-wrap--compact">
@@ -372,14 +556,21 @@ function AlertsPage({ onNavigate }) {
               </div>
             )
           }) : (
-            <div className="alert-empty">
-              {panel === 'history'
-                ? (historyAlerts.length
-                  ? 'Aucune alerte pour ces filtres dans l’historique.'
-                  : 'Aucune alerte traitée pour le moment.')
-                : (activeAlerts.length
-                  ? 'Aucune alerte pour ces filtres.'
-                  : 'Aucune alerte à traiter pour le moment.')}
+            <div className="cf-empty-rich">
+              <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <circle cx="32" cy="32" r="22" stroke="currentColor" strokeWidth="2.5" />
+                <path d="M22 32 L29 39 L44 24" stroke="#16a34a" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <h3>
+                {panel === 'history'
+                  ? 'Aucune alerte dans cette période.'
+                  : 'Tout va bien. Aucune alerte à traiter.'}
+              </h3>
+              <p>
+                {panel === 'history'
+                  ? 'Changez la période ou réinitialisez le filtre priorité pour voir plus d’historique.'
+                  : 'Les alertes apparaîtront ici dès qu’une situation demandera votre attention.'}
+              </p>
             </div>
           )}
         </div>
@@ -422,7 +613,11 @@ function AlertsPage({ onNavigate }) {
           <WelcomeBanner
             kicker="Priorités métier"
             title="Centre d’alertes"
-            subtitle="Filtrez, traitez et suivez les alertes actives. Réservé aux responsables."
+            subtitle={
+              isAdmin
+                ? 'Voyez d’un coup d’œil ce qui pose problème. Cliquez « Traiter » quand c’est résolu.'
+                : 'Voici les alertes en cours. Cliquez « Ouvrir le site » pour aller à l’origine du problème.'
+            }
           />
 
           <div className="saas-profile-tabs" role="tablist" aria-label="Sections alertes">
@@ -438,6 +633,7 @@ function AlertsPage({ onNavigate }) {
                   onClick={() => {
                     setMessage('')
                     setFocusAlertId('')
+                    setBulkSelection([])
                     setPanel(item.id)
                   }}
                 >
@@ -462,6 +658,17 @@ function AlertsPage({ onNavigate }) {
           alert={pendingTreat}
           onClose={() => setPendingTreat(null)}
           onConfirm={confirmTreat}
+        />
+      )}
+
+      {bulkModal && (
+        <TreatAlertModal
+          alert={{
+            title: `${bulkSelection.length} alerte${bulkSelection.length > 1 ? 's' : ''} à traiter ensemble`,
+          }}
+          onClose={() => setBulkModal(false)}
+          onConfirm={confirmBulkTreat}
+          title="Résoudre la sélection"
         />
       )}
     </div>
