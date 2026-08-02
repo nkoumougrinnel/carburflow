@@ -7228,6 +7228,9 @@ button.alert-item--link {
 }
 
 .reports-download-sticky-actions {
+  position: sticky;
+  bottom: 12px;
+  z-index: 4;
   display: flex;
   flex-wrap: wrap;
   gap: 0.65rem;
@@ -7236,6 +7239,9 @@ button.alert-item--link {
   border-radius: 14px;
   border: 1px solid var(--border);
   background: var(--panel-soft);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
 .reports-empty-state {
@@ -7705,4 +7711,430 @@ body {
     --shell-pad-x: clamp(24px, 3vw, 56px);
   }
 }
+
+/* =============================================================
+   UX clarity patch (2026-08) :
+   - toast non-bloquante
+   - KPI strip 4 tuiles (Alertes)
+   - chips raccourcis modal traitement
+   - empty states riches (4 pages)
+   - illustration SVG container
+   - sticky actions (Rapports)
+   - mobile back button (Notifs)
+   - pastille Lu/Non lu dans le détail message
+   - bulk-action bar (Alertes)
+   - chip période (Alertes Historique + History)
+   ============================================================= */
+
+/* Toast non-bloquante auto-dismiss (notification + reports) */
+.cf-toast-live {
+  position: fixed;
+  bottom: 96px;
+  right: 24px;
+  z-index: 80;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 360px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid color-mix(in srgb, var(--success, #16a34a) 40%, transparent);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.18);
+  color: var(--text, #0d4a63);
+  animation: cfToastIn 240ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+.cf-toast-live--neutral {
+  border-color: color-mix(in srgb, var(--accent, #0d4a63) 40%, transparent);
+}
+.cf-toast-live strong { display: block; font-size: 0.95rem; margin-bottom: 2px; }
+.cf-toast-live p { margin: 0; color: var(--muted); font-size: 0.85rem; }
+.cf-toast-live a {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent, #0d4a63);
+  text-decoration: none;
+}
+.cf-toast-live a:hover { text-decoration: underline; }
+@keyframes cfToastIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* KPI strip 4 tuiles */
+.cf-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin: 4px 0 18px;
+}
+.cf-kpi-tile {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface) 95%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
+  border-left-width: 4px;
+  transition: transform 160ms ease, border-color 160ms ease;
+}
+.cf-kpi-tile:hover { transform: translateY(-1px); }
+.cf-kpi-tile--critical { border-left-color: #dc2626; }
+.cf-kpi-tile--high     { border-left-color: #ea580c; }
+.cf-kpi-tile--medium   { border-left-color: #d97706; }
+.cf-kpi-tile--low      { border-left-color: #16a34a; }
+.cf-kpi-tile-copy { display: flex; flex-direction: column; }
+.cf-kpi-tile-label {
+  font-size: 0.78rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+}
+.cf-kpi-tile-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.cf-kpi-tile--critical .cf-kpi-tile-value { color: #dc2626; }
+.cf-kpi-tile--high     .cf-kpi-tile-value { color: #ea580c; }
+.cf-kpi-tile--medium   .cf-kpi-tile-value { color: #d97706; }
+.cf-kpi-tile--low      .cf-kpi-tile-value { color: #16a34a; }
+
+/* Chip raccourci pour la justification dans la modal de traitement */
+.cf-reason-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.cf-reason-chip {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 95%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text) 14%, transparent);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+.cf-reason-chip:hover {
+  border-color: color-mix(in srgb, var(--accent, #0d4a63) 50%, transparent);
+  color: var(--accent, #0d4a63);
+}
+.cf-reason-chip.is-active {
+  background: color-mix(in srgb, var(--accent, #0d4a63) 14%, transparent);
+  border-color: var(--accent, #0d4a63);
+  color: var(--accent, #0d4a63);
+}
+.cf-reason-counter {
+  display: flex;
+  justify-content: flex-end;
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.cf-reason-counter.is-error { color: #dc2626; font-weight: 600; }
+
+/* Empty states riches */
+.cf-empty-rich {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 20px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--text) 14%, transparent);
+  text-align: center;
+}
+.cf-empty-rich svg {
+  width: 64px;
+  height: 64px;
+  opacity: 0.85;
+}
+.cf-empty-rich h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--text);
+}
+.cf-empty-rich p {
+  margin: 0;
+  color: var(--muted);
+  max-width: 38ch;
+  line-height: 1.4;
+}
+.cf-empty-rich .reports-btn { margin-top: 6px; }
+
+/* Sticky actions Rapports */
+.reports-sticky-actions {
+  position: sticky;
+  bottom: 12px;
+  margin-top: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  z-index: 4;
+}
+.reports-sticky-actions::before {
+  content: "Téléchargement rapide";
+  flex: 0 0 100%;
+  font-size: 0.78rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+/* Retour mobile Notifs */
+.notif-mobile-back {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  margin-bottom: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Pastille Lu/Non lu dans le détail */
+.notif-read-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.notif-read-pill--read {
+  background: color-mix(in srgb, #16a34a 16%, transparent);
+  color: #15803d;
+}
+.notif-read-pill--unread {
+  background: color-mix(in srgb, #ea580c 18%, transparent);
+  color: #c2410c;
+}
+
+/* Tooltip permanent sous le FAB */
+.notif-fab-helper {
+  position: fixed;
+  right: 24px;
+  bottom: 88px;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
+  pointer-events: none;
+  animation: cfFabHint 320ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+@keyframes cfFabHint {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Toolbar recherche toujours visible */
+.reports-search--always {
+  opacity: 1;
+}
+.reports-search--always input:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Chips période */
+.cf-period-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 16px;
+}
+.cf-period-chip {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--text) 14%, transparent);
+  background: color-mix(in srgb, var(--surface) 95%, transparent);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+.cf-period-chip:hover {
+  border-color: color-mix(in srgb, var(--accent, #0d4a63) 50%, transparent);
+  color: var(--accent, #0d4a63);
+}
+.cf-period-chip.is-active {
+  background: color-mix(in srgb, var(--accent, #0d4a63) 14%, transparent);
+  border-color: var(--accent, #0d4a63);
+  color: var(--accent, #0d4a63);
+}
+
+/* Volume / poids dans la card History */
+.reports-card-volume {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* Bulk-action bar (Alertes) */
+.cf-bulk-bar {
+  position: sticky;
+  top: 80px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  margin: 4px 0 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent, #0d4a63) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent, #0d4a63) 35%, transparent);
+  color: var(--accent, #0d4a63);
+  font-weight: 600;
+}
+.cf-bulk-bar button {
+  border: 0;
+  background: var(--accent, #0d4a63);
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cf-bulk-bar button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Checkbox sur card alerte */
+.alert-select-flag {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1.5px solid color-mix(in srgb, var(--text) 25%, transparent);
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  z-index: 2;
+}
+.alert-select-flag.is-checked {
+  border-color: var(--accent, #0d4a63);
+  background: color-mix(in srgb, var(--accent, #0d4a63) 18%, transparent);
+}
+.alert-item {
+  position: relative;
+}
+@media (max-width: 767px) {
+  .notif-mobile-back { display: inline-flex; }
+  .notif-split { grid-template-columns: 1fr !important; }
+  .notif-split .notif-list { display: block; }
+  .notif-split.is-detail-open .notif-list { display: none; }
+  .notif-split.is-detail-open .notif-detail { display: block; }
+}
+
+/* Helper text sous les filtres */
+.alerts-strip-helper {
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin: 4px 0 12px;
+}
+
+/* Dropzone helper permanent */
+.reports-dropzone-helper {
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* Dropzone pulse vert à l'upload */
+.reports-dropzone.busy {
+  border-color: color-mix(in srgb, #16a34a 50%, transparent) !important;
+  animation: cfPulseGreen 1.2s ease-in-out infinite;
+}
+@keyframes cfPulseGreen {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.0); }
+  50%      { box-shadow: 0 0 0 8px rgba(22, 163, 74, 0.16); }
+}
+
+/* Ligne de progression 3 étapes */
+.reports-progress-bar-steps {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0 20px;
+  flex-wrap: wrap;
+}
+.reports-progress-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.reports-progress-step.is-active {
+  background: color-mix(in srgb, var(--accent, #0d4a63) 14%, transparent);
+  border-color: var(--accent, #0d4a63);
+  color: var(--accent, #0d4a63);
+}
+.reports-progress-step.is-done {
+  border-color: #16a34a;
+  color: #15803d;
+}
+.reports-progress-step-num {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: inherit;
+}
+.reports-progress-step.is-active .reports-progress-step-num,
+.reports-progress-step.is-done .reports-progress-step-num {
+  background: currentColor;
+  color: #fff;
+}
+
 
