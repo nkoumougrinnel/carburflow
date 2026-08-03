@@ -451,19 +451,7 @@ def calculer_groupes(
         )
 
         indet_reason = None
-        if is_infinite_consumption:
-            # Conso sans delta horaire → autonomie indéterminée (pas de valeur chiffrée)
-            is_infinite_autonomy = False
-            autonomy_hours = None
-            formatted_autonomy = None
-            indet_reason = (
-                'Consommation détectée sans delta horaire : autonomie indéterminée.'
-            )
-        elif mean_hourly_consumption_deduite > 0 and volume_proportionnel is not None:
-            is_infinite_autonomy = False
-            autonomy_hours = volume_proportionnel / mean_hourly_consumption_deduite
-            formatted_autonomy = formater_autonomie(autonomy_hours)
-        elif is_sans_fonctionnement:
+        if is_sans_fonctionnement:
             # Zéro relevé ≠ indéterminée : le groupe n’a pas fonctionné
             is_infinite_autonomy = False
             autonomy_hours = None
@@ -477,16 +465,21 @@ def calculer_groupes(
                 )
                 + ' → sans fonctionnement.'
             )
+        elif latest_hourly_consumption is not None and volume_proportionnel is not None:
+            # Utiliser la dernière période valide (N ou N-1) pour estimer l'autonomie.
+            is_infinite_autonomy = False
+            autonomy_hours = volume_proportionnel / latest_hourly_consumption
+            formatted_autonomy = formater_autonomie(autonomy_hours)
         else:
-            # Pas de conso horaire moyenne significative → sans fonctionnement (ex-∞)
+            # Pas de conso horaire valide ni de référence période N/N-1 : indéterminé
             is_infinite_autonomy = True
             autonomy_hours = None
             formatted_autonomy = "∞"
             reasons = []
             if volume_proportionnel is None:
                 reasons.append('volume cuve indisponible')
-            if mean_hourly_consumption_deduite <= 0:
-                reasons.append('aucune conso horaire moyenne calculable (valeurs manquantes)')
+            if latest_hourly_consumption is None:
+                reasons.append('aucune période avec consommation et delta horaire')
             if latest_hours_n is None and latest_cons_n is None:
                 reasons.append('pas de relevé sur la semaine N')
             indet_reason = (

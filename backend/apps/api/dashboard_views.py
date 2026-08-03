@@ -392,17 +392,18 @@ class DashboardOverviewAPIView(APIView):
             if avg_consumption > 0 and len(numeric_consumption) > 1:
                 variance_pct = round((statistics.pstdev(numeric_consumption) / avg_consumption) * 100, 1)
 
-            # Écart semaine N = conso horaire uniquement (pas de fallback volume)
+            # Écart semaine N = conso horaire vs semaine N-1
             ecart_pct = 0.0
             latest_hourly = block.get('latest_hourly_consumption')
-            mean_deduite = float(block.get('mean_hourly_consumption_deduite') or 0.0)
+            previous_hourly = block.get('previous_hourly_consumption')
             if (
                 latest_hours > 0
                 and latest_consumption > 0
                 and latest_hourly is not None
-                and mean_deduite > 0
+                and previous_hourly is not None
+                and previous_hourly > 0
             ):
-                ecart_pct = abs((float(latest_hourly) - mean_deduite) / mean_deduite) * 100
+                ecart_pct = abs((float(latest_hourly) - previous_hourly) / previous_hourly) * 100
 
             is_abnormal = ecart_pct > self.ABNORMAL_VARIANCE_THRESHOLD
             # Semaine N : conso > 0 et pas de delta horaire (0 ou absent)

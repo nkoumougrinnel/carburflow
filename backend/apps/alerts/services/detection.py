@@ -404,36 +404,62 @@ def _candidates_from_site_blocks(group_blocks, sites_by_cp_id):
             and not b.get('is_infinite_consumption')
             and not b.get('is_sans_fonctionnement')
         ]
-        if not finite:
-            # Indéterminée / sans fonctionnement / pas de données → pas d’alerte site urgente
-            continue
 
-        aut_hours = round(max(finite), 1)
-        if aut_hours >= SEUIL_AUTONOMIE_CRITIQUE_H:
-            continue
+        if finite:
+            aut_hours = round(max(finite), 1)
+            if aut_hours < SEUIL_AUTONOMIE_CRITIQUE_H:
+                message = (
+                    f'Site urgent — autonomie critique : {aut_hours:.1f}h restantes'
+                    + (f' — {site_name}' if site_name else '')
+                )
 
-        message = (
-            f'Site urgent — autonomie critique : {aut_hours:.1f}h restantes'
-            + (f' — {site_name}' if site_name else '')
-        )
+                candidates.append({
+                    'cle': Alerte.generer_cle('autonomie_critique', sid, prefix='site'),
+                    'type_alerte': 'autonomie_critique',
+                    'priorite': 'critique',
+                    'message': message,
+                    'donnees_contexte': {
+                        'cuve_principale_id': sid,
+                        'site_name': site_name,
+                        'autonomie_heures': aut_hours,
+                        'seuil': SEUIL_AUTONOMIE_CRITIQUE_H,
+                        'is_site_urgent': True,
+                        'is_infinite_consumption': False,
+                    },
+                    'site': site,
+                    'groupe_electrogene': None,
+                    'cuve_journaliere': None,
+                })
 
-        candidates.append({
-            'cle': Alerte.generer_cle('autonomie_critique', sid, prefix='site'),
-            'type_alerte': 'autonomie_critique',
-            'priorite': 'critique',
-            'message': message,
-            'donnees_contexte': {
-                'cuve_principale_id': sid,
-                'site_name': site_name,
-                'autonomie_heures': aut_hours,
-                'seuil': SEUIL_AUTONOMIE_CRITIQUE_H,
-                'is_site_urgent': True,
-                'is_infinite_consumption': False,
-            },
-            'site': site,
-            'groupe_electrogene': None,
-            'cuve_journaliere': None,
-        })
+        # Delta horaire positif sans consommation sur le site
+        hours_without_consumption = [
+            float(b.get('latest_hours_n') or 0)
+            for b in blocks
+            if b.get('latest_hours_n') is not None
+            and float(b.get('latest_hours_n') or 0) > 0
+            and not (b.get('latest_cons_n') or 0) > 0
+        ]
+        if hours_without_consumption:
+            latest_hours_value = max(hours_without_consumption)
+            candidates.append({
+                'cle': Alerte.generer_cle('horaire_sans_conso', sid, prefix='site'),
+                'type_alerte': 'horaire_sans_conso',
+                'priorite': 'haute',
+                'message': (
+                    f'Delta horaire enregistré sans consommation sur le site {site_name}'
+                ),
+                'donnees_contexte': {
+                    'cuve_principale_id': sid,
+                    'site_name': site_name,
+                    'latest_hours_n': latest_hours_value,
+                    'latest_cons_n': 0.0,
+                    'is_site_anomaly': True,
+                },
+                'site': site,
+                'groupe_electrogene': None,
+                'cuve_journaliere': None,
+            })
+
     return candidates
 
 

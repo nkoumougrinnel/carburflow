@@ -662,9 +662,10 @@ class DashboardOverviewAPIView(APIView):
             if not group['is_abnormal']:
                 continue
             variance = group.get('ecart_pct') or group['variance_pct']
+            const_prev = group.get('previous_hourly_consumption') or 0
             sign = "▲" if (
                 (group.get('latest_hourly_consumption') or 0)
-                >= (group.get('mean_hourly_consumption_deduite') or 0)
+                >= const_prev
             ) else "▼"
             alerts.append({
                 'id': f"group-{group['id']}",
@@ -678,10 +679,10 @@ class DashboardOverviewAPIView(APIView):
                 'ecart_pct': variance,
                 'title': f"Groupe {group['label']} : écart de consommation horaire",
                 'subtitle': (
-                    f"Écart de {sign}{abs(variance):.1f}% entre la consommation horaire moyenne "
-                    f"({group['mean_hourly_consumption_deduite']:.2f} L/h) et la consommation horaire semaine N "
+                    f"Écart de {sign}{abs(variance):.1f}% entre la consommation horaire semaine N-1 "
+                    f"({const_prev:.2f} L/h) et la consommation horaire semaine N "
                     f"({(group['latest_hourly_consumption'] if group['latest_hourly_consumption'] is not None else group['mean_hourly_consumption']):.2f} L/h). "
-                    f"Consommation moyenne du groupe : {group['avg_consumption']:.1f} L."
+                    f"Consommation du groupe semaine N : {group['latest_consumption']:.1f} L."
                 ),
             })
 
