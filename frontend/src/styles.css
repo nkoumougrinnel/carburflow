@@ -8137,4 +8137,542 @@ body {
   color: #fff;
 }
 
+/* =============================================================
+   Page Alertes — centre décision (2026-08)
+   Design simple et fluide pour un directeur / décideur :
+   - un grand bandeau qui dit l’état d’un coup d’œil
+   - des tuiles de niveau très lisibles
+   - des cartes d’alerte aérées, une action principale par carte
+   ============================================================= */
 
+.alx-layout {
+  width: 100%;
+  max-width: min(1280px, 100%);
+  margin-inline: auto;
+  padding: clamp(0.75rem, 2vw, 1.5rem) 0 clamp(2.5rem, 4vw, 3.5rem);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.9rem, 1.5vw, 1.2rem);
+  min-width: 0;
+}
+
+/* ——— Bandеau principal ——— */
+.alx-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 24px;
+  padding: clamp(1.4rem, 3vw, 2.4rem) clamp(1.2rem, 2.6vw, 2.4rem);
+  margin-top: clamp(0.75rem, 1.5vw, 1.25rem);
+  box-shadow: 0 16px 40px rgba(15, 76, 110, 0.18);
+}
+
+.alx-hero::after {
+  content: '';
+  position: absolute;
+  inset: auto -10% -70% 45%;
+  height: 180%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.16), transparent 58%);
+  pointer-events: none;
+}
+
+.alx-hero-badge {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+}
+
+.alx-hero h1 {
+  position: relative;
+  z-index: 1;
+  margin: 0.85rem 0 0.5rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 1.3rem + 1.6vw, 2.6rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.12;
+  color: #fff;
+}
+
+.alx-hero p {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: clamp(0.98rem, 0.9rem + 0.4vw, 1.1rem);
+  line-height: 1.55;
+  max-width: 52ch;
+}
+
+.alx-hero--ok {
+  background:
+    linear-gradient(135deg, #0f5132 0%, #15803d 100%);
+}
+
+.alx-hero--warn {
+  background:
+    linear-gradient(135deg, #7c2d12 0%, #c2410c 100%);
+}
+
+.alx-hero--danger {
+  background:
+    linear-gradient(135deg, #7f1d1d 0%, #dc2626 100%);
+}
+
+/* ——— Tuiles de niveau ——— */
+.alx-tiles {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: clamp(0.5rem, 1vw, 0.8rem);
+}
+
+.alx-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.3rem;
+  padding: 0.9rem 1rem;
+  border-radius: 14px;
+  border: 2px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  box-shadow: 0 4px 0 var(--border);
+  transition: transform 0.14s ease, box-shadow 0.14s ease, border-color 0.14s ease;
+}
+
+.alx-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 var(--border);
+}
+
+.alx-tile:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 0 var(--border);
+}
+
+.alx-tile-label {
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.alx-tile-count {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 1.2rem + 1vw, 2rem);
+  line-height: 1;
+  font-weight: 800;
+}
+
+.alx-tile.is-active {
+  border-width: 2px;
+  box-shadow: 0 6px 0 var(--border);
+}
+
+.alx-tile--all.is-active {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, var(--panel));
+  color: var(--primary);
+}
+.alx-tile--all.is-active .alx-tile-label { color: inherit; }
+
+.alx-tile--critical.is-active {
+  border-color: #dc2626;
+  background: color-mix(in srgb, #dc2626 10%, var(--panel));
+  color: #dc2626;
+}
+.alx-tile--critical.is-active .alx-tile-label { color: inherit; }
+
+.alx-tile--high.is-active {
+  border-color: #ea580c;
+  background: color-mix(in srgb, #ea580c 10%, var(--panel));
+  color: #ea580c;
+}
+.alx-tile--high.is-active .alx-tile-label { color: inherit; }
+
+.alx-tile--medium.is-active {
+  border-color: #d97706;
+  background: color-mix(in srgb, #d97706 10%, var(--panel));
+  color: #d97706;
+}
+.alx-tile--medium.is-active .alx-tile-label { color: inherit; }
+
+.alx-tile--low.is-active {
+  border-color: #16a34a;
+  background: color-mix(in srgb, #16a34a 10%, var(--panel));
+  color: #16a34a;
+}
+.alx-tile--low.is-active .alx-tile-label { color: inherit; }
+
+/* ——— Onglets ——— */
+.alx-tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.3rem;
+  width: fit-content;
+  max-width: 100%;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--panel-soft, var(--panel));
+}
+
+.alx-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 0.65rem 1.05rem;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.alx-tab:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--primary) 6%, transparent);
+}
+
+.alx-tab.is-active {
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.alx-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.alx-tab.is-active .alx-tab-badge {
+  background: var(--primary);
+}
+
+/* ——— Période (historique) ——— */
+.alx-period {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.alx-period-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.alx-period-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.alx-period-chip {
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.alx-period-chip:hover {
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+  color: var(--primary);
+}
+
+.alx-period-chip.is-active {
+  background: color-mix(in srgb, var(--primary) 14%, var(--panel));
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* ——— Cartes d’alerte ——— */
+.alx-list {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.7rem, 1.2vw, 0.9rem);
+}
+
+.alx-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 6px minmax(0, 1fr);
+  width: 100%;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: var(--shadow-soft);
+  animation: alx-card-in 0.4s ease both;
+}
+
+@keyframes alx-card-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.alx-card-rail {
+  background: var(--muted);
+}
+
+.alx-card--critical .alx-card-rail { background: #dc2626; }
+.alx-card--high     .alx-card-rail { background: #ea580c; }
+.alx-card--medium   .alx-card-rail { background: #d97706; }
+.alx-card--low      .alx-card-rail { background: #16a34a; }
+
+.alx-card--critical {
+  border-left-color: color-mix(in srgb, #dc2626 55%, var(--border));
+  background: color-mix(in srgb, #dc2626 5%, var(--panel));
+}
+.alx-card--high {
+  border-left-color: color-mix(in srgb, #ea580c 55%, var(--border));
+  background: color-mix(in srgb, #ea580c 5%, var(--panel));
+}
+.alx-card--medium {
+  border-left-color: color-mix(in srgb, #d97706 55%, var(--border));
+  background: color-mix(in srgb, #d97706 4%, var(--panel));
+}
+.alx-card--low {
+  border-left-color: color-mix(in srgb, #16a34a 55%, var(--border));
+  background: color-mix(in srgb, #16a34a 4%, var(--panel));
+}
+
+.alx-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: clamp(0.95rem, 1.5vw, 1.3rem) clamp(1rem, 1.8vw, 1.5rem);
+  min-width: 0;
+}
+
+.alx-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.alx-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1.5px solid currentColor;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.alx-pill--critical {
+  color: #dc2626;
+  background: color-mix(in srgb, #dc2626 12%, var(--panel));
+}
+.alx-pill--high {
+  color: #ea580c;
+  background: color-mix(in srgb, #ea580c 12%, var(--panel));
+}
+.alx-pill--medium {
+  color: #d97706;
+  background: color-mix(in srgb, #d97706 12%, var(--panel));
+}
+.alx-pill--low {
+  color: #16a34a;
+  background: color-mix(in srgb, #16a34a 12%, var(--panel));
+}
+
+.alx-card-date {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.alx-card h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.05rem, 0.95rem + 0.5vw, 1.3rem);
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text);
+}
+
+.alx-card-text {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.55;
+  max-width: 72ch;
+}
+
+.alx-card-justif {
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--primary) 7%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--primary) 14%, var(--border));
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.alx-card-justif strong {
+  color: var(--primary);
+}
+
+.alx-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 0.25rem;
+}
+
+.alx-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 42px;
+  padding: 0.6rem 1.05rem;
+  border-radius: 12px;
+  border: 1.5px solid transparent;
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.92rem;
+  cursor: pointer;
+  transition: transform 0.14s ease, box-shadow 0.14s ease, background 0.14s ease, border-color 0.14s ease;
+}
+
+.alx-btn:hover {
+  transform: translateY(-1px);
+}
+
+.alx-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.alx-btn--ghost {
+  background: var(--panel-soft);
+  border-color: var(--border);
+  color: var(--primary);
+}
+
+.alx-btn--ghost:hover {
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+}
+
+.alx-btn--primary {
+  background: linear-gradient(145deg, var(--primary), var(--primary-2));
+  color: #fff;
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--primary) 30%, transparent);
+}
+
+.alx-btn--primary:hover {
+  filter: brightness(1.06);
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--primary) 36%, transparent);
+}
+
+/* Carte focalisée (navigation profonde depuis le dashboard) */
+.alx-card.is-focused {
+  outline: 3px solid #dc2626;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 6px rgba(220, 38, 38, 0.16);
+}
+
+/* ——— État vide ——— */
+.alx-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.6rem;
+  padding: clamp(2.5rem, 5vw, 4rem) 1.25rem;
+  border-radius: 18px;
+  border: 2px dashed color-mix(in srgb, var(--primary) 30%, var(--border));
+  background: color-mix(in srgb, var(--panel) 80%, var(--bg));
+}
+
+.alx-empty-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--sev-ok-bg, #dcfce7);
+  color: var(--sev-ok-fg, #166534);
+  margin-bottom: 0.25rem;
+}
+
+.alx-empty h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  color: var(--text);
+}
+
+.alx-empty p {
+  margin: 0;
+  color: var(--muted);
+  max-width: 40ch;
+  line-height: 1.5;
+}
+
+/* ——— Responsive ——— */
+@media (max-width: 900px) {
+  .alx-tiles {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .alx-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .alx-tab {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .alx-tabs {
+    width: 100%;
+    display: flex;
+  }
+
+  .alx-card-actions .alx-btn {
+    flex: 1 1 auto;
+  }
+}

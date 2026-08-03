@@ -189,7 +189,7 @@ function Topbar({ activeView, onNavigate }) {
 
       <div className="topbar-right">
         <nav className={`topbar-actions ${menuOpen ? 'is-open' : ''}`} aria-label="Navigation principale">
-          {links.map(({ id, label, icon: Icon }) => (
+          {links.filter((l) => l.id !== 'notifications').map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               type="button"

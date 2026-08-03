@@ -409,6 +409,14 @@ class DashboardOverviewAPIView(APIView):
                 return round(float(value), 1)
         return default
 
+    def _previous_numeric(self, values, default=0.0):
+        if not values or len(values) < 2:
+            return default
+        value = values[-2]
+        if value is None:
+            return default
+        return round(float(value), 1)
+
     def _numeric_values(self, values, *, positive_only=False):
         out = []
         for v in values or []:
@@ -469,12 +477,21 @@ class DashboardOverviewAPIView(APIView):
             latest_consumption = self._last_numeric(consumption_series)
             latest_volume = self._last_numeric(volume_series)
 
+            previous_consumption = self._previous_numeric(consumption_series, default=0.0)
+            previous_hours = self._previous_numeric(volume_series, default=0.0)
+            consumption_change_pct = 0.0
+            if previous_consumption > 0 and latest_consumption > 0:
+                consumption_change_pct = abs((latest_consumption - previous_consumption) / previous_consumption) * 100
+
             site_rows.append({
                 'id': site.id,
                 'site_name': site.identifiant,
                 'label': site.identifiant,
                 'avg_consumption': avg_consumption,
                 'latest_consumption': latest_consumption,
+                'previous_consumption': previous_consumption,
+                'consumption_change_pct': round(consumption_change_pct, 1),
+                'previous_hours': previous_hours,
                 'latest_volume': latest_volume,
                 'autonomy': None,
                 'autonomie_hours': None,
@@ -529,32 +546,28 @@ class DashboardOverviewAPIView(APIView):
             avg_consumption = round(self._mean_positive(consumption_series), 1)
             # Semaine N = dernière période du rapport (None → 0), pas le dernier numérique non-null
             latest_consumption = round(float(consumption_series[-1]), 1) if consumption_series and consumption_series[-1] is not None else 0.0
+            previous_consumption = round(float(consumption_series[-2]), 1) if len(consumption_series) >= 2 and consumption_series[-2] is not None else 0.0
             avg_hours = round(self._mean_positive(hours_series), 1)
             latest_hours = round(float(hours_series[-1]), 1) if hours_series and hours_series[-1] is not None else 0.0
+            previous_hours = round(float(hours_series[-2]), 1) if len(hours_series) >= 2 and hours_series[-2] is not None else 0.0
 
             numeric_consumption = self._numeric_values(consumption_series, positive_only=True)
             variance_pct = 0.0
-            if avg_consumption > 0 and len(numeric_consumption) > 1:
-                variance_pct = round((statistics.pstdev(numeric_consumption) / avg_consumption) * 100, 1)
+            if previous_hours > 0 and latest_hours > 0:
+                variance_pct = abs((latest_hours - previous_hours) / previous_hours) * 100
 
-            # Écart semaine N = conso horaire uniquement (pas de fallback volume)
-            ecart_pct = 0.0
-            latest_hourly = block.get('latest_hourly_consumption')
-            mean_deduite = float(block.get('mean_hourly_consumption_deduite') or 0.0)
-            if (
-                latest_hours > 0
-                and latest_consumption > 0
-                and latest_hourly is not None
-                and mean_deduite > 0
-            ):
-                ecart_pct = abs((float(latest_hourly) - mean_deduite) / mean_deduite) * 100
+            weekly_hourly_change_pct = variance_pct
+            weekly_consumption_change_pct = 0.0
+            if previous_consumption > 0 and latest_consumption > 0:
+                weekly_consumption_change_pct = abs((latest_consumption - previous_consumption) / previous_consumption) * 100
 
-            is_abnormal = ecart_pct > self.ABNORMAL_VARIANCE_THRESHOLD
+            is_abnormal = weekly_hourly_change_pct > self.ABNORMAL_VARIANCE_THRESHOLD
             # Semaine N : conso > 0 et pas de delta horaire (0 ou absent)
             cons_sans_delta_n = latest_consumption > 0 and not (latest_hours > 0)
             cons_sans_delta = cons_sans_delta_n or bool(block.get('is_infinite_consumption'))
             has_anomaly = bool(is_abnormal or cons_sans_delta)
 
+            weekly_hourly_variation_pct = weekly_hourly_change_pct
             group_rows.append({
                 'id': block['id'],
                 'label': block['label'],
@@ -562,10 +575,14 @@ class DashboardOverviewAPIView(APIView):
                 'site_name': block['site_nom'],
                 'avg_consumption': avg_consumption,
                 'latest_consumption': latest_consumption,
+                'previous_consumption': previous_consumption,
+                'weekly_consumption_change_pct': round(weekly_consumption_change_pct, 1),
                 'avg_hours': avg_hours,
                 'latest_hours': latest_hours,
-                'variance_pct': round(max(variance_pct, ecart_pct), 1),
-                'ecart_pct': round(ecart_pct, 1),
+                'previous_hours': previous_hours,
+                'weekly_hourly_variation_pct': round(weekly_hourly_variation_pct, 1),
+                'variance_pct': round(weekly_hourly_variation_pct, 1),
+                'ecart_pct': round(weekly_hourly_variation_pct, 1),
                 'autonomy': block['autonomie_hours'],
                 'autonomie_hours': block['autonomie_hours'],
                 'formatted_autonomy': block['formatted_autonomy'],
@@ -575,6 +592,11 @@ class DashboardOverviewAPIView(APIView):
                 'mean_hourly_consumption': block['mean_hourly_consumption'],
                 'mean_hourly_consumption_deduite': block['mean_hourly_consumption_deduite'],
                 'latest_hourly_consumption': block['latest_hourly_consumption'],
+                'previous_hourly_consumption': block['previous_hourly_consumption'],
+                'latest_hours_n': block.get('latest_hours_n'),
+                'previous_hours_n': block.get('previous_hours_n'),
+                'latest_cons_n': block.get('latest_cons_n'),
+                'previous_cons_n': block.get('previous_cons_n'),
                 'is_abnormal': is_abnormal,
                 'has_anomaly': has_anomaly,
             })

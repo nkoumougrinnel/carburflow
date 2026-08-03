@@ -29,6 +29,8 @@ TYPES_DETECTES = (
     'autonomie_preventive',
     'conso_sans_horaire',
     'horaire_sans_conso',
+    'compteur_duplique',
+    'compteur_incoherent',
     'autonomie_indeterminee',
     'ecart_conso',
 )
@@ -50,6 +52,97 @@ def _site_display_name(cuve_principale):
     if related is not None and getattr(related, 'nom', None):
         return related.nom
     return getattr(cuve_principale, 'identifiant', '') or str(cuve_principale.pk)
+
+
+def _format_counter_value(value):
+    try:
+        return f'{float(value):.1f}'
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def _candidates_from_counter_quality(lignes_all, sites_by_cp_id, groupes_by_id):
+    candidates = []
+
+    # Même compteur horaire dans plusieurs groupes pour un même site / même rapport.
+    site_report_counter_groups = {}
+    for line in lignes_all:
+        if line.cuve_principale_id is None or line.groupe_electrogene_id is None:
+            continue
+        counter = getattr(line, 'compteur_horaire', None)
+        if counter is None:
+            continue
+        key = (line.cuve_principale_id, line.rapport_id, float(counter))
+        site_report_counter_groups.setdefault(key, set()).add(line.groupe_electrogene_id)
+
+    for (site_id, report_id, counter), group_ids in site_report_counter_groups.items():
+        if len(group_ids) <= 1:
+            continue
+        cp = sites_by_cp_id.get(site_id)
+        site_name = _site_display_name(cp)
+        candidates.append({
+            'cle': Alerte.generer_cle(
+                'compteur_duplique',
+                f'{site_id}-{report_id}-{_format_counter_value(counter)}',
+                prefix='site',
+            ),
+            'type_alerte': 'compteur_duplique',
+            'priorite': 'haute',
+            'message': (
+                f'Compteur horaire {counter:.1f} dupliqué sur le site {site_name} '
+                f'pour plusieurs groupes (rapport {report_id}).'
+            ),
+            'donnees_contexte': {
+                'cuve_principale_id': site_id,
+                'site_name': site_name,
+                'rapport_id': report_id,
+                'compteur_horaire': counter,
+                'groupe_ids': sorted(group_ids),
+            },
+            'site': cp,
+            'cuve_journaliere': None,
+            'groupe_electrogene': None,
+        })
+
+    # Même groupe avec plusieurs valeurs de compteur différentes sur un même rapport.
+    group_report_counters = {}
+    for line in lignes_all:
+        if line.groupe_electrogene_id is None:
+            continue
+        counter = getattr(line, 'compteur_horaire', None)
+        if counter is None:
+            continue
+        key = (line.groupe_electrogene_id, line.rapport_id)
+        group_report_counters.setdefault(key, set()).add(float(counter))
+
+    for (group_id, report_id), counters in group_report_counters.items():
+        if len(counters) <= 1:
+            continue
+        groupe = groupes_by_id.get(group_id)
+        label = groupe.identifiant if groupe is not None else str(group_id)
+        candidates.append({
+            'cle': Alerte.generer_cle(
+                'compteur_incoherent',
+                f'{group_id}-{report_id}',
+                prefix='groupe',
+            ),
+            'type_alerte': 'compteur_incoherent',
+            'priorite': 'haute',
+            'message': (
+                f'Valeurs de compteur incohérentes pour le groupe {label} '
+                f'sur le rapport {report_id} : {sorted(_format_counter_value(c) for c in counters)}.'
+            ),
+            'donnees_contexte': {
+                'groupe_id': group_id,
+                'rapport_id': report_id,
+                'compteur_horaire_values': sorted(counters),
+            },
+            'site': None,
+            'cuve_journaliere': None,
+            'groupe_electrogene': groupe,
+        })
+
+    return candidates
 
 
 def load_group_blocks():
@@ -122,7 +215,7 @@ def load_group_blocks():
         group_primary_site_ids=group_primary_site_ids,
         selected_site_id=None,
     )
-    return reports, sites, groups, group_blocks
+    return reports, sites, groups, group_blocks, lignes_all
 
 
 def _resolve_refs(block, groupes_by_id, sites_by_cp_id):
@@ -352,7 +445,7 @@ def detecter_et_persister_alertes(*, auto_ignorer_levees: bool = True):
     Returns:
         dict: compteurs created / updated / ignored / active_keys
     """
-    _reports, sites, groups, group_blocks = load_group_blocks()
+    _reports, sites, groups, group_blocks, lignes_all = load_group_blocks()
     groupes_by_id = {g.id: g for g in groups}
     sites_by_cp_id = {s.id: s for s in sites}
 
@@ -369,6 +462,15 @@ def detecter_et_persister_alertes(*, auto_ignorer_levees: bool = True):
                 created += 1
             else:
                 updated += 1
+
+    for payload in _candidates_from_counter_quality(lignes_all, sites_by_cp_id, groupes_by_id):
+        cle = payload.pop('cle')
+        active_keys.add(cle)
+        _alerte, should_notify = _upsert_active(cle, **payload)
+        if should_notify:
+            created += 1
+        else:
+            updated += 1
 
     for payload in _candidates_from_site_blocks(group_blocks, sites_by_cp_id):
         cle = payload.pop('cle')

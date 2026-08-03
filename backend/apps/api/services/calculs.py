@@ -398,10 +398,15 @@ def calculer_groupes(
         )
 
         latest_hourly_consumption = None
+        previous_hourly_consumption = None
         for h, d in zip(reversed(hours_run), reversed(consumed_deltas)):
             if h is not None and h > 0 and d is not None and d > 0:
-                latest_hourly_consumption = d / h
-                break
+                rate = d / h
+                if latest_hourly_consumption is None:
+                    latest_hourly_consumption = rate
+                elif previous_hourly_consumption is None:
+                    previous_hourly_consumption = rate
+                    break
 
         latest_main_volume = None
         latest_daily_volume = None
@@ -435,7 +440,9 @@ def calculer_groupes(
         is_infinite_consumption = bool(has_infinite_cons)
 
         latest_hours_n = hours_run[-1] if hours_run else None
+        previous_hours_n = hours_run[-2] if len(hours_run) >= 2 else None
         latest_cons_n = consumed_deltas[-1] if consumed_deltas else None
+        previous_cons_n = consumed_deltas[-2] if len(consumed_deltas) >= 2 else None
         # Relevé présent avec 0 h (et pas de conso sans horaire) → sans fonctionnement
         is_sans_fonctionnement = (
             not is_infinite_consumption
@@ -506,6 +513,13 @@ def calculer_groupes(
             'latest_hourly_consumption': (
                 round(latest_hourly_consumption, 3) if latest_hourly_consumption is not None else None
             ),
+            'previous_hourly_consumption': (
+                round(previous_hourly_consumption, 3) if previous_hourly_consumption is not None else None
+            ),
+            'latest_hours_n': round(latest_hours_n, 1) if latest_hours_n is not None else None,
+            'previous_hours_n': round(previous_hours_n, 1) if previous_hours_n is not None else None,
+            'latest_cons_n': round(latest_cons_n, 1) if latest_cons_n is not None else None,
+            'previous_cons_n': round(previous_cons_n, 1) if previous_cons_n is not None else None,
             'autonomie_hours': round(autonomy_hours, 1) if autonomy_hours is not None else None,
             'formatted_autonomy': formatted_autonomy,
             'is_infinite_autonomy': is_infinite_autonomy,

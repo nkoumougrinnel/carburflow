@@ -21,6 +21,8 @@ export const ALERT_TYPE_META = {
   autonomie_preventive: { label: 'Autonomie préventive' },
   conso_sans_horaire: { label: 'Conso. sans horaire' },
   horaire_sans_conso: { label: 'Horaire sans conso.' },
+  compteur_duplique: { label: 'Compteur dupliqué' },
+  compteur_incoherent: { label: 'Compteur incohérent' },
   autonomie_indeterminee: { label: 'Autonomie indéterminée' },
   ecart_conso: { label: 'Écart consommation' },
   // alias historiques (compat)

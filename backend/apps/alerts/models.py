@@ -20,6 +20,8 @@ class Alerte(models.Model):
         ('autonomie_critique', 'Autonomie critique (< 24h)'),
         ('conso_sans_horaire', 'Consommation sans delta horaire'),
         ('horaire_sans_conso', 'Delta horaire sans consommation'),
+        ('compteur_duplique', 'Compteur horaire dupliqué'),
+        ('compteur_incoherent', 'Compteur horaire incohérent'),
         ('autonomie_indeterminee', 'Autonomie indéterminée'),
         ('ecart_conso', 'Écart de consommation (> 15%)'),
         ('autonomie_preventive', 'Autonomie préventive (< 72h)'),
