@@ -1,15 +1,18 @@
 import React from 'react'
 import { useTheme } from '../context/ThemeContext.jsx'
 
-/** Nouveau logo iconique (goutte / énergie) — navbar & pastilles */
-const logoIcon = '/assets/images/logo-navbar.png'
+/** Icône goutte — deux versions selon le thème */
+const logoIconLight = '/assets/images/logo-navbar-light.jpg'
+const logoIconDark  = '/assets/images/logo-navbar-dark.jpg'
+
+/** Wordmark complet — deux versions selon le thème */
 const logoLight = '/assets/images/clair.jpeg'
-const logoDark = '/assets/images/sombre.jpeg'
+const logoDark  = '/assets/images/sombre.jpeg'
 
 /**
  * Logo CarburFlow.
- * - icon : pastille navbar (nouveau logo)
- * - full : wordmark clair / sombre selon le thème
+ * - icon : icône goutte, bascule entre clair et sombre selon le thème
+ * - full : wordmark complet clair / sombre selon le thème
  */
 function BrandLogo({
   variant = 'icon',
@@ -17,9 +20,10 @@ function BrandLogo({
   alt = 'CarburFlow',
 }) {
   const { isDark } = useTheme()
+
   const src = variant === 'full'
     ? (isDark ? logoDark : logoLight)
-    : logoIcon
+    : (isDark ? logoIconDark : logoIconLight)
 
   return (
     <img

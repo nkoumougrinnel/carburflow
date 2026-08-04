@@ -42,7 +42,7 @@ function extractErrorMessage(data) {
 }
 
 /**
- * En local Vite : chemins relatifs `/api/v1/...` (proxy Vite).
+ * En local Vite : chemins relatifs `/api/...` (proxy Vite).
  * En Docker (nginx) : mêmes chemins relatifs — nginx proxy `/api` → backend.
  * Optionnel : VITE_API_BASE_URL absolu (ex. autre hôte API).
  */
@@ -148,32 +148,32 @@ export function authFetch(path, options = {}) {
 }
 
 export async function loginRequest(username, password) {
-  return apiFetch('/api/v1/auth/login', {
+  return apiFetch('/api/auth/login', {
     method: 'POST',
     body: JSON.stringify({ username, password }),
   })
 }
 
 export async function registerRequest(payload) {
-  return apiFetch('/api/v1/auth/register', {
+  return apiFetch('/api/auth/register', {
     method: 'POST',
     body: JSON.stringify(payload),
   })
 }
 
 export async function meRequest() {
-  return apiFetch('/api/v1/auth/me')
+  return apiFetch('/api/auth/me')
 }
 
 export async function updateProfileRequest(payload) {
-  return apiFetch('/api/v1/auth/me', {
+  return apiFetch('/api/auth/me', {
     method: 'PATCH',
     body: JSON.stringify(payload),
   })
 }
 
 export async function changePasswordRequest(payload) {
-  return apiFetch('/api/v1/auth/password', {
+  return apiFetch('/api/auth/password', {
     method: 'POST',
     body: JSON.stringify(payload),
   })
@@ -181,7 +181,7 @@ export async function changePasswordRequest(payload) {
 
 export async function logoutRequest() {
   try {
-    await apiFetch('/api/v1/auth/logout', { method: 'POST' })
+    await apiFetch('/api/auth/logout', { method: 'POST' })
   } catch {
     // ignore
   } finally {
@@ -190,7 +190,7 @@ export async function logoutRequest() {
 }
 
 export async function publicSitesRequest() {
-  return apiFetch('/api/v1/auth/sites')
+  return apiFetch('/api/auth/sites')
 }
 
 async function triggerBlobDownload(response, filename) {
@@ -206,12 +206,12 @@ async function triggerBlobDownload(response, filename) {
 }
 
 export async function downloadNorme(format = 'xlsx') {
-  const response = await apiFetch(`/api/v1/rapports/norme.${format}`, { raw: true })
+  const response = await apiFetch(`/api/rapports/norme.${format}`, { raw: true })
   await triggerBlobDownload(response, `carburflow_norme_rapport.${format}`)
 }
 
 export async function downloadFicheHebdo(dateDebut, dateFin) {
-  let url = '/api/v1/rapports/generer.xlsx'
+  let url = '/api/rapports/generer.xlsx'
   const params = new URLSearchParams()
   if (dateDebut) params.append('date_debut', dateDebut)
   if (dateFin) params.append('date_fin', dateFin)
@@ -223,7 +223,7 @@ export async function downloadFicheHebdo(dateDebut, dateFin) {
 
 export async function downloadRapport(rapportId, format = 'xlsx') {
   const response = await apiFetch(
-    `/api/v1/rapports/${rapportId}/export.${format}`,
+    `/api/rapports/${rapportId}/export.${format}`,
     { raw: true },
   )
   await triggerBlobDownload(response, `carburflow_rapport_${rapportId}.${format}`)
@@ -232,11 +232,11 @@ export async function downloadRapport(rapportId, format = 'xlsx') {
 export async function uploadRapport(file) {
   const form = new FormData()
   form.append('file', file)
-  return apiFetch('/api/v1/rapports/upload', { method: 'POST', body: form })
+  return apiFetch('/api/rapports/upload', { method: 'POST', body: form })
 }
 
 export async function listSoumissions() {
-  return apiFetch('/api/v1/rapports/soumissions')
+  return apiFetch('/api/rapports/soumissions')
 }
 
 export async function listMesRapports(params = {}) {
@@ -245,11 +245,11 @@ export async function listMesRapports(params = {}) {
     if (value != null && value !== '') query.set(key, String(value))
   })
   const qs = query.toString()
-  return apiFetch(`/api/v1/rapports/mes${qs ? `?${qs}` : ''}`)
+  return apiFetch(`/api/rapports/mes${qs ? `?${qs}` : ''}`)
 }
 
 export async function normeMeta() {
-  return apiFetch('/api/v1/rapports/norme')
+  return apiFetch('/api/rapports/norme')
 }
 
 export async function listAlertes(params = {}) {
@@ -258,31 +258,31 @@ export async function listAlertes(params = {}) {
     if (value != null && value !== '') query.set(key, String(value))
   })
   const qs = query.toString()
-  return apiFetch(qs ? `/api/v1/alertes/?${qs}` : '/api/v1/alertes/')
+  return apiFetch(qs ? `/api/alertes/?${qs}` : '/api/alertes/')
 }
 
 export async function listAlertTreatments() {
-  return apiFetch('/api/v1/alertes/traitements')
+  return apiFetch('/api/alertes/traitements')
 }
 
 export async function treatAlert(payload) {
-  return apiFetch('/api/v1/alertes/traiter', {
+  return apiFetch('/api/alertes/traiter', {
     method: 'POST',
     body: JSON.stringify(payload),
   })
 }
 
 export async function listStaffUsers() {
-  return apiFetch('/api/v1/auth/users/staff')
+  return apiFetch('/api/auth/users/staff')
 }
 
 export async function searchUsersByEmail(email) {
   const query = new URLSearchParams({ email: String(email || '').trim() })
-  return apiFetch(`/api/v1/auth/users/search?${query.toString()}`)
+  return apiFetch(`/api/auth/users/search?${query.toString()}`)
 }
 
 export async function setUserRole({ email, role }) {
-  return apiFetch('/api/v1/auth/users/set-role', {
+  return apiFetch('/api/auth/users/set-role', {
     method: 'POST',
     body: JSON.stringify({ email, role }),
   })
@@ -294,23 +294,23 @@ export async function listNotifications(params = {}) {
     if (value != null && value !== '') query.set(key, String(value))
   })
   const qs = query.toString()
-  return apiFetch(`/api/v1/notifications/${qs ? `?${qs}` : ''}`)
+  return apiFetch(`/api/notifications/${qs ? `?${qs}` : ''}`)
 }
 
 export async function notificationsUnreadCount() {
-  return apiFetch('/api/v1/notifications/unread-count')
+  return apiFetch('/api/notifications/unread-count')
 }
 
 export async function markNotificationRead(id) {
-  return apiFetch(`/api/v1/notifications/${id}/read`, { method: 'POST' })
+  return apiFetch(`/api/notifications/${id}/read`, { method: 'POST' })
 }
 
 export async function listMessagingAdmins() {
-  return apiFetch('/api/v1/notifications/admins')
+  return apiFetch('/api/notifications/admins')
 }
 
 export async function sendNotificationMessage(payload) {
-  return apiFetch('/api/v1/notifications/send', {
+  return apiFetch('/api/notifications/send', {
     method: 'POST',
     body: JSON.stringify(payload),
   })

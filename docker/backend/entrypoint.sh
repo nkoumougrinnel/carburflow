@@ -21,6 +21,7 @@ else:
 PY
 
 echo "→ Migrations…"
+python manage.py makemigrations --noinput
 python manage.py migrate --noinput
 
 if [ "${RUN_SEED:-0}" = "1" ]; then

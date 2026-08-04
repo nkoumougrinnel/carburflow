@@ -21,15 +21,7 @@ export const ALERT_TYPE_META = {
   autonomie_preventive: { label: 'Autonomie préventive' },
   conso_sans_horaire: { label: 'Conso. sans horaire' },
   horaire_sans_conso: { label: 'Horaire sans conso.' },
-  compteur_duplique: { label: 'Compteur dupliqué' },
-  compteur_incoherent: { label: 'Compteur incohérent' },
-  autonomie_indeterminee: { label: 'Autonomie indéterminée' },
   ecart_conso: { label: 'Écart consommation' },
-  // alias historiques (compat)
-  critique: { label: 'Autonomie critique' },
-  alerte: { label: 'Autonomie faible' },
-  anomalie: { label: 'Anomalie saisie' },
-  ecart: { label: 'Écart conso' },
 }
 
 const PRIORITE_ALIASES = {
@@ -116,13 +108,19 @@ export function isIndeterminateAutonomyAlert(alert) {
 }
 
 function isConsSansDelta(g) {
-  return (g.latest_consumption > 0) && !(g.latest_hours > 0)
+  if (!(g.latest_consumption > 0)) return false
+  if (g.latest_hours == null) return true
+  if (g.latest_hours > 0) return false
+  if (g.latest_hourly_consumption != null && g.latest_hourly_consumption > 0) return false
+  return true
 }
 
 function isEcartConso(g) {
   const mean = g.mean_hourly_consumption_deduite
   const latest = g.latest_hourly_consumption
-  if (!(mean > 0) || latest == null) return false
+  const previous = g.previous_hourly_consumption
+  if (!(mean > 0) || latest == null || latest <= 0) return false
+  if (previous == null || previous <= 0) return false
   return Math.abs((latest - mean) / mean) * 100 > 15
 }
 

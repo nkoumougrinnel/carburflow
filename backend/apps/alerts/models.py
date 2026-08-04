@@ -20,11 +20,7 @@ class Alerte(models.Model):
         ('autonomie_critique', 'Autonomie critique (< 24h)'),
         ('conso_sans_horaire', 'Consommation sans delta horaire'),
         ('horaire_sans_conso', 'Delta horaire sans consommation'),
-        ('compteur_duplique', 'Compteur horaire dupliqué'),
-        ('compteur_incoherent', 'Compteur horaire incohérent'),
-        ('autonomie_indeterminee', 'Autonomie indéterminée'),
         ('ecart_conso', 'Écart de consommation (> 15%)'),
-        ('autonomie_preventive', 'Autonomie préventive (< 72h)'),
     ]
 
     ETAT_CHOICES = [
@@ -45,7 +41,7 @@ class Alerte(models.Model):
         help_text='Clé unique anti-doublon (ex: groupe-3-autonomie_critique)',
     )
 
-    date_apparition = models.DateField(auto_now_add=True, db_index=True)
+    date_apparition = models.DateField(default=timezone.now, db_index=True)
     date_traitement = models.DateTimeField(null=True, blank=True)
 
     priorite = models.CharField(
@@ -86,7 +82,7 @@ class Alerte(models.Model):
         db_index=True,
     )
     cuve_journaliere = models.ForeignKey(
-        'sites.CuveJournaliere',
+        'equipment.CuveJournaliere',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -94,7 +90,7 @@ class Alerte(models.Model):
         db_index=True,
     )
     groupe_electrogene = models.ForeignKey(
-        'sites.GroupeElectrogene',
+        'equipment.GroupeElectrogene',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -137,8 +133,9 @@ class Alerte(models.Model):
         )
 
     @classmethod
-    def generer_cle(cls, type_alerte, reference_id, *, prefix='groupe'):
-        return f'{prefix}-{reference_id}-{type_alerte}'
+    def generer_cle(cls, type_alerte, reference_id, *, prefix='groupe', suffix=None):
+        base = f'{prefix}-{reference_id}-{type_alerte}'
+        return f'{base}-{suffix}' if suffix is not None else base
 
     @property
     def est_active(self):

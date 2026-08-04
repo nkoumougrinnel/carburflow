@@ -69,7 +69,7 @@ function CuvesPage({ onNavigate }) {
     try {
       setLoadError('')
       if (isFilter) setFiltering(true)
-      const data = await apiFetch(`/api/v1/dashboard/cuves${queryParams ? `?${queryParams}` : ''}`)
+      const data = await apiFetch(`/api/dashboard/cuves${queryParams ? `?${queryParams}` : ''}`)
       if (seq !== filterSeq.current) return
       setCuvesData(data)
       const choices = data.rapport_choices || []

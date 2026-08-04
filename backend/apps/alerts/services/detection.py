@@ -14,6 +14,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.api.services import calculs as calc
+from apps.services.calculs import should_emit_hourly_variance_alert
 from apps.alerts.models import Alerte
 from apps.reports.models import LigneRapport
 from apps.sites.models import CuvePrincipale, GroupeElectrogene
@@ -21,17 +22,12 @@ from apps.sites.models import CuvePrincipale, GroupeElectrogene
 logger = logging.getLogger(__name__)
 
 SEUIL_AUTONOMIE_CRITIQUE_H = 24.0
-SEUIL_AUTONOMIE_PREVENTIVE_H = 72.0
 SEUIL_ECART_CONSO_PCT = 15.0
 
 TYPES_DETECTES = (
     'autonomie_critique',
-    'autonomie_preventive',
     'conso_sans_horaire',
     'horaire_sans_conso',
-    'compteur_duplique',
-    'compteur_incoherent',
-    'autonomie_indeterminee',
     'ecart_conso',
 )
 
@@ -61,48 +57,9 @@ def _format_counter_value(value):
         return str(value)
 
 
-def _candidates_from_counter_quality(lignes_all, sites_by_cp_id, groupes_by_id):
+def _candidates_from_counter_quality(lignes_all, sites_by_cp_id, groupes_by_id, report_by_id, latest_report):
     candidates = []
-
-    # Même compteur horaire dans plusieurs groupes pour un même site / même rapport.
-    site_report_counter_groups = {}
-    for line in lignes_all:
-        if line.cuve_principale_id is None or line.groupe_electrogene_id is None:
-            continue
-        counter = getattr(line, 'compteur_horaire', None)
-        if counter is None:
-            continue
-        key = (line.cuve_principale_id, line.rapport_id, float(counter))
-        site_report_counter_groups.setdefault(key, set()).add(line.groupe_electrogene_id)
-
-    for (site_id, report_id, counter), group_ids in site_report_counter_groups.items():
-        if len(group_ids) <= 1:
-            continue
-        cp = sites_by_cp_id.get(site_id)
-        site_name = _site_display_name(cp)
-        candidates.append({
-            'cle': Alerte.generer_cle(
-                'compteur_duplique',
-                f'{site_id}-{report_id}-{_format_counter_value(counter)}',
-                prefix='site',
-            ),
-            'type_alerte': 'compteur_duplique',
-            'priorite': 'haute',
-            'message': (
-                f'Compteur horaire {counter:.1f} dupliqué sur le site {site_name} '
-                f'pour plusieurs groupes (rapport {report_id}).'
-            ),
-            'donnees_contexte': {
-                'cuve_principale_id': site_id,
-                'site_name': site_name,
-                'rapport_id': report_id,
-                'compteur_horaire': counter,
-                'groupe_ids': sorted(group_ids),
-            },
-            'site': cp,
-            'cuve_journaliere': None,
-            'groupe_electrogene': None,
-        })
+    report_date = latest_report.date_fin if latest_report is not None else None
 
     # Même groupe avec plusieurs valeurs de compteur différentes sur un même rapport.
     group_report_counters = {}
@@ -123,8 +80,9 @@ def _candidates_from_counter_quality(lignes_all, sites_by_cp_id, groupes_by_id):
         candidates.append({
             'cle': Alerte.generer_cle(
                 'compteur_incoherent',
-                f'{group_id}-{report_id}',
+                group_id,
                 prefix='groupe',
+                suffix=report_id,
             ),
             'type_alerte': 'compteur_incoherent',
             'priorite': 'haute',
@@ -140,6 +98,7 @@ def _candidates_from_counter_quality(lignes_all, sites_by_cp_id, groupes_by_id):
             'site': None,
             'cuve_journaliere': None,
             'groupe_electrogene': groupe,
+            'date_apparition': report_by_id.get(report_id).date_fin if report_id in report_by_id else report_date,
         })
 
     return candidates
@@ -184,22 +143,22 @@ def load_group_blocks():
                 (line.groupe_electrogene_id, line.rapport_id), []
             ).append(line)
 
-    group_site_counts = {}
-    for line in lignes_all:
-        if line.groupe_electrogene_id and line.cuve_principale_id:
-            counts = group_site_counts.setdefault(line.groupe_electrogene_id, {})
-            counts[line.cuve_principale_id] = counts.get(line.cuve_principale_id, 0) + 1
-    group_primary_site_ids = {
-        gid: max(counts.items(), key=lambda item: item[1])[0]
-        for gid, counts in group_site_counts.items()
-    }
+    group_primary_site_ids = calc.build_group_primary_site_ids(groups, lignes_all)
 
     groups_by_site_report = {}
     for line in lignes_all:
-        if line.cuve_principale_id and line.groupe_electrogene_id:
-            groups_by_site_report.setdefault(
-                (line.cuve_principale_id, line.rapport_id), set()
-            ).add(line.groupe_electrogene_id)
+        if line.groupe_electrogene_id:
+            site_ids = set()
+            if line.cuve_principale_id:
+                site_ids.add(line.cuve_principale_id)
+            if (
+                line.cuve_journaliere_id
+                and line.cuve_journaliere
+                and line.cuve_journaliere.cuve_principale_id
+            ):
+                site_ids.add(line.cuve_journaliere.cuve_principale_id)
+            for sid in site_ids:
+                groups_by_site_report.setdefault((sid, line.rapport_id), set()).add(line.groupe_electrogene_id)
 
     groupes_by_id = {g.id: g for g in groups}
     site_report_state = calc.build_site_report_state(reports, sites, lines_by_site_report)
@@ -228,33 +187,37 @@ def _resolve_refs(block, groupes_by_id, sites_by_cp_id):
 
 
 def _upsert_active(cle, **fields):
-    """Crée ou met à jour une alerte active. Ne touche pas aux alertes traitées.
+    """Crée ou met à jour une alerte active.
+
+    Si la condition réapparait pour la même clé, une alerte traitée ou ignorée
+    est rouverte et réactivée.
 
     Returns:
-        (alerte, should_notify): should_notify si création ou réactivation.
+        (alerte, should_alert): should_alert si création ou réactivation.
     """
     existing = Alerte.objects.filter(cle=cle).first()
     if existing is None:
         return Alerte.objects.create(cle=cle, **fields), True
 
-    if existing.etat == 'traitee':
-        return existing, False
+    should_alert = existing.etat in ('ignoree', 'traitee')
 
-    was_reactivated = existing.etat == 'ignoree'
     for key, value in fields.items():
         setattr(existing, key, value)
-    if was_reactivated:
+
+    if existing.etat in ('ignoree', 'traitee'):
         existing.etat = 'nouvelle'
         existing.justification = ''
         existing.traite_par = None
         existing.date_traitement = None
+
     existing.save()
-    return existing, was_reactivated
+    return existing, should_alert
 
 
-def _candidates_from_block(block, groupe, cp, site, cuve_j):
+def _candidates_from_block(block, groupe, cp, site, cuve_j, latest_report, reports):
     """Retourne la liste des alertes à créer pour un bloc groupe."""
     candidates = []
+    report_date = latest_report.date_fin if latest_report is not None else None
     gid = groupe.id if groupe else block.get('id')
     if gid is None:
         return candidates
@@ -289,94 +252,111 @@ def _candidates_from_block(block, groupe, cp, site, cuve_j):
                     'seuil': SEUIL_AUTONOMIE_CRITIQUE_H,
                 },
             })
-        elif autonomie < SEUIL_AUTONOMIE_PREVENTIVE_H:
+
+    consumption_series = block.get('consumption') or []
+    hours_series = block.get('hours_run') or []
+
+    # 1. Consommation enregistrée sans relevé du compteur horaire (par rapport)
+    for idx, report in enumerate(reports):
+        c = consumption_series[idx] if idx < len(consumption_series) else None
+        h = hours_series[idx] if idx < len(hours_series) else None
+        if c is not None and float(c) > 0 and not (h is not None and float(h) > 0):
+            c_val = float(c)
+            h_val = float(h) if h is not None else 0.0
             candidates.append({
-                'cle': Alerte.generer_cle('autonomie_preventive', gid),
-                'type_alerte': 'autonomie_preventive',
-                'priorite': 'basse',
+                'cle': Alerte.generer_cle('conso_sans_horaire', gid, suffix=report.id),
+                'type_alerte': 'conso_sans_horaire',
+                'priorite': 'haute',
                 'message': (
-                    f'Autonomie carburant inférieure à 72h : '
-                    f'{autonomie:.1f}h restantes — Groupe {label}'
-                    + (f' ({site_name})' if site_name else '')
-                ),
-                'donnees_contexte': {
-                    **base_ctx,
-                    'autonomie_heures': autonomie,
-                    'seuil': SEUIL_AUTONOMIE_PREVENTIVE_H,
-                },
-            })
-
-    latest_consumption = _last_period_value(block.get('consumption'), 0.0)
-    latest_hours = _last_period_value(block.get('hours_run'), 0.0)
-
-    if latest_consumption > 0 and not (latest_hours > 0):
-        candidates.append({
-            'cle': Alerte.generer_cle('conso_sans_horaire', gid),
-            'type_alerte': 'conso_sans_horaire',
-            'priorite': 'haute',
-            'message': (
-                'Consommation enregistrée sans relevé du compteur horaire '
-                f'— Groupe {label}'
-                + (f' ({site_name})' if site_name else '')
-            ),
-            'donnees_contexte': {
-                **base_ctx,
-                'quantite_conso': latest_consumption,
-                'compteur_horaire': latest_hours,
-            },
-        })
-
-    if latest_hours > 0 and not (latest_consumption > 0):
-        candidates.append({
-            'cle': Alerte.generer_cle('horaire_sans_conso', gid),
-            'type_alerte': 'horaire_sans_conso',
-            'priorite': 'haute',
-            'message': (
-                'Delta horaire élevé sans consommation enregistrée '
-                f'— Groupe {label}'
-                + (f' ({site_name})' if site_name else '')
-                + f' ({latest_hours:.1f} h / {latest_consumption:.1f} L)'
-            ),
-            'donnees_contexte': {
-                **base_ctx,
-                'quantite_conso': latest_consumption,
-                'compteur_horaire': latest_hours,
-            },
-        })
-
-    # Plus d’alerte « autonomie indéterminée » : non calculable ≠ urgence à traiter.
-    # (Les anciennes alertes de ce type sont ignorées au prochain passage de détection.)
-
-    mean = float(block.get('mean_hourly_consumption_deduite') or 0.0)
-    latest_hourly = block.get('latest_hourly_consumption')
-    if mean > 0 and latest_hourly is not None:
-        ecart = abs((float(latest_hourly) - mean) / mean) * 100
-        if ecart > SEUIL_ECART_CONSO_PCT:
-            candidates.append({
-                'cle': Alerte.generer_cle('ecart_conso', gid),
-                'type_alerte': 'ecart_conso',
-                'priorite': 'moyenne',
-                'message': (
-                    f'Écart de consommation de {ecart:.1f}% détecté '
+                    'Consommation enregistrée sans relevé du compteur horaire '
                     f'— Groupe {label}'
                     + (f' ({site_name})' if site_name else '')
                 ),
                 'donnees_contexte': {
                     **base_ctx,
-                    'ecart_pourcent': round(ecart, 1),
-                    'mean_hourly': round(mean, 2),
-                    'latest_hourly': round(float(latest_hourly), 2),
+                    'rapport_id': report.id,
+                    'quantite_conso': c_val,
+                    'compteur_horaire': h_val,
                 },
+                'date_apparition': report.date_fin,
             })
 
+    # 2. Delta horaire élevé sans consommation enregistrée (par rapport)
+    for idx, report in enumerate(reports):
+        c = consumption_series[idx] if idx < len(consumption_series) else None
+        h = hours_series[idx] if idx < len(hours_series) else None
+        if h is not None and float(h) > 0 and not (c is not None and float(c) > 0):
+            c_val = float(c) if c is not None else 0.0
+            h_val = float(h)
+            candidates.append({
+                'cle': Alerte.generer_cle('horaire_sans_conso', gid, suffix=report.id),
+                'type_alerte': 'horaire_sans_conso',
+                'priorite': 'haute',
+                'message': (
+                    'Delta horaire élevé sans consommation enregistrée '
+                    f'— Groupe {label}'
+                    + (f' ({site_name})' if site_name else '')
+                    + f' ({h_val:.1f} h / {c_val:.1f} L)'
+                ),
+                'donnees_contexte': {
+                    **base_ctx,
+                    'rapport_id': report.id,
+                    'quantite_conso': c_val,
+                    'compteur_horaire': h_val,
+                },
+                'date_apparition': report.date_fin,
+            })
+
+    # 3. Écart de consommation horaire > 15% (par rapport)
+    valid_pairs = []
+    for idx, report in enumerate(reports):
+        c = consumption_series[idx] if idx < len(consumption_series) else None
+        h = hours_series[idx] if idx < len(hours_series) else None
+        if c is not None and float(c) > 0 and h is not None and float(h) > 0:
+            valid_pairs.append((idx, report, float(c), float(h)))
+
+    if len(valid_pairs) >= 2:
+        historical_rates = []
+        for idx, report, c_val, h_val in valid_pairs:
+            hourly = c_val / h_val
+            if not historical_rates:
+                historical_rates.append(hourly)
+                continue
+
+            reference_mean = sum(historical_rates) / len(historical_rates)
+            ecart = abs((hourly - reference_mean) / reference_mean) * 100
+            if should_emit_hourly_variance_alert(reference_mean, hourly, SEUIL_ECART_CONSO_PCT):
+                candidates.append({
+                    'cle': Alerte.generer_cle('ecart_conso', gid, suffix=report.id),
+                    'type_alerte': 'ecart_conso',
+                    'priorite': 'moyenne',
+                    'message': (
+                        f'Écart de consommation de {ecart:.1f}% détecté '
+                        f'— Groupe {label}'
+                        + (f' ({site_name})' if site_name else '')
+                    ),
+                    'donnees_contexte': {
+                        **base_ctx,
+                        'rapport_id': report.id,
+                        'ecart_pourcent': round(ecart, 1),
+                        'mean_hourly': round(reference_mean, 2),
+                        'latest_hourly': round(hourly, 2),
+                    },
+                    'date_apparition': report.date_fin,
+                })
+
+            historical_rates.append(hourly)
+
+    report_date = latest_report.date_fin if latest_report is not None else None
     for item in candidates:
         item['site'] = site
         item['cuve_journaliere'] = cuve_j
         item['groupe_electrogene'] = groupe
+        item.setdefault('date_apparition', report_date)
     return candidates
 
 
-def _candidates_from_site_blocks(group_blocks, sites_by_cp_id):
+def _candidates_from_site_blocks(group_blocks, sites_by_cp_id, latest_report):
     """
     Alertes « site urgent » (< 24 h d’autonomie chiffrée) — une alerte critique par site.
     Les sites en autonomie indéterminée (conso sans delta horaire) ou sans fonctionnement
@@ -390,6 +370,7 @@ def _candidates_from_site_blocks(group_blocks, sites_by_cp_id):
         by_site.setdefault(sid, []).append(block)
 
     candidates = []
+    report_date = latest_report.date_fin if latest_report is not None else None
     for sid, blocks in by_site.items():
         cp = sites_by_cp_id.get(sid)
         site = getattr(cp, 'site', None) if cp is not None else None
@@ -429,36 +410,11 @@ def _candidates_from_site_blocks(group_blocks, sites_by_cp_id):
                     'site': site,
                     'groupe_electrogene': None,
                     'cuve_journaliere': None,
+                    'date_apparition': report_date,
                 })
 
-        # Delta horaire positif sans consommation sur le site
-        hours_without_consumption = [
-            float(b.get('latest_hours_n') or 0)
-            for b in blocks
-            if b.get('latest_hours_n') is not None
-            and float(b.get('latest_hours_n') or 0) > 0
-            and not (b.get('latest_cons_n') or 0) > 0
-        ]
-        if hours_without_consumption:
-            latest_hours_value = max(hours_without_consumption)
-            candidates.append({
-                'cle': Alerte.generer_cle('horaire_sans_conso', sid, prefix='site'),
-                'type_alerte': 'horaire_sans_conso',
-                'priorite': 'haute',
-                'message': (
-                    f'Delta horaire enregistré sans consommation sur le site {site_name}'
-                ),
-                'donnees_contexte': {
-                    'cuve_principale_id': sid,
-                    'site_name': site_name,
-                    'latest_hours_n': latest_hours_value,
-                    'latest_cons_n': 0.0,
-                    'is_site_anomaly': True,
-                },
-                'site': site,
-                'groupe_electrogene': None,
-                'cuve_journaliere': None,
-            })
+        # Aucun autre type d'alerte site n'est généré ici ; seul le site urgent
+        # avec autonomie critique est conservé.
 
     return candidates
 
@@ -472,6 +428,8 @@ def detecter_et_persister_alertes(*, auto_ignorer_levees: bool = True):
         dict: compteurs created / updated / ignored / active_keys
     """
     _reports, sites, groups, group_blocks, lignes_all = load_group_blocks()
+    report_by_id = {r.id: r for r in _reports}
+    latest_report = _reports[-1] if _reports else None
     groupes_by_id = {g.id: g for g in groups}
     sites_by_cp_id = {s.id: s for s in sites}
 
@@ -480,37 +438,45 @@ def detecter_et_persister_alertes(*, auto_ignorer_levees: bool = True):
 
     for block in group_blocks:
         groupe, cp, site, cuve_j = _resolve_refs(block, groupes_by_id, sites_by_cp_id)
-        for payload in _candidates_from_block(block, groupe, cp, site, cuve_j):
+        for payload in _candidates_from_block(block, groupe, cp, site, cuve_j, latest_report, _reports):
             cle = payload.pop('cle')
             active_keys.add(cle)
-            _alerte, should_notify = _upsert_active(cle, **payload)
-            if should_notify:
+            _alerte, should_alert = _upsert_active(cle, **payload)
+            if should_alert:
                 created += 1
             else:
                 updated += 1
 
-    for payload in _candidates_from_counter_quality(lignes_all, sites_by_cp_id, groupes_by_id):
+    for payload in _candidates_from_counter_quality(
+        lignes_all,
+        sites_by_cp_id,
+        groupes_by_id,
+        report_by_id,
+        latest_report,
+    ):
         cle = payload.pop('cle')
         active_keys.add(cle)
-        _alerte, should_notify = _upsert_active(cle, **payload)
-        if should_notify:
+        _alerte, should_alert = _upsert_active(cle, **payload)
+        if should_alert:
             created += 1
         else:
             updated += 1
 
-    for payload in _candidates_from_site_blocks(group_blocks, sites_by_cp_id):
+    for payload in _candidates_from_site_blocks(group_blocks, sites_by_cp_id, latest_report):
         cle = payload.pop('cle')
         active_keys.add(cle)
-        _alerte, should_notify = _upsert_active(cle, **payload)
-        if should_notify:
+        _alerte, should_alert = _upsert_active(cle, **payload)
+        if should_alert:
             created += 1
         else:
             updated += 1
 
     ignored = 0
     if auto_ignorer_levees:
+        # Seules les alertes de stock (autonomie) s'auto-extinguent quand le niveau remonte.
+        # Les anomalies de données (conso sans horaire, horaire sans conso, écart) restent à traiter par l'opérateur.
         stale_qs = Alerte.objects.filter(
-            type_alerte__in=TYPES_DETECTES,
+            type_alerte__in=('autonomie_critique', 'autonomie_preventive'),
             etat__in=Alerte.ETATS_ACTIFS,
         ).exclude(cle__isnull=True).exclude(cle='')
         for alerte in stale_qs:

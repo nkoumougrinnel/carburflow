@@ -25,13 +25,6 @@ class Notification(models.Model):
         related_name='messages_envoyes',
         verbose_name='Expéditeur',
     )
-    alerte = models.ForeignKey(
-        'alerts.Alerte',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='notifications',
-    )
     sujet = models.CharField(max_length=200, blank=True, default='')
     canal = models.CharField(max_length=20, choices=CANAL_CHOICES, default=CANAL_IN_APP)
     contenu = models.TextField()

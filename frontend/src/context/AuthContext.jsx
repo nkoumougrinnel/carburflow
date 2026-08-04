@@ -16,8 +16,9 @@ const AuthContext = createContext(null)
 
 function resolveRole(user) {
   if (!user) return null
-  if (user.role === 'admin' || user.is_staff || user.is_superuser) return 'admin'
   if (user.role === 'operateur') return 'operateur'
+  if (user.role === 'admin') return 'admin'
+  if (user.is_superuser || user.is_staff) return 'admin'
   return 'user'
 }
 
@@ -28,7 +29,7 @@ export function homeViewForUser(userOrFlags) {
     || (userOrFlags.isOperator && 'operateur')
     || (userOrFlags.isViewer && 'user')
     || null
-  if (role === 'admin' || userOrFlags.is_staff) return 'dashboard'
+  if (role === 'admin') return 'dashboard'
   if (role === 'operateur') return 'operator'
   return 'viewer'
 }

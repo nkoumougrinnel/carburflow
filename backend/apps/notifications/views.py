@@ -38,15 +38,15 @@ class NotificationListAPIView(APIView):
         box = (request.query_params.get('box') or 'inbox').strip().lower()
         if box in {'sent', 'outbox', 'envoyes', 'envoyés'}:
             qs = (
-                Notification.objects.filter(expediteur=request.user, alerte__isnull=True)
-                .select_related('expediteur', 'destinataire', 'alerte')
+                Notification.objects.filter(expediteur=request.user)
+                .select_related('expediteur', 'destinataire')
                 .order_by('-date_envoi')
             )
         else:
-            # Messagerie = messages humains uniquement (pas les alertes système)
+            # Messagerie = messages humains uniquement (exclut les notifications système sans expéditeur)
             qs = (
-                Notification.objects.filter(destinataire=request.user, alerte__isnull=True)
-                .select_related('expediteur', 'destinataire', 'alerte')
+                Notification.objects.filter(destinataire=request.user, expediteur__isnull=False)
+                .select_related('expediteur', 'destinataire')
                 .order_by('-date_envoi')
             )
             lu_param = (request.query_params.get('lu') or '').strip().lower()
@@ -72,7 +72,6 @@ class NotificationUnreadCountAPIView(APIView):
         count = Notification.objects.filter(
             destinataire=request.user,
             lu=False,
-            alerte__isnull=True,
         ).count()
         return Response({'unread': count})
 
@@ -84,7 +83,7 @@ class NotificationMarkReadAPIView(APIView):
     def post(self, request, pk):
         notif = (
             Notification.objects.filter(pk=pk, destinataire=request.user)
-            .select_related('expediteur', 'alerte')
+            .select_related('expediteur')
             .first()
         )
         if not notif:

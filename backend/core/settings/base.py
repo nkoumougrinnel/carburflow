@@ -27,7 +27,9 @@ INSTALLED_APPS = [
     'apps.reports.apps.ReportsConfig',
     'apps.alerts.apps.AlertsConfig',
     'apps.notifications.apps.NotificationsConfig',
-    'apps.import.apps.ImportConfig',
+    'apps.imports.apps.ImportConfig',
+    'apps.services.apps.ServicesConfig',
+    'apps.equipment.apps.EquipmentConfig',
 ]
 
 MIDDLEWARE = [

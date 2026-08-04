@@ -20,14 +20,6 @@ class ProfilUtilisateur(models.Model):
         related_name='profil',
     )
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default=ROLE_USER)
-    site = models.ForeignKey(
-        'sites.Site',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='utilisateurs',
-        verbose_name='Site rattaché',
-    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -50,7 +42,7 @@ class ProfilUtilisateur(models.Model):
 
     @property
     def role_api(self):
-        """Rôle exposé à l’API / frontend (compat operateur)."""
+        """Rôle exposé à l’API"""
         if self.role in {self.ROLE_SUPER_ADMIN, self.ROLE_ADMIN}:
             return 'admin'
         if self.role == self.ROLE_AGENT:

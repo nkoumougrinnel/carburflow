@@ -1,8 +1,8 @@
 import axios from 'axios';
 
 const api = axios.create({
-  // URL de ton backend Django avec le préfixe /api/v1
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001/api/v1',
+  // URL de ton backend Django avec le préfixe /api
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001/api',
   headers: {
     'Content-Type': 'application/json',
   },

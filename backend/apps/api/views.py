@@ -6,22 +6,36 @@ from rest_framework import viewsets
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, extend_schema_view
-from dashboard.models import (
-    CuvePrincipale,
-    CuveJournaliere,
-    GroupeElectrogene,
-    Rapport,
-    LigneRapport,
-)
-from dashboard.serializers import (
+from apps.alerts.models import Alerte
+from apps.alerts.serializers import AlerteListSerializer
+from apps.equipment.models import CuvePrincipale, CuveJournaliere, GroupeElectrogene
+from apps.reports.models import Rapport, LigneRapport
+from apps.equipment.serializers import (
     CuvePrincipaleSerializer,
     CuveJournaliereSerializer,
     GroupeElectrogeneSerializer,
-    RapportSerializer,
-    LigneRapportSerializer,
 )
-from dashboard.utils import calculs as calc
-from dashboard.analytics import GROUPE_COLORS, _period_stats
+from apps.reports.serializers import RapportSerializer, LigneRapportSerializer
+from apps.services import calculs as calc
+from apps.api.services.analytics import GROUPE_COLORS, _period_stats
+
+
+def _site_label_from_cuve(cuve_principale):
+    site = getattr(cuve_principale, 'site', None)
+    if site is not None and getattr(site, 'nom', None):
+        return site.nom
+    return getattr(cuve_principale, 'identifiant', None) or 'Site'
+
+
+def serialize_dashboard_alerts(alerts):
+    """Serialize active persisted alerts into the payload consumed by the dashboard UI."""
+    rows = []
+    for alert in alerts or []:
+        if alert is None:
+            continue
+        rows.append(AlerteListSerializer(alert).data)
+    return rows
+
 
 # --- ViewSets REST Standard ---
 
@@ -256,24 +270,20 @@ class SitesDashboardAPIView(APIView):
             if line.groupe_electrogene_id:
                 lines_by_group_report.setdefault((line.groupe_electrogene_id, line.rapport_id), []).append(line)
 
-        # groupe -> site principal (vote majoritaire)
-        group_site_counts = {}
-        for line in lignes_all:
-            if line.groupe_electrogene_id and line.cuve_principale_id:
-                counts = group_site_counts.setdefault(line.groupe_electrogene_id, {})
-                counts[line.cuve_principale_id] = counts.get(line.cuve_principale_id, 0) + 1
-        group_primary_site_ids = {
-            gid: max(counts.items(), key=lambda item: item[1])[0]
-            for gid, counts in group_site_counts.items()
-        }
+        # groupe -> site principal (liaison CJ + lignes de rapport)
+        group_primary_site_ids = calc.build_group_primary_site_ids(groups, lignes_all)
 
         # (site_id, rapport_id) -> ids des groupes actifs sur ce site à ce rapport
         groups_by_site_report = {}
         for line in lignes_all:
-            if line.cuve_principale_id and line.groupe_electrogene_id:
-                groups_by_site_report.setdefault((line.cuve_principale_id, line.rapport_id), set()).add(
-                    line.groupe_electrogene_id
-                )
+            if line.groupe_electrogene_id:
+                site_ids = set()
+                if line.cuve_principale_id:
+                    site_ids.add(line.cuve_principale_id)
+                if line.cuve_journaliere_id and line.cuve_journaliere and line.cuve_journaliere.cuve_principale_id:
+                    site_ids.add(line.cuve_journaliere.cuve_principale_id)
+                for sid in site_ids:
+                    groups_by_site_report.setdefault((sid, line.rapport_id), set()).add(line.groupe_electrogene_id)
         groupes_by_id = {g.id: g for g in groups}
 
         # volume/delta courant par (site, rapport) — nécessaire au partage par puissance
@@ -292,10 +302,27 @@ class SitesDashboardAPIView(APIView):
             groupes_by_id=groupes_by_id,
             group_primary_site_ids=group_primary_site_ids,
         )
-        group_blocks_by_site = {}
+        group_blocks_by_site = {str(site.id): [] for site in sites}
         for gb in all_group_blocks:
             if gb['site_id'] is not None:
-                group_blocks_by_site.setdefault(gb['site_id'], []).append(gb)
+                group_blocks_by_site.setdefault(str(gb['site_id']), []).append(gb)
+
+        groups_by_site = {}
+        for site in sites:
+            site_groups = group_blocks_by_site.get(str(site.id), [])
+            groups_by_site[str(site.id)] = [
+                {
+                    'id': gb['id'],
+                    'label': gb['label'],
+                    'autonomie_hours': gb.get('autonomie_hours'),
+                    'formatted_autonomy': gb.get('formatted_autonomy'),
+                    'is_infinite_consumption': bool(gb.get('is_infinite_consumption')),
+                    'is_infinite_autonomy': bool(gb.get('is_infinite_autonomy')),
+                    'is_sans_fonctionnement': bool(gb.get('is_sans_fonctionnement')),
+                    'indet_reason': gb.get('indet_reason'),
+                }
+                for gb in site_groups
+            ]
 
         # --- Construction des séries ---
         volume_series = []
@@ -305,7 +332,7 @@ class SitesDashboardAPIView(APIView):
 
         for idx, site in enumerate(sites):
             site_id = site.id
-            site_name = site.identifiant
+            site_name = _site_label_from_cuve(site)
             color = site_colors[idx % len(site_colors)]
 
             volume_data, consumption_data = calc.calculer_site_series(
@@ -332,7 +359,7 @@ class SitesDashboardAPIView(APIView):
             # all_group_blocks (algorithme GroupesAPIView), au lieu d'un recalcul
             # maison des heures par (site, groupe, rapport). ---
             site_datasets = []
-            site_groups = group_blocks_by_site.get(site_id, [])
+            site_groups = group_blocks_by_site.get(str(site_id), [])
             for group_idx, gb in enumerate(site_groups):
                 if any((v or 0) > 0 for v in gb['hours_run']):
                     site_datasets.append({
@@ -348,30 +375,13 @@ class SitesDashboardAPIView(APIView):
                 'datasets': site_datasets,
             })
 
-            # --- Autonomie du site = max() des autonomies de ses groupes ---
-            # Le site tient tant qu'au moins un groupe rattaché tient : on prend le
-            # groupe le plus autonome (le plus sain), pas le plus critique. Un groupe
-            # en is_infinite_consumption (0h, conso avérée sans heures) ne l'emporte
-            # que si AUCUN groupe du site n'a d'autonomie finie — sinon un site avec un
-            # groupe sain et un groupe à 0h serait à tort ramené à 0h alors qu'il tient
-            # grâce à l'autre groupe.
-            finite_hours = [g['autonomie_hours'] for g in site_groups if g['autonomie_hours'] is not None]
-            if finite_hours:
-                aut_hours = round(max(finite_hours), 1)
-                fmt_aut = calc.formater_autonomie(aut_hours)
-                has_infinite_cons, is_infinite_aut = False, False
-            elif any(g['is_infinite_consumption'] for g in site_groups):
-                aut_hours, fmt_aut = 0.0, "0h"
-                has_infinite_cons, is_infinite_aut = True, False
-            else:
-                aut_hours, fmt_aut = None, "∞"
-                has_infinite_cons, is_infinite_aut = False, True
-
+            resolved_site_autonomy = calc.resolve_site_autonomy_from_groups(site_groups)
             autonomy_by_site[str(site_id)] = {
-                'autonomie_hours': aut_hours,
-                'formatted_autonomy': fmt_aut,
-                'is_infinite_consumption': has_infinite_cons,
-                'is_infinite_autonomy': is_infinite_aut,
+                'autonomie_hours': resolved_site_autonomy['autonomie_hours'],
+                'formatted_autonomy': resolved_site_autonomy['formatted_autonomy'],
+                'is_infinite_consumption': bool(resolved_site_autonomy['is_infinite_consumption']),
+                'is_infinite_autonomy': bool(resolved_site_autonomy['is_infinite_autonomy']),
+                'is_sans_fonctionnement': bool(resolved_site_autonomy['is_sans_fonctionnement']),
             }
 
         return Response({
@@ -380,6 +390,7 @@ class SitesDashboardAPIView(APIView):
             'hoursSeries': hours_series,
             'consumptionSeries': consumption_series,
             'autonomyBySite': autonomy_by_site,
+            'groupsBySite': groups_by_site,
             'defaultSiteId': sites[0].id if sites else None,
         })
         
@@ -485,8 +496,8 @@ class DashboardOverviewAPIView(APIView):
 
             site_rows.append({
                 'id': site.id,
-                'site_name': site.identifiant,
-                'label': site.identifiant,
+                'site_name': _site_label_from_cuve(site),
+                'label': _site_label_from_cuve(site),
                 'avg_consumption': avg_consumption,
                 'latest_consumption': latest_consumption,
                 'previous_consumption': previous_consumption,
@@ -505,22 +516,18 @@ class DashboardOverviewAPIView(APIView):
 
         # --- Groupes (avec calculs partagés) ---
         groups_by_site = {}
-        group_site_counts = {}
-        for line in lignes_all:
-            if line.groupe_electrogene_id and line.cuve_principale_id:
-                counts = group_site_counts.setdefault(line.groupe_electrogene_id, {})
-                counts[line.cuve_principale_id] = counts.get(line.cuve_principale_id, 0) + 1
-        group_primary_site_ids = {
-            gid: max(counts.items(), key=lambda item: item[1])[0]
-            for gid, counts in group_site_counts.items()
-        }
+        group_primary_site_ids = calc.build_group_primary_site_ids(groups, lignes_all)
 
         groups_by_site_report = {}
         for line in lignes_all:
-            if line.cuve_principale_id and line.groupe_electrogene_id:
-                groups_by_site_report.setdefault((line.cuve_principale_id, line.rapport_id), set()).add(
-                    line.groupe_electrogene_id
-                )
+            if line.groupe_electrogene_id:
+                site_ids = set()
+                if line.cuve_principale_id:
+                    site_ids.add(line.cuve_principale_id)
+                if line.cuve_journaliere_id and line.cuve_journaliere and line.cuve_journaliere.cuve_principale_id:
+                    site_ids.add(line.cuve_journaliere.cuve_principale_id)
+                for sid in site_ids:
+                    groups_by_site_report.setdefault((sid, line.rapport_id), set()).add(line.groupe_electrogene_id)
         groupes_by_id = {g.id: g for g in groups}
 
         site_report_state = calc.build_site_report_state(reports, sites, lines_by_site_report)
@@ -613,84 +620,19 @@ class DashboardOverviewAPIView(APIView):
             if site is None:
                 continue
 
-            finite_hours = [g['autonomie_hours'] for g in site_groups if g['autonomie_hours'] is not None]
-            if finite_hours:
-                aut_hours = round(max(finite_hours), 1)
-                site['autonomie_hours'] = aut_hours
-                site['formatted_autonomy'] = calc.formater_autonomie(aut_hours)
-                site['is_infinite_consumption'] = False
-                site['is_infinite_autonomy'] = False
-            elif any(g['is_infinite_consumption'] for g in site_groups):
-                site['autonomie_hours'] = 0.0
-                site['formatted_autonomy'] = '0h'
-                site['is_infinite_consumption'] = True
-                site['is_infinite_autonomy'] = False
-            else:
-                site['autonomie_hours'] = None
-                site['formatted_autonomy'] = '∞'
-                site['is_infinite_consumption'] = False
-                site['is_infinite_autonomy'] = True
+            resolved_site_autonomy = calc.resolve_site_autonomy_from_groups(site_groups)
+            site['autonomie_hours'] = resolved_site_autonomy['autonomie_hours']
+            site['formatted_autonomy'] = resolved_site_autonomy['formatted_autonomy']
+            site['is_infinite_consumption'] = bool(resolved_site_autonomy['is_infinite_consumption'])
+            site['is_infinite_autonomy'] = bool(resolved_site_autonomy['is_infinite_autonomy'])
 
         # --- Alertes ---
-        def _site_is_critical(site):
-            if site['is_infinite_consumption']:
-                return True
-            if site['autonomie_hours'] is not None:
-                return site['autonomie_hours'] <= self.AUTONOMY_CRITICAL_HOURS
-            return site['autonomy'] is not None and site['autonomy'] <= self.AUTONOMY_CRITICAL_THRESHOLD
-
-        alerts = []
-        for site in site_rows:
-            if _site_is_critical(site):
-                if site['formatted_autonomy']:
-                    autonomy_text = f"Temps restant : {site['formatted_autonomy']}"
-                else:
-                    autonomy_text = f"Temps restant : {site['autonomy']} périodes"
-                alerts.append({
-                    'id': f"site-{site['id']}",
-                    'type': 'site_autonomy',
-                    'target': 'site',
-                    'priority': 'Critique',
-                    'priority_level': 'urgent',
-                    'site_id': site['id'],
-                    'site_name': site['site_name'],
-                    'title': f"Site {site['site_name']} : temps restant critique",
-                    'subtitle': f"{autonomy_text} — consommation moyenne {site['avg_consumption']:.1f} L.",
-                })
-
-        for group in group_rows:
-            if not group['is_abnormal']:
-                continue
-            variance = group.get('ecart_pct') or group['variance_pct']
-            const_prev = group.get('previous_hourly_consumption') or 0
-            sign = "▲" if (
-                (group.get('latest_hourly_consumption') or 0)
-                >= const_prev
-            ) else "▼"
-            alerts.append({
-                'id': f"group-{group['id']}",
-                'type': 'group_variance',
-                'target': 'groups',
-                'priority': 'Moyenne',
-                'priority_level': 'warning',
-                'group_id': group['id'],
-                'group_label': group['label'],
-                'site_name': group['site_name'],
-                'ecart_pct': variance,
-                'title': f"Groupe {group['label']} : écart de consommation horaire",
-                'subtitle': (
-                    f"Écart de {sign}{abs(variance):.1f}% entre la consommation horaire semaine N-1 "
-                    f"({const_prev:.2f} L/h) et la consommation horaire semaine N "
-                    f"({(group['latest_hourly_consumption'] if group['latest_hourly_consumption'] is not None else group['mean_hourly_consumption']):.2f} L/h). "
-                    f"Consommation du groupe semaine N : {group['latest_consumption']:.1f} L."
-                ),
-            })
-
-        priority_order = {'urgent': 0, 'warning': 1}
-        alerts.sort(key=lambda item: (
-            priority_order.get(item['priority_level'], 99),
-            -(item.get('ecart_pct') or 0),
-        ))
+        active_alerts = list(
+            Alerte.objects.filter(etat__in=Alerte.ETATS_ACTIFS)
+            .select_related('site', 'groupe_electrogene', 'traite_par')
+            .order_by('-date_apparition', '-id')
+        )
+        alerts = serialize_dashboard_alerts(active_alerts)
 
         prev_consumption = None
         prev_runtime = None
@@ -708,6 +650,13 @@ class DashboardOverviewAPIView(APIView):
                 if len(block['hours_run']) >= 2 and block['hours_run'][-2] is not None
             ]
             prev_runtime = round(sum(prev_hrs), 1) if prev_hrs else None
+
+        def _site_is_critical(site):
+            if site['is_infinite_consumption']:
+                return True
+            if site['autonomie_hours'] is not None:
+                return site['autonomie_hours'] <= self.AUTONOMY_CRITICAL_HOURS
+            return site['autonomy'] is not None and site['autonomy'] <= self.AUTONOMY_CRITICAL_THRESHOLD
 
         return Response({
             'reports': [{'id': r.id, 'label': self._report_label(r)} for r in reports],
@@ -742,8 +691,8 @@ class GroupesAPIView(APIView):
         labels = [calc.format_rapport_label(report) for report in reports]
 
         groupes = list(GroupeElectrogene.objects.order_by('id'))
-        sites = list(CuvePrincipale.objects.order_by('id'))
-        site_choices = [{'id': site.id, 'nom_site': site.identifiant} for site in sites]
+        sites = list(CuvePrincipale.objects.select_related('site').order_by('id'))
+        site_choices = [{'id': site.id, 'nom_site': _site_label_from_cuve(site)} for site in sites]
 
         selected_site_id = request.query_params.get('site_id')
         selected_site_id = int(selected_site_id) if selected_site_id not in (None, '') else None
@@ -765,9 +714,15 @@ class GroupesAPIView(APIView):
         # --- Construction de group_primary_site_ids ---
         group_site_map = {}
         for line in lignes_all:
-            if line.groupe_electrogene_id and line.cuve_principale_id:
-                counts = group_site_map.setdefault(line.groupe_electrogene_id, {})
-                counts[line.cuve_principale_id] = counts.get(line.cuve_principale_id, 0) + 1
+            if line.groupe_electrogene_id:
+                site_ids = set()
+                if line.cuve_principale_id:
+                    site_ids.add(line.cuve_principale_id)
+                if line.cuve_journaliere_id and line.cuve_journaliere and line.cuve_journaliere.cuve_principale_id:
+                    site_ids.add(line.cuve_journaliere.cuve_principale_id)
+                for sid in site_ids:
+                    counts = group_site_map.setdefault(line.groupe_electrogene_id, {})
+                    counts[sid] = counts.get(sid, 0) + 1
 
         group_primary_site_ids = {
             groupe.id: max(group_site_map[groupe.id].items(), key=lambda item: item[1])[0]
@@ -791,10 +746,14 @@ class GroupesAPIView(APIView):
         # (site_id, rapport_id) -> ids des groupes actifs sur ce site à ce rapport
         groups_by_site_report = {}
         for line in lignes_all:
-            if line.cuve_principale_id and line.groupe_electrogene_id:
-                groups_by_site_report.setdefault((line.cuve_principale_id, line.rapport_id), set()).add(
-                    line.groupe_electrogene_id
-                )
+            if line.groupe_electrogene_id:
+                site_ids = set()
+                if line.cuve_principale_id:
+                    site_ids.add(line.cuve_principale_id)
+                if line.cuve_journaliere_id and line.cuve_journaliere and line.cuve_journaliere.cuve_principale_id:
+                    site_ids.add(line.cuve_journaliere.cuve_principale_id)
+                for sid in site_ids:
+                    groups_by_site_report.setdefault((sid, line.rapport_id), set()).add(line.groupe_electrogene_id)
         groupes_by_id = {g.id: g for g in groupes}
 
         # --- Grouper les lignes par (groupe, rapport) ---
@@ -839,7 +798,7 @@ class CuvesDashboardAPIView(APIView):
             for report in reports
         ]
         report_ids = [report.id for report in reports]
-        sites = list(CuvePrincipale.objects.prefetch_related('cuves_journaliere').order_by('id'))
+        sites = list(CuvePrincipale.objects.select_related('site').prefetch_related('cuves_journalieres').order_by('id'))
 
         selected_site_id = request.query_params.get('site_id')
         try:
@@ -911,9 +870,9 @@ class CuvesDashboardAPIView(APIView):
             values = [series[0].get(cp.id, 0.0) for series in report_series]
             principal_blocks.append({
                 'id': cp.id,
-                'label': f"CP #{cp.id} ({cp.identifiant})",
+                'label': _site_label_from_cuve(cp),
                 'site_id': cp.id,
-                'site_label': cp.identifiant,
+                'site_label': _site_label_from_cuve(cp),
                 'capacity': cp.capacite,
                 'color': GROUPE_COLORS[index % len(GROUPE_COLORS)],
                 'stats': _period_stats(values, start_idx, end_idx),
@@ -922,15 +881,15 @@ class CuvesDashboardAPIView(APIView):
 
         journalier_index = 0
         for site in selected_sites:
-            for cj in site.cuves_journaliere.all():
+            for cj in site.cuves_journalieres.all():
                 if (cj.capacite or 0) <= 0:
                     continue
                 values = [series[1].get(cj.id, 0.0) for series in report_series]
                 journalier_blocks.append({
                     'id': cj.id,
-                    'label': f"CJ #{cj.id} ({site.identifiant})",
+                    'label': f"CJ #{cj.id} ({_site_label_from_cuve(site)})",
                     'site_id': site.id,
-                    'site_label': site.identifiant,
+                    'site_label': _site_label_from_cuve(site),
                     'capacity': cj.capacite,
                     'color': GROUPE_COLORS[journalier_index % len(GROUPE_COLORS)],
                     'stats': _period_stats(values, start_idx, end_idx),
@@ -941,7 +900,7 @@ class CuvesDashboardAPIView(APIView):
         journalier_tanks = [
             cj
             for site in selected_sites
-            for cj in site.cuves_journaliere.all()
+            for cj in site.cuves_journalieres.all()
             if (cj.capacite or 0) > 0
         ]
 
@@ -965,7 +924,7 @@ class CuvesDashboardAPIView(APIView):
             'selected_rapport_debut': report_ids[start_idx] if report_ids else None,
             'selected_rapport_fin': report_ids[end_idx] if report_ids else None,
             'selected_site_id': selected_site_id,
-            'sites': [{'id': site.id, 'nom_site': site.identifiant} for site in sites],
+            'sites': [{'id': site.id, 'nom_site': _site_label_from_cuve(site)} for site in sites],
             'site_principal_stats': _period_stats(site_principal_values, start_idx, end_idx)
             if site_principal_values else _period_stats([], 0, 0),
             'site_journalier_stats': _period_stats(site_journalier_values, start_idx, end_idx)

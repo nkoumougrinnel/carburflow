@@ -31,17 +31,17 @@ class LigneRapport(models.Model):
         related_name='lignes',
     )
     cuve_principale = models.ForeignKey(
-        'sites.CuvePrincipale',
+        'equipment.CuvePrincipale',
         on_delete=models.PROTECT,
         related_name='lignes_rapport',
     )
     cuve_journaliere = models.ForeignKey(
-        'sites.CuveJournaliere',
+        'equipment.CuveJournaliere',
         on_delete=models.PROTECT,
         related_name='lignes_rapport',
     )
     groupe_electrogene = models.ForeignKey(
-        'sites.GroupeElectrogene',
+        'equipment.GroupeElectrogene',
         on_delete=models.PROTECT,
         related_name='lignes_rapport',
     )

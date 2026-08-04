@@ -7,14 +7,14 @@ from drf_spectacular.views import (
     SpectacularRedocView,
 )
 
-from dashboard.auth_views import (
+from apps.authentication.views import (
     CsrfAPIView,
     LoginAPIView,
     LogoutAPIView,
     MeAPIView,
     RegisterAPIView,
 )
-from dashboard.rapport_views import (
+from apps.reports.views import (
     GenererRapportHebdoAPIView,
     MesRapportsAPIView,
     NormeCsvAPIView,
@@ -25,7 +25,7 @@ from dashboard.rapport_views import (
     RapportUploadAPIView,
     SoumissionsAPIView,
 )
-from dashboard.views import (
+from apps.api.views import (
     CuvePrincipaleViewSet,
     CuveJournaliereViewSet,
     GroupeElectrogeneViewSet,

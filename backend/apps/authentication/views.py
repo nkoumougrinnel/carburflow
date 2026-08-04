@@ -9,7 +9,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.api.permissions import IsAdminRole, get_user_role
-from apps.sites.models import Site
 
 from .models import ProfilUtilisateur
 from .serializers import (
@@ -175,20 +174,7 @@ class CsrfAPIView(APIView):
         return Response({'csrfToken': get_token(request)})
 
 
-class PublicSitesAPIView(APIView):
-    """Liste légère des sites pour le formulaire d’inscription."""
-
-    permission_classes = [AllowAny]
-    authentication_classes = []
-
-    @extend_schema(tags=['Auth'], summary='Sites publics (inscription)')
-    def get(self, request):
-        sites = Site.objects.filter(statut=Site.STATUT_ACTIF).order_by('nom')
-        payload = [
-            {'id': site.id, 'nom_site': site.nom, 'nom': site.nom}
-            for site in sites
-        ]
-        return Response(payload)
+# PublicSitesAPIView removed — authentication no longer exposes public sites
 
 
 def staff_users_queryset():
@@ -207,7 +193,7 @@ def staff_users_queryset():
                 ]
             )
         )
-        .select_related('profil', 'profil__site')
+        .select_related('profil')
         .distinct()
         .order_by('email', 'username')
     )
@@ -256,7 +242,7 @@ class AdminUserSearchAPIView(APIView):
                 | Q(first_name__icontains=email)
                 | Q(last_name__icontains=email)
             )
-            .select_related('profil', 'profil__site')
+            .select_related('profil')
             .order_by('email', 'username')[:20]
         )
         return Response([serialize_managed_user(user) for user in qs])

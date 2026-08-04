@@ -5,16 +5,12 @@ from rest_framework import serializers
 from rest_framework.authtoken.models import Token
 
 from apps.api.permissions import get_user_role
-from apps.sites.models import Site
-
 from .models import ProfilUtilisateur
 
 
 class UserSerializer(serializers.ModelSerializer):
     role = serializers.SerializerMethodField()
     full_name = serializers.SerializerMethodField()
-    site_id = serializers.SerializerMethodField()
-    site_nom = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -26,8 +22,6 @@ class UserSerializer(serializers.ModelSerializer):
             'last_name',
             'full_name',
             'role',
-            'site_id',
-            'site_nom',
             'is_staff',
         ]
 
@@ -38,16 +32,6 @@ class UserSerializer(serializers.ModelSerializer):
         name = obj.get_full_name().strip()
         return name or obj.username
 
-    def get_site_id(self, obj):
-        profil = getattr(obj, 'profil', None)
-        return profil.site_id if profil else None
-
-    def get_site_nom(self, obj):
-        profil = getattr(obj, 'profil', None)
-        if profil and profil.site_id:
-            return profil.site.nom
-        return None
-
 
 class RegisterSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=150)
@@ -56,20 +40,13 @@ class RegisterSerializer(serializers.Serializer):
     password_confirm = serializers.CharField(write_only=True, min_length=6)
     first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
-    site_id = serializers.IntegerField(required=False, allow_null=True)
+    # site_id removed — authentication no longer assigns sites here
 
     def validate_username(self, value):
         username = value.strip()
         if User.objects.filter(username__iexact=username).exists():
             raise serializers.ValidationError('Ce nom d’utilisateur est déjà pris.')
         return username
-
-    def validate_site_id(self, value):
-        if value is None:
-            return value
-        if not Site.objects.filter(pk=value, statut=Site.STATUT_ACTIF).exists():
-            raise serializers.ValidationError('Site introuvable ou inactif.')
-        return value
 
     def validate(self, attrs):
         if attrs['password'] != attrs['password_confirm']:
@@ -88,7 +65,6 @@ class RegisterSerializer(serializers.Serializer):
     def create(self, validated_data):
         validated_data.pop('password_confirm')
         password = validated_data.pop('password')
-        site_id = validated_data.pop('site_id', None)
         user = User(
             username=validated_data['username'],
             email=validated_data.get('email', ''),
@@ -100,7 +76,6 @@ class RegisterSerializer(serializers.Serializer):
         ProfilUtilisateur.objects.create(
             user=user,
             role=ProfilUtilisateur.ROLE_USER,
-            site_id=site_id,
         )
         Token.objects.get_or_create(user=user)
         return user

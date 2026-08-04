@@ -39,97 +39,15 @@ const extractPower = (value) => {
  * Conso sans delta horaire → Indéterminée.
  * Données manquantes / ex-∞ → Sans fonctionnement.
  */
-const buildGroupAutonomyEntity = (group, allBlocks = [], meanHourlyLh = null, hoursWindow = [], consWindow = []) => {
-  const weekHours = lastFinite(hoursWindow)
-  const weekCons = lastFinite(consWindow)
-  const backendSansFct = Boolean(group.is_sans_fonctionnement)
-  const windowSansFct = (
-    isFiniteNumber(weekHours) && weekHours === 0
-    && !(isFiniteNumber(weekCons) && weekCons > 0)
-  )
-  const isSansFonctionnement = backendSansFct || windowSansFct
-
-  if (group.is_infinite_consumption) {
-    return {
-      ...group,
-      autonomie_hours: null,
-      formatted_autonomy: null,
-      is_infinite_consumption: true,
-      is_sans_fonctionnement: false,
-      is_infinite_autonomy: false,
-      indet_reason: group.indet_reason
-        || 'Consommation sans delta horaire : autonomie indéterminée.',
-    }
-  }
-
-  if (isSansFonctionnement) {
-    return {
-      ...group,
-      autonomie_hours: null,
-      formatted_autonomy: null,
-      is_infinite_autonomy: false,
-      is_infinite_consumption: false,
-      is_sans_fonctionnement: true,
-      indet_reason: group.indet_reason || (
-        `Delta horaire semaine N = ${formatMetric(weekHours)} h`
-        + (weekCons != null ? ` · consommation = ${formatMetric(weekCons)} L` : '')
-        + ' → sans fonctionnement.'
-      ),
-    }
-  }
-
-  // Uniquement la moyenne affichée dans les métriques (pas de fallback backend)
-  const mean = isFiniteNumber(meanHourlyLh) && meanHourlyLh > 0 ? meanHourlyLh : null
-
-  if (mean == null) {
-    return {
-      ...group,
-      autonomie_hours: null,
-      formatted_autonomy: null,
-      is_infinite_autonomy: true,
-      is_infinite_consumption: false,
-      is_sans_fonctionnement: true,
-      indet_reason: group.indet_reason || 'Aucune conso horaire moyenne calculable → sans fonctionnement.',
-    }
-  }
-
-  const cpVolume = isFiniteNumber(group.latest_main_volume) ? group.latest_main_volume : null
-  if (cpVolume == null) {
-    return {
-      ...group,
-      autonomie_hours: null,
-      formatted_autonomy: null,
-      is_infinite_autonomy: true,
-      is_infinite_consumption: false,
-      is_sans_fonctionnement: true,
-      indet_reason: group.indet_reason || 'Volume cuve principale indisponible → sans fonctionnement.',
-    }
-  }
-
-  const peers = (allBlocks || []).filter((block) => (
-    group.site_id != null && String(block.site_id) === String(group.site_id)
-  ))
-  const peerList = peers.length ? peers : [group]
-  const totalPower = peerList.reduce((sum, block) => sum + extractPower(block.puissance), 0)
-  const groupPower = extractPower(group.puissance)
-  const powerShare = totalPower > 0
-    ? groupPower / totalPower
-    : (isFiniteNumber(group.power_share) ? group.power_share : 1)
-  const cjVolume = isFiniteNumber(group.latest_daily_volume) ? group.latest_daily_volume : 0
-  const volumeProportionnel = cpVolume * powerShare + cjVolume
-  const autonomyHours = volumeProportionnel / mean
-
-  return {
-    ...group,
-    power_share: powerShare,
-    volume_proportionnel: Number(volumeProportionnel.toFixed(1)),
-    autonomie_hours: Number(autonomyHours.toFixed(1)),
-    formatted_autonomy: null,
-    is_infinite_autonomy: false,
-    is_infinite_consumption: false,
-    is_sans_fonctionnement: false,
-  }
-}
+const buildGroupAutonomyEntity = (group) => ({
+  ...group,
+  autonomie_hours: isFiniteNumber(group.autonomie_hours) ? Number(group.autonomie_hours) : null,
+  formatted_autonomy: group.formatted_autonomy ?? null,
+  is_infinite_consumption: Boolean(group.is_infinite_consumption),
+  is_infinite_autonomy: Boolean(group.is_infinite_autonomy),
+  is_sans_fonctionnement: Boolean(group.is_sans_fonctionnement),
+  indet_reason: group.indet_reason || null,
+})
 
 
 const buildDerivedMetric = (values = []) => {
@@ -170,12 +88,14 @@ const safeNum = (value) => (isFiniteNumber(value) ? value : 0)
 /** Stats sur une série (semaine N / N-1 / total / moyenne).
  * Ignore les null (pas de relevé) — les 0 entrent dans la moyenne.
  */
-const buildPeriodSeriesStats = (values = []) => {
+const buildPeriodSeriesStats = (values = [], options = {}) => {
   const series = values || []
   if (!series.length) {
     return { weekN: null, weekN1: null, total: null, mean: null }
   }
   const finite = series.filter(isFiniteNumber)
+  const excludeZeroValues = options.excludeZeroValues === true
+  const meaningful = excludeZeroValues ? finite.filter((value) => value > 0) : finite
   const total = finite.reduce((sum, value) => sum + value, 0)
   const weekN = lastFinite(series)
   let weekN1 = null
@@ -191,9 +111,11 @@ const buildPeriodSeriesStats = (values = []) => {
     weekN,
     weekN1,
     total: finite.length ? total : null,
-    mean: finite.length ? total / finite.length : null,
+    mean: meaningful.length ? totalOf(meaningful) / meaningful.length : null,
   }
 }
+
+const totalOf = (values = []) => values.reduce((sum, value) => sum + value, 0)
 
 /**
  * Série L/h pour la courbe :
@@ -259,14 +181,15 @@ const buildHourlyRateSeries = (hours = [], consumption = []) => {
 }
 
 /**
- * Métriques L/h : taux numériques (0 inclus). Exclus : ∞ et absents.
+ * Métriques L/h : uniquement sur les taux d'heures de fonctionnement (> 0 L/h).
+ * Exclus : 0 L/h (sans fonctionnement), ∞ et absents.
  */
 const buildHourlyConsumptionStats = (hours = [], consumption = []) => {
   const series = buildHourlyRateSeries(hours, consumption)
   const rates = series.data
     .map((value, index) => {
       const kind = series.kinds[index]
-      if (kind === 'normal' || kind === 'zero') return value
+      if (kind === 'normal' && isFiniteNumber(value) && value > 0) return value
       return null
     })
     .filter(isFiniteNumber)
@@ -295,6 +218,11 @@ const buildHourlyConsumptionStats = (hours = [], consumption = []) => {
     zeroCount: series.kinds.filter((k) => k === 'zero').length,
     infiniteCount: series.kinds.filter((k) => k === 'infinite').length,
   }
+}
+
+const renderHourlyMetric = (value, digits = 2) => {
+  if (value == null || !Number.isFinite(value)) return '— L/h'
+  return `${value.toFixed(digits)} L/h`
 }
 
 function GroupsPage({ onNavigate }) {
@@ -361,7 +289,7 @@ function GroupsPage({ onNavigate }) {
     const seq = ++filterSeq.current
     try {
       if (options.isFilter) setFiltering(true)
-      const data = await apiFetch(`/api/v1/dashboard/groupes${queryParams ? `?${queryParams}` : ''}`)
+      const data = await apiFetch(`/api/dashboard/groupes${queryParams ? `?${queryParams}` : ''}`)
       if (seq !== filterSeq.current) return
       const choices = data.rapport_choices || data.report_choices || []
       const normalizedBlocks = (data.group_blocks || []).map((block) => ({
@@ -773,16 +701,9 @@ function GroupsPage({ onNavigate }) {
                       const siteName = g.site_nom || g.nom_site || g.site_name || (groupsData.sites || []).find((s) => String(s.id) === String(g.site_id))?.nom_site || ''
                       const hoursWindow = (g.hours_run || []).slice(startIndex, endIndex + 1)
                       const consWindow = (g.consumption || []).slice(startIndex, endIndex + 1)
-                      const hourly = buildHourlyConsumptionStats(hoursWindow, consWindow)
                       const consumption = buildPeriodSeriesStats(consWindow)
                       const hours = buildPeriodSeriesStats(hoursWindow)
-                      const autonomyEntity = buildGroupAutonomyEntity(
-                        g,
-                        groupsData.group_blocks || [],
-                        hourly.mean,
-                        hoursWindow,
-                        consWindow,
-                      )
+                      const autonomyEntity = buildGroupAutonomyEntity(g)
                       const severity = getAutonomySeverity(autonomyEntity)
                       const relatedAlerts = alertsByGroupId.get(String(g.id)) || []
                       const autonomyTitle = getAutonomyHint(autonomyEntity)
@@ -829,15 +750,7 @@ function GroupsPage({ onNavigate }) {
                           <td>{formatMetric(consumption.mean)}</td>
                           <td>{formatMetric(hours.weekN)}</td>
                           <td>
-                            <div
-                              className={`autonomy-cell autonomy-cell--${severity}`}
-                              title={autonomyTitle}
-                            >
-                              <span className="autonomy-cell-value">{formatAutonomyValue(autonomyEntity)}</span>
-                              {severity !== 'unknown' && severity !== 'idle' ? (
-                                <span className="autonomy-cell-label">{getAutonomySeverityLabel(severity)}</span>
-                              ) : null}
-                            </div>
+                            <AutonomyBadge entity={autonomyEntity} size="sm" />
                           </td>
                         </tr>
                       )
@@ -857,14 +770,7 @@ function GroupsPage({ onNavigate }) {
               {(() => {
                 const hoursWindow = (group.hours_run || []).slice(startIndex, endIndex + 1)
                 const consumptionWindow = (group.consumption || []).slice(startIndex, endIndex + 1)
-                const hourlyStats = buildHourlyConsumptionStats(hoursWindow, consumptionWindow)
-                const autonomyEntity = buildGroupAutonomyEntity(
-                  group,
-                  groupsData.group_blocks || [],
-                  hourlyStats.mean,
-                  hoursWindow,
-                  consumptionWindow,
-                )
+                const autonomyEntity = buildGroupAutonomyEntity(group)
                 const severity = getAutonomySeverity(autonomyEntity)
                 const relatedAlerts = alertsByGroupId.get(String(group.id)) || []
                 return (
@@ -925,7 +831,7 @@ function GroupsPage({ onNavigate }) {
                   const hoursWindow = (group.hours_run || []).slice(startIndex, endIndex + 1)
                   const consumptionWindow = (group.consumption || []).slice(startIndex, endIndex + 1)
                   const hourlyStats = buildHourlyConsumptionStats(hoursWindow, consumptionWindow)
-                  const consumptionStats = buildPeriodSeriesStats(consumptionWindow)
+                  const consumptionStats = buildPeriodSeriesStats(consumptionWindow, { excludeZeroValues: true })
                   const hoursStats = buildPeriodSeriesStats(hoursWindow)
                   return (
                     <>
@@ -975,43 +881,43 @@ function GroupsPage({ onNavigate }) {
 
                       <div className="metric-stat-block">
                         <span className="curve-title">Consommation horaire</span>
-                        <p className="group-block-note">Sur les valeurs non nulles (0 inclus)</p>
+                        <p className="group-block-note">Sur les périodes de fonctionnement (&gt; 0 L/h)</p>
                         {hourlyStats.noData ? (
                           <div className="group-stats">
                             <div>
                               <span>Consommation horaire moyenne</span>
-                              <strong style={{ color: 'var(--text-muted, #6b7280)' }}>-L/h</strong>
+                              <strong>— L/h</strong>
                             </div>
                             <div>
                               <span>Consommation horaire max</span>
-                              <strong style={{ color: 'var(--text-muted, #6b7280)' }}>-L/h</strong>
+                              <strong>— L/h</strong>
                             </div>
                             <div>
                               <span>Consommation horaire min</span>
-                              <strong style={{ color: 'var(--text-muted, #6b7280)' }}>-L/h</strong>
+                              <strong>— L/h</strong>
                             </div>
                             <div>
                               <span>Écart-type</span>
-                              <strong style={{ color: 'var(--text-muted, #6b7280)' }}>-L/h</strong>
+                              <strong>— L/h</strong>
                             </div>
                           </div>
                         ) : (
                           <div className="group-stats">
                             <div>
                               <span>Consommation horaire moyenne</span>
-                              <strong>{formatMetric(hourlyStats.mean, 2)} L/h</strong>
+                              <strong>{renderHourlyMetric(hourlyStats.mean, 2)}</strong>
                             </div>
                             <div>
                               <span>Consommation horaire max</span>
-                              <strong>{formatMetric(hourlyStats.max, 2)} L/h</strong>
+                              <strong>{renderHourlyMetric(hourlyStats.max, 2)}</strong>
                             </div>
                             <div>
                               <span>Consommation horaire min</span>
-                              <strong>{formatMetric(hourlyStats.min, 2)} L/h</strong>
+                              <strong>{renderHourlyMetric(hourlyStats.min, 2)}</strong>
                             </div>
                             <div>
                               <span>Écart-type</span>
-                              <strong>{formatMetric(hourlyStats.stddev, 2)} L/h</strong>
+                              <strong>{renderHourlyMetric(hourlyStats.stddev, 2)}</strong>
                             </div>
                           </div>
                         )}
@@ -1033,20 +939,6 @@ function GroupsPage({ onNavigate }) {
                 </div>
                 <div className="chart-card">
                   <span className="curve-title">Courbe consommation horaire</span>
-                  {(() => {
-                    const hourlySeries = buildHourlyRateSeries(
-                      (group.hours_run || []).slice(startIndex, endIndex + 1),
-                      (group.consumption || []).slice(startIndex, endIndex + 1),
-                    )
-                    if (!hourlySeries.hasInfinite) return null
-                    return (
-                      <div className="curve-anomaly-legend" aria-label="Légende des valeurs aberrantes">
-                        <span className="curve-anomaly-legend__item curve-anomaly-legend__item--infinite">
-                          ▲ ∞ L/h — conso sans heures
-                        </span>
-                      </div>
-                    )
-                  })()}
                   <div className={`chart-box small-box${canScroll ? ' is-scrollable' : ''}`}><canvas id={`chart-group-${group.id}-hourly-consumption`} /></div>
                 </div>
               </div>

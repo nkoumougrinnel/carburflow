@@ -12,12 +12,13 @@ def get_user_role(user):
     """
     if not user or not user.is_authenticated:
         return None
-    if user.is_superuser or user.is_staff:
-        return 'admin'
 
     profil = getattr(user, 'profil', None)
     if profil:
         return profil.role_api
+
+    if user.is_superuser or user.is_staff:
+        return 'admin'
 
     return 'user'
 

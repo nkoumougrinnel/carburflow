@@ -253,16 +253,12 @@ button {
   width: 48px;
   height: 48px;
   object-fit: contain;
-  border-radius: 12px;
+  border-radius: 10px;
   flex-shrink: 0;
-  box-shadow: 0 6px 16px rgba(15, 76, 110, 0.18);
-  background: #0a0a0a;
-  padding: 4px;
 }
 
 .brand-logo--icon {
   object-fit: contain;
-  background: #0a0a0a;
 }
 
 .brand-logo--full {
@@ -271,7 +267,6 @@ button {
   max-width: 220px;
   object-fit: contain;
   border-radius: 8px;
-  box-shadow: none;
   background: transparent;
 }
 
@@ -1212,6 +1207,38 @@ button.alert-item--link {
   border-radius: 12px;
   border: 1px solid color-mix(in srgb, var(--danger, #b91c1c) 30%, var(--border));
   background: color-mix(in srgb, var(--danger, #b91c1c) 6%, var(--panel));
+}
+
+.site-attached-group-link {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 0.75rem 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.site-attached-group-name {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.site-attached-group-meta {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.site-attached-group-cta {
+  color: var(--primary-2);
+  font-weight: 700;
 }
 
 .group-related-alerts strong {
@@ -5153,10 +5180,7 @@ button.alert-item--link {
   color: #bbf7d0;
 }
 
-[data-theme="dark"] .brand-logo,
-[data-theme="dark"] .brand-logo--icon {
-  background: #0a0a0a;
-}
+/* Les logos sombre/clair ont leur propre fond — pas de surcharge background */
 
 [data-theme="dark"] .text-petrol,
 [data-theme="dark"] .text-petrol-mid {

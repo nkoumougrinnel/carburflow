@@ -20,7 +20,7 @@ function OperatorHomePage({ onNavigate }) {
       setLoading(true)
       try {
         const [sites, reports] = await Promise.all([
-          apiFetch('/api/v1/dashboard/sites').catch(() => null),
+          apiFetch('/api/dashboard/sites').catch(() => null),
           listMesRapports().catch(() => []),
         ])
         if (cancelled) return

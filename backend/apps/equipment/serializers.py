@@ -1,0 +1,82 @@
+from rest_framework import serializers
+
+from .models import CuveJournaliere, CuvePrincipale, GroupeElectrogene, validate_cj_identifiant, validate_cp_identifiant
+
+
+class GroupeElectrogeneSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GroupeElectrogene
+        fields = [
+            'id',
+            'identifiant',
+            'marque',
+            'puissance',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class CuveJournaliereSerializer(serializers.ModelSerializer):
+    cuve_principale_identifiant = serializers.CharField(
+        source='cuve_principale.identifiant',
+        read_only=True,
+    )
+    groupe_electrogene_identifiant = serializers.CharField(
+        source='groupe_electrogene.identifiant',
+        read_only=True,
+    )
+    site_id = serializers.IntegerField(
+        source='cuve_principale.site_id',
+        read_only=True,
+    )
+    site_nom = serializers.CharField(
+        source='cuve_principale.site.nom',
+        read_only=True,
+    )
+
+    class Meta:
+        model = CuveJournaliere
+        fields = [
+            'id',
+            'identifiant',
+            'capacite',
+            'cuve_principale',
+            'cuve_principale_identifiant',
+            'groupe_electrogene',
+            'groupe_electrogene_identifiant',
+            'site_id',
+            'site_nom',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def validate_identifiant(self, value):
+        value = str(value).strip().upper()
+        validate_cj_identifiant(value)
+        return value
+
+
+class CuvePrincipaleSerializer(serializers.ModelSerializer):
+    site_nom = serializers.CharField(source='site.nom', read_only=True)
+    cuves_journalieres = CuveJournaliereSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = CuvePrincipale
+        fields = [
+            'id',
+            'identifiant',
+            'capacite',
+            'site',
+            'site_nom',
+            'cuves_journalieres',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def validate_identifiant(self, value):
+        value = str(value).strip().upper()
+        validate_cp_identifiant(value)
+        return value

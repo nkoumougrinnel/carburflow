@@ -111,10 +111,10 @@ function SitesPage({ onNavigate }) {
     const loadSitesData = async () => {
       try {
         setLoadError('')
-        const data = await apiFetch('/api/v1/dashboard/sites');
+        const data = await apiFetch('/api/dashboard/sites');
         if (!data?.labels || !Array.isArray(data.labels)) {
           throw new Error(
-            'Réponse API sites inattendue (pas de séries). Vérifiez que le backend répond sur /api/v1/dashboard/sites.',
+            'Réponse API sites inattendue (pas de séries). Vérifiez que le backend répond sur /api/dashboard/sites.',
           )
         }
         const rawHours = data.hoursSeries || [];
@@ -253,14 +253,22 @@ function SitesPage({ onNavigate }) {
   const siteHoursStats = windowStats(siteHoursData, periodStart, periodEnd, { ignoreZeros: true })
 
   const siteAutonomy = useMemo(() => {
-    if (!sitesDashboard?.autonomyBySite || !siteId) return null
-    return sitesDashboard.autonomyBySite[String(siteId)] || null
-  }, [sitesDashboard, siteId])
+    if (!sitesDashboard?.autonomyBySite) return null
+    const resolvedSiteId = String(siteId || selectedSite?.id || '')
+    if (!resolvedSiteId) return null
+    return sitesDashboard.autonomyBySite[resolvedSiteId] || null
+  }, [sitesDashboard, siteId, selectedSite])
 
   const siteAttachedGroups = useMemo(() => {
-    if (!sitesDashboard?.groupsBySite || !siteId || mode !== 'details') return []
-    return sitesDashboard.groupsBySite[String(siteId)] || []
-  }, [sitesDashboard, siteId, mode])
+    if (!sitesDashboard?.groupsBySite || (!siteId && !selectedSite?.id) || mode !== 'details') return []
+    const resolvedSiteId = String(siteId || selectedSite?.id || '')
+    const direct = sitesDashboard.groupsBySite[resolvedSiteId]
+    if (Array.isArray(direct)) return direct
+    const fallback = Object.entries(sitesDashboard.groupsBySite || {}).find(
+      ([key]) => String(key) === resolvedSiteId,
+    )
+    return fallback ? fallback[1] : []
+  }, [sitesDashboard, siteId, mode, selectedSite])
 
   const openGroup = (group) => {
     onNavigate?.({
@@ -428,7 +436,19 @@ function SitesPage({ onNavigate }) {
           </div>
           <div className="filter-field">
             <label htmlFor="site-select">Site</label>
-            <select id="site-select" value={siteId ?? ''} onChange={(event) => setSiteId(event.target.value)}>
+            <select
+              id="site-select"
+              value={siteId ?? ''}
+              onChange={(event) => {
+                const nextSiteId = event.target.value
+                setSiteId(nextSiteId)
+                if (nextSiteId) {
+                  setMode('details')
+                } else {
+                  setMode('all')
+                }
+              }}
+            >
               <option value="">Tous les sites</option>
               {siteOptions.map((site) => (<option key={site.id} value={site.id}>{site.nom_site}</option>))}
             </select>
@@ -534,20 +554,24 @@ function SitesPage({ onNavigate }) {
                   </div>
                   {siteAttachedGroups.length > 0 ? (
                     <ul className="site-attached-groups-list">
-                      {siteAttachedGroups.map((group) => (
-                        <li key={group.id}>
-                          <button
-                            type="button"
-                            className="site-attached-group-link"
-                            onClick={() => openGroup(group)}
-                            title={`Ouvrir le groupe ${group.label}`}
-                          >
-                            <span className="site-attached-group-name">{group.label}</span>
-                            <AutonomyBadge entity={group} size="sm" showLabel={false} />
-                            <span className="site-attached-group-cta">Voir →</span>
-                          </button>
-                        </li>
-                      ))}
+                      {siteAttachedGroups.map((group) => {
+                        const groupSeverity = getAutonomySeverity(group)
+                        return (
+                          <li key={group.id}>
+                            <button
+                              type="button"
+                              className="site-attached-group-link"
+                              onClick={() => openGroup(group)}
+                              title={`Ouvrir le groupe ${group.label}`}
+                            >
+                              <span className="site-attached-group-name">{group.label}</span>
+                              <AutonomyBadge entity={group} size="sm" showLabel={false} />
+                              <span className={`site-attached-group-meta autonomy-row--${groupSeverity}`}>Temps restant</span>
+                              <span className="site-attached-group-cta">Voir →</span>
+                            </button>
+                          </li>
+                        )
+                      })}
                     </ul>
                   ) : (
                     <p className="site-attached-groups-empty">

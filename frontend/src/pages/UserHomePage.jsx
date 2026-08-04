@@ -17,7 +17,7 @@ function UserHomePage({ onNavigate }) {
     const load = async () => {
       setLoading(true)
       try {
-        const sites = await apiFetch('/api/v1/dashboard/sites')
+        const sites = await apiFetch('/api/dashboard/sites')
         if (!cancelled) setSitesDashboard(sites)
       } catch (err) {
         if (!cancelled) setError(err.message || 'Impossible de charger les sites.')

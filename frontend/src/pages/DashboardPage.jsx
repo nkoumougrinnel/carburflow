@@ -61,15 +61,19 @@ function DashboardPage({ onNavigate }) {
     )
   }
 
-  // Écart pour "Groupes les plus gourmands" : (dernière conso - moyenne) / moyenne
-  // En relatif à la moyenne — positif = dernière conso > moyenne, négatif = en dessous.
-  const renderConsumptionGapVsAvg = (latest, avg, fallback = '—') => {
-    if (latest == null || avg == null || avg === 0) return fallback
-    const gapPct = Number((((latest - avg) / avg) * 100).toFixed(1))
-    const isNegative = gapPct < 0
+  // Écart (Semaine N vs Semaine N-1) / Semaine N-1
+  // Hausse de consommation (N > N-1) = rouge (mauvais)
+  // Baisse de consommation (N < N-1) = vert (bon)
+  const renderEcartVsN1 = (latest, previous, fallback = '—') => {
+    if (latest == null || previous == null || previous === 0) return fallback
+    const gapPct = Number((((latest - previous) / previous) * 100).toFixed(1))
+    if (gapPct === 0) {
+      return <span className="deviation-cell">0.0%</span>
+    }
+    const isIncrease = gapPct > 0
     return (
-      <span className={`deviation-cell ${isNegative ? 'negative' : 'positive'}`}>
-        {isNegative ? '▼' : '▲'} {Math.abs(gapPct).toFixed(1)}%
+      <span className={`deviation-cell ${isIncrease ? 'negative' : 'positive'}`}>
+        {isIncrease ? '▲' : '▼'} {Math.abs(gapPct).toFixed(1)}%
       </span>
     )
   }
@@ -78,7 +82,7 @@ function DashboardPage({ onNavigate }) {
     const loadDashboardData = async () => {
       try {
         setLoadError('')
-        const payload = await apiFetch('/api/v1/dashboard/overview')
+        const payload = await apiFetch('/api/dashboard/overview')
         setDashboardData(payload)
       } catch (error) {
         console.warn('Dashboard API unavailable.', error)
@@ -135,6 +139,7 @@ function DashboardPage({ onNavigate }) {
       ...group,
       avg_consumption: group.avg_consumption != null ? Number(group.avg_consumption) : 0,
       latest_consumption: group.latest_consumption != null ? Number(group.latest_consumption) : 0,
+      previous_consumption: group.previous_consumption != null ? Number(group.previous_consumption) : null,
       // === CHAMPS CORRIGÉS ===
       mean_hourly_consumption: group.mean_hourly_consumption != null ? Number(group.mean_hourly_consumption) : 0,
       mean_hourly_consumption_deduite: group.mean_hourly_consumption_deduite != null ? Number(group.mean_hourly_consumption_deduite) : 0,
@@ -203,11 +208,11 @@ function DashboardPage({ onNavigate }) {
   const summaryCards = useMemo(() => {
     if (!dashboardData) return []
 
-    // Sites urgents = autonomie réelle < 24 h (hors indéterminée / sans fonctionnement)
-    const criticalAutonomySites = siteRows.filter((s) => {
-      if (s.is_infinite_consumption) return false
-      if (s.is_infinite_autonomy || s.is_sans_fonctionnement) return false
-      return s.autonomie_hours != null && s.autonomie_hours < 24
+    // Sites urgents = alertes critiques ciblées sur un site, pour rester cohérent
+    // avec la liste d'alertes réellement déclarées par le backend.
+    const criticalSiteAlertCount = alerts.filter((alert) => {
+      if (alert.target !== 'site' && alert.site_id == null) return false
+      return resolvePrioriteKey(alert) === 'critique'
     }).length
 
     // Compteur aligné sur la liste filtrée (hors autonomie indéterminée)
@@ -224,9 +229,9 @@ function DashboardPage({ onNavigate }) {
     return [
       {
         label: 'Sites urgents',
-        title: `${criticalAutonomySites}`,
-        detail: 'Moins de 24 h de temps restant',
-        tone: criticalAutonomySites > 0 ? 'danger' : null,
+        title: `${criticalSiteAlertCount}`,
+        detail: 'Alertes critiques de site actives',
+        tone: criticalSiteAlertCount > 0 ? 'danger' : null,
         open: () => goSites(),
       },
       {
@@ -556,7 +561,7 @@ function DashboardPage({ onNavigate }) {
                       {formatValue(row.previous_hourly_consumption)}
                     </td>
                     <td style={{ textAlign: 'center' }}>
-                      {renderDeviation(row.latest_hourly_consumption, row.mean_hourly_consumption_deduite, '—')}
+                      {renderEcartVsN1(row.latest_hourly_consumption, row.previous_hourly_consumption, '—')}
                     </td>
                   </tr>
                 ))}
@@ -592,6 +597,7 @@ function DashboardPage({ onNavigate }) {
                   <th style={{ textAlign: 'left' }}>Groupe</th>
                   <th style={{ textAlign: 'left' }}>Site</th>
                   <th style={{ textAlign: 'right' }}>Consommation moyenne</th>
+                  <th style={{ textAlign: 'right' }}>Consommation semaine N-1</th>
                   <th style={{ textAlign: 'right' }}>Consommation semaine N</th>
                   <th style={{ textAlign: 'center' }}>Écart</th>
                 </tr>
@@ -614,13 +620,14 @@ function DashboardPage({ onNavigate }) {
                     <td style={{ textAlign: 'left' }}>{row.label}</td>
                     <td style={{ textAlign: 'left' }}>{row.site_name || '—'}</td>
                     <td style={{ textAlign: 'right' }}><strong>{formatValue(row.avg_consumption, ' L')}</strong></td>
+                    <td style={{ textAlign: 'right' }}>{row.previous_consumption == null ? '—' : formatValue(row.previous_consumption, ' L')}</td>
                     <td style={{ textAlign: 'right' }}>{formatValue(row.latest_consumption, ' L')}</td>
-                    <td style={{ textAlign: 'center' }}>{renderConsumptionGapVsAvg(row.latest_consumption, row.avg_consumption, '—')}</td>
+                    <td style={{ textAlign: 'center' }}>{renderEcartVsN1(row.latest_consumption, row.previous_consumption, '—')}</td>
                   </tr>
                 ))}
                 {topConsumerGroupRows.length === 0 && (
                   <tr>
-                    <td colSpan="5" className="empty-state-cell">
+                    <td colSpan="6" className="empty-state-cell">
                       Aucun groupe disponible
                     </td>
                   </tr>
@@ -630,7 +637,7 @@ function DashboardPage({ onNavigate }) {
           </div>
         </section>
 
-        {/* 4. Sites les plus gourmands (simplifié) */}
+        {/* 4. Sites les plus gourmands */}
         <section className="dashboard-table metric-panel">
           <button
             type="button"
@@ -649,6 +656,7 @@ function DashboardPage({ onNavigate }) {
                 <tr>
                   <th style={{ textAlign: 'left' }}>Site</th>
                   <th style={{ textAlign: 'right' }}>Consommation moyenne</th>
+                  <th style={{ textAlign: 'right' }}>Consommation semaine N-1</th>
                   <th style={{ textAlign: 'right' }}>Consommation semaine N</th>
                   <th style={{ textAlign: 'center' }}>Écart</th>
                 </tr>
@@ -670,13 +678,14 @@ function DashboardPage({ onNavigate }) {
                   >
                     <td style={{ textAlign: 'left' }}>{row.site_name || row.label}</td>
                     <td style={{ textAlign: 'right' }}><strong>{formatValue(row.avg_consumption, ' L')}</strong></td>
+                    <td style={{ textAlign: 'right' }}>{row.previous_consumption == null ? '—' : formatValue(row.previous_consumption, ' L')}</td>
                     <td style={{ textAlign: 'right' }}>{formatValue(row.latest_consumption, ' L')}</td>
-                    <td style={{ textAlign: 'center' }}>{renderConsumptionGapVsAvg(row.latest_consumption, row.avg_consumption, '—')}</td>
+                    <td style={{ textAlign: 'center' }}>{renderEcartVsN1(row.latest_consumption, row.previous_consumption, '—')}</td>
                   </tr>
                 ))}
                 {topConsumerSiteRows.length === 0 && (
                   <tr>
-                    <td colSpan="4" className="empty-state-cell">
+                    <td colSpan="5" className="empty-state-cell">
                       Aucun site disponible
                     </td>
                   </tr>

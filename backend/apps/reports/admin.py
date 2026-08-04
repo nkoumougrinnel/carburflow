@@ -5,6 +5,7 @@ from .models import LigneRapport, Rapport
 
 class LigneRapportInline(admin.TabularInline):
     model = LigneRapport
+    fk_name = 'rapport'
     extra = 0
 
 

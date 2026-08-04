@@ -55,7 +55,6 @@ def create_notification(
     contenu,
     sujet='',
     canal=Notification.CANAL_IN_APP,
-    alerte=None,
     expediteur=None,
 ):
     return Notification.objects.create(
@@ -63,7 +62,6 @@ def create_notification(
         contenu=contenu,
         sujet=(sujet or '')[:200],
         canal=canal,
-        alerte=alerte,
         expediteur=expediteur,
     )
 
@@ -82,9 +80,10 @@ def notify_admins_for_alerte(alerte):
     contenu = (alerte.message or 'Une nouvelle alerte a été détectée.').strip()
     created = 0
     for user in admin_recipients():
+        # dedupe by destinataire + subject + unread
         already = Notification.objects.filter(
             destinataire=user,
-            alerte=alerte,
+            sujet=sujet,
             lu=False,
             canal=Notification.CANAL_IN_APP,
         ).exists()
@@ -94,7 +93,6 @@ def notify_admins_for_alerte(alerte):
             destinataire=user,
             sujet=sujet,
             contenu=contenu,
-            alerte=alerte,
         )
         created += 1
     return created

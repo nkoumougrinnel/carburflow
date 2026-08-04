@@ -1,21 +1,28 @@
-"""
-Calculs partagés entre GroupesAPIView, SitesDashboardAPIView et
-DashboardOverviewAPIView.
+"""Compatibilité vers le module de services métier partagé."""
 
-Règles importantes :
-- Les rapports sont toujours parcourus dans l’ordre (date_debut, date_fin, id).
-- Si un site/groupe n’a pas de ligne sur un rapport, on n’invente PAS un volume 0 :
-  on pose null et on ne met pas à jour la référence précédente (évite les faux pics).
-- Le premier point présent sert de baseline (delta conso / heures = 0).
-- La série volume d’un groupe est le stock pondéré réel, pas la somme des deltas.
-
-Consommation :
-- Stock global période = volume_CP + Σ volumes_CJ.
-- Conso période = stock_global_prev − stock_global_curr + dépotage.
-  Les prélèvements CP→CJ s’annulent (pas de fausse conso attributée aux groupes).
-- Avant proportionnalité puissance : on répartit uniquement cette conso réelle.
-- Conso site (cuve principale) = somme des consos des groupes agrégés.
-"""
+from apps.services.calculs import (  # noqa: F401
+    _format_decimal,
+    _is_valid_autonomy,
+    _safe_divide,
+    _to_decimal,
+    calculer_groupes,
+    format_rapport_label,
+    formater_autonomie,
+    moyenne,
+    ordered_rapports,
+    resolve_site_autonomy_from_groups,
+    extraire_puissance,
+    ecart_type,
+    last_finite,
+    _site_volume_from_lines,
+    _site_cj_volume_from_lines,
+    _site_depotage_from_lines,
+    _consommation_periode,
+    somme_conso_groupes,
+    calculer_site_series,
+    build_site_report_state,
+    build_group_primary_site_ids,
+)
 
 import re
 
@@ -59,6 +66,60 @@ def moyenne(values):
     """Calcule la moyenne d'une liste de valeurs (ignore None)."""
     nums = [v for v in values if v is not None]
     return sum(nums) / len(nums) if nums else 0.0
+
+
+def resolve_site_autonomy_from_groups(site_groups):
+    """Résout l’autonomie d’un site à partir des groupes rattachés.
+
+    Règle métier : on prend le minimum des autonomies chiffrées des groupes valides.
+    Si un groupe est sans fonctionnement ou indéterminé, il n’est pas pris en compte
+    pour le minimum, sauf si tous les groupes sont dans ce cas, où le site devient
+    indéterminé/sans fonctionnement selon le contexte.
+    """
+    valid_hours = [
+        g.get('autonomie_hours')
+        for g in site_groups or []
+        if g.get('autonomie_hours') is not None
+        and not g.get('is_infinite_consumption')
+        and not g.get('is_sans_fonctionnement')
+        and not g.get('is_infinite_autonomy')
+    ]
+
+    if valid_hours:
+        aut_hours = round(min(valid_hours), 1)
+        return {
+            'autonomie_hours': aut_hours,
+            'formatted_autonomy': formater_autonomie(aut_hours),
+            'is_infinite_consumption': False,
+            'is_infinite_autonomy': False,
+            'is_sans_fonctionnement': False,
+        }
+
+    if any(g.get('is_infinite_consumption') for g in site_groups or []):
+        return {
+            'autonomie_hours': None,
+            'formatted_autonomy': None,
+            'is_infinite_consumption': True,
+            'is_infinite_autonomy': False,
+            'is_sans_fonctionnement': False,
+        }
+
+    if any(g.get('is_sans_fonctionnement') or g.get('is_infinite_autonomy') for g in site_groups or []):
+        return {
+            'autonomie_hours': None,
+            'formatted_autonomy': None,
+            'is_infinite_consumption': False,
+            'is_infinite_autonomy': True,
+            'is_sans_fonctionnement': True,
+        }
+
+    return {
+        'autonomie_hours': None,
+        'formatted_autonomy': None,
+        'is_infinite_consumption': False,
+        'is_infinite_autonomy': True,
+        'is_sans_fonctionnement': False,
+    }
 
 
 def ecart_type(values):
@@ -282,6 +343,17 @@ def calculer_groupes(
                 bucket = groups_linked_by_site.setdefault(site_id, [])
                 if groupe not in bucket:
                     bucket.append(groupe)
+
+    # Correction robuste : un groupe qui est rattaché à un site via ses lignes du
+    # rapport reste pris dans le prorata de puissance de ce site même si le site
+    # n’a pas de cuve journalière stable déclarée.
+    for groupe in groupes:
+        primary_site_id = group_primary_site_ids.get(groupe.id)
+        if primary_site_id is None:
+            continue
+        bucket = groups_linked_by_site.setdefault(primary_site_id, [])
+        if groupe not in bucket:
+            bucket.append(groupe)
 
     group_blocks = []
     for groupe in groupes:

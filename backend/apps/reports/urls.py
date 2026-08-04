@@ -1,17 +1,18 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from .rapport_views import (
+from .views import (
     GenererRapportHebdoAPIView,
+    LigneRapportViewSet,
     MesRapportsAPIView,
     NormeCsvAPIView,
     NormeMetaAPIView,
     NormeXlsxAPIView,
     RapportExportAPIView,
     RapportUploadAPIView,
+    RapportViewSet,
     SoumissionsAPIView,
 )
-from .views import LigneRapportViewSet, RapportViewSet
 
 router = DefaultRouter()
 router.register(r'rapports', RapportViewSet, basename='rapport')

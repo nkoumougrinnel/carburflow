@@ -32,7 +32,7 @@ admin.site.register(User, UserAdmin)
 
 @admin.register(ProfilUtilisateur)
 class ProfilUtilisateurAdmin(admin.ModelAdmin):
-    list_display = ('user', 'role', 'site', 'created_at')
-    list_filter = ('role', 'site')
+    list_display = ('user', 'role', 'created_at')
+    list_filter = ('role',)
     search_fields = ('user__username', 'user__email')
-    raw_id_fields = ('user', 'site')
+    raw_id_fields = ('user',)

@@ -10,19 +10,6 @@ class NotificationSerializer(serializers.ModelSerializer):
     destinataire_username = serializers.SerializerMethodField()
     destinataire_nom = serializers.SerializerMethodField()
     destinataire_email = serializers.SerializerMethodField()
-    alerte_id = serializers.IntegerField(source='alerte.id', read_only=True, allow_null=True)
-    alerte_priorite = serializers.CharField(
-        source='alerte.priorite',
-        read_only=True,
-        allow_null=True,
-        default=None,
-    )
-    alerte_type = serializers.CharField(
-        source='alerte.type_alerte',
-        read_only=True,
-        allow_null=True,
-        default=None,
-    )
 
     class Meta:
         model = Notification
@@ -41,9 +28,6 @@ class NotificationSerializer(serializers.ModelSerializer):
             'destinataire_username',
             'destinataire_nom',
             'destinataire_email',
-            'alerte_id',
-            'alerte_priorite',
-            'alerte_type',
         ]
         read_only_fields = fields
 

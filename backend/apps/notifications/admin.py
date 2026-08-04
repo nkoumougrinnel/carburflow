@@ -13,7 +13,6 @@ class NotificationAdmin(admin.ModelAdmin):
         'canal',
         'lu',
         'date_envoi',
-        'alerte',
     )
     list_filter = ('canal', 'lu')
     search_fields = (
@@ -24,4 +23,4 @@ class NotificationAdmin(admin.ModelAdmin):
         'expediteur__username',
     )
     date_hierarchy = 'date_envoi'
-    raw_id_fields = ('destinataire', 'expediteur', 'alerte')
+    raw_id_fields = ('destinataire', 'expediteur')
