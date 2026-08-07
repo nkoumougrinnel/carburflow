@@ -53,8 +53,7 @@ jobs:
 
       - name: Install dependencies
         run: 
-          npm install --ignore-scripts --no-optional
-          npm rebuild
+          npm install --force
 
       - name: Build
         env:
