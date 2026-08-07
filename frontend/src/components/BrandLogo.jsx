@@ -1,18 +1,20 @@
 import React from 'react'
 import { useTheme } from '../context/ThemeContext.jsx'
 
-/** Icône goutte — deux versions selon le thème */
+/** Icône goutte — deux versions selon le thème (assets présents dans public/assets/images/) */
 const logoIconLight = '/assets/images/logo-navbar-light.jpg'
 const logoIconDark  = '/assets/images/logo-navbar-dark.jpg'
-
-/** Wordmark complet — deux versions selon le thème */
-const logoLight = '/assets/images/clair.jpeg'
-const logoDark  = '/assets/images/sombre.jpeg'
 
 /**
  * Logo CarburFlow.
  * - icon : icône goutte, bascule entre clair et sombre selon le thème
- * - full : wordmark complet clair / sombre selon le thème
+ * - full : wordmark complet (fallback sur l'icône faute d'asset dédié)
+ *
+ * Note : à défaut de wordmark dédié (clair.jpeg / sombre.jpeg) dans
+ * public/assets/images/, on réutilise l'icône pour les deux variantes.
+ * Pour activer un vrai wordmark, déposer `logo-full-light.svg` /
+ * `logo-full-dark.svg` dans public/assets/images/ et remplacer les
+ * deux lignes ci-dessous.
  */
 function BrandLogo({
   variant = 'icon',
@@ -20,10 +22,7 @@ function BrandLogo({
   alt = 'CarburFlow',
 }) {
   const { isDark } = useTheme()
-
-  const src = variant === 'full'
-    ? (isDark ? logoDark : logoLight)
-    : (isDark ? logoIconDark : logoIconLight)
+  const src = isDark ? logoIconDark : logoIconLight
 
   return (
     <img

@@ -13,7 +13,6 @@ import {
   Moon,
   UserRound,
   Bell,
-  Inbox,
 } from 'lucide-react'
 import BrandLogo from './BrandLogo.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -132,16 +131,17 @@ function Topbar({ activeView, onNavigate }) {
   const adminLinks = [
     { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
     { id: 'alerts', label: 'Alertes', icon: Bell },
-    { id: 'notifications', label: 'Messagerie', icon: Inbox },
     { id: 'sites', label: 'Sites', icon: MapPinned },
     { id: 'groups', label: 'Groupes', icon: Zap },
     { id: 'reports', label: 'Relevés', icon: Upload },
     { id: 'profile', label: 'Comptes', icon: UserRound },
   ]
 
+  // La messagerie reste accessible depuis la cloche des notifications
+  // et le bouton flottant (badge unread). On évite un onglet de plus dans
+  // la barre pour rester lisible sur mobile.
   const operatorLinks = [
     { id: 'operator', label: 'Accueil', icon: Home },
-    { id: 'notifications', label: 'Messagerie', icon: Inbox },
     { id: 'sites', label: 'Sites', icon: MapPinned },
     { id: 'reports', label: 'Relevés', icon: Upload },
     { id: 'profile', label: 'Profil', icon: UserRound },
@@ -149,7 +149,6 @@ function Topbar({ activeView, onNavigate }) {
 
   const viewerLinks = [
     { id: 'viewer', label: 'Accueil', icon: Home },
-    { id: 'notifications', label: 'Messagerie', icon: Inbox },
     { id: 'sites', label: 'Sites', icon: MapPinned },
     { id: 'profile', label: 'Profil', icon: UserRound },
   ]
@@ -189,7 +188,7 @@ function Topbar({ activeView, onNavigate }) {
 
       <div className="topbar-right">
         <nav className={`topbar-actions ${menuOpen ? 'is-open' : ''}`} aria-label="Navigation principale">
-          {links.filter((l) => l.id !== 'notifications').map(({ id, label, icon: Icon }) => (
+          {links.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               type="button"
@@ -203,13 +202,13 @@ function Topbar({ activeView, onNavigate }) {
                   {activeAlertsCount}
                 </span>
               )}
-              {id === 'notifications' && unreadMessages > 0 && (
-                <span className="nav-link-badge" aria-label={`${unreadMessages} messages non lus`}>
-                  {unreadMessages}
-                </span>
-              )}
             </button>
           ))}
+          {unreadMessages > 0 && (
+            <span className="nav-link-badge nav-link-badge--floater" aria-label={`${unreadMessages} messages non lus`}>
+              {unreadMessages}
+            </span>
+          )}
 
           {isAuthenticated && (
             <div className="topbar-user">

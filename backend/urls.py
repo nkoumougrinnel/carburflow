@@ -1,9 +1,13 @@
-from django.contrib import admin
-from django.urls import path, include
+"""
+URL racine legacy — NE PLUS UTILISER.
+
+L'URL conf active est `core.urls` (cf. `core/settings/base.py`:
+`ROOT_URLCONF = 'core.urls'`). Ce fichier reste uniquement pour
+éviter un ImportError si une configuration héritée le pointe encore
+par accident. Il délègue à `core.urls` pour garantir la cohérence.
+"""
+from django.urls import include, path
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('', include('dashboard.urls')),
-    path('api/v1/', include('dashboard.urls')),
+    path('', include('core.urls')),
 ]
-""

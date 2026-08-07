@@ -407,6 +407,13 @@ html.theme-light .group-card {
   color: var(--primary);
 }
 
+.nav-link-badge--floater {
+  margin-left: 6px;
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 0 0 2px var(--topbar-bg, #fff);
+}
+
 .nav-link:hover {
   background: var(--panel-soft);
   border-color: var(--border);

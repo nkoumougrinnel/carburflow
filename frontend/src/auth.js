@@ -48,13 +48,20 @@ function extractErrorMessage(data) {
  */
 export function resolveApiUrl(path) {
   if (!path || /^https?:\/\//i.test(path)) return path
-  const base = String(import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
-  if (!base) return path
+  // Base = préfixe API. Par défaut '/api' (le backend Django actuel monte tout
+  // sous /api/ via apps.api.urls, apps.alerts.urls, apps.notifications.urls).
+  // Surcharge possible via VITE_API_BASE_URL (ex: 'http://localhost:8001/api').
+  const base = String(import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '')
 
   const [pathname, query = ''] = path.split('?')
   let suffix = pathname || '/'
-  if (base.endsWith('/api/v1') && suffix.startsWith('/api/v1')) {
-    suffix = suffix.slice('/api/v1'.length) || '/'
+  // Les URLs du front sont déjà préfixées (ex: '/api/auth/login') : on retire
+  // '/api/v1' ou '/api' si présent pour ne pas doubler le préfixe.
+  for (const prefix of ['/api/v1', '/api']) {
+    if (suffix === prefix || suffix.startsWith(prefix + '/')) {
+      suffix = suffix.slice(prefix.length) || '/'
+      break
+    }
   }
   if (!suffix.startsWith('/')) suffix = `/${suffix}`
   return `${base}${suffix}${query ? `?${query}` : ''}`
