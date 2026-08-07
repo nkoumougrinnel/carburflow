@@ -78,7 +78,13 @@ class AlerteListSerializer(serializers.ModelSerializer):
         return obj.cle or f'alerte-{obj.pk}'
 
     def get_priority(self, obj):
-        return PRIORITE_TO_LABEL.get(obj.priorite, obj.get_priorite_display())
+        priorite = getattr(obj, 'priorite', None)
+        if priorite in PRIORITE_TO_LABEL:
+            return PRIORITE_TO_LABEL[priorite]
+        # fallback pour les vrais modèles Django
+        if hasattr(obj, 'get_priorite_display'):
+            return obj.get_priorite_display()
+        return priorite
 
     def get_priority_level(self, obj):
         return PRIORITE_TO_SEVERITY.get(obj.priorite, 'medium')
