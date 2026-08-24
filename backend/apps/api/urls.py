@@ -7,13 +7,6 @@ from drf_spectacular.views import (
     SpectacularRedocView,
 )
 
-from apps.authentication.views import (
-    CsrfAPIView,
-    LoginAPIView,
-    LogoutAPIView,
-    MeAPIView,
-    RegisterAPIView,
-)
 from apps.reports.views import (
     GenererRapportHebdoAPIView,
     MesRapportsAPIView,
@@ -48,13 +41,10 @@ SpectacularAPIView.permission_classes = [AllowAny]
 SpectacularSwaggerView.permission_classes = [AllowAny]
 SpectacularRedocView.permission_classes = [AllowAny]
 
+# Note : les routes auth (register / login / logout / me / password / csrf /
+# users/*) vivent dans apps/authentication/urls.py, montées dans core/urls.py
+# sous le préfixe « api/auth/ ». Ne pas les dupliquer ici.
 urlpatterns = [
-    path('auth/register', RegisterAPIView.as_view(), name='api-auth-register'),
-    path('auth/login', LoginAPIView.as_view(), name='api-auth-login'),
-    path('auth/logout', LogoutAPIView.as_view(), name='api-auth-logout'),
-    path('auth/me', MeAPIView.as_view(), name='api-auth-me'),
-    path('auth/csrf', CsrfAPIView.as_view(), name='api-auth-csrf'),
-
     path('rapports/norme', NormeMetaAPIView.as_view(), name='api-norme-meta'),
     path('rapports/norme.csv', NormeCsvAPIView.as_view(), name='api-norme-csv'),
     path('rapports/norme.xlsx', NormeXlsxAPIView.as_view(), name='api-norme-xlsx'),

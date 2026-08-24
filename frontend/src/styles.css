@@ -426,6 +426,18 @@ html.theme-light .group-card {
   box-shadow: 0 8px 18px rgba(15, 76, 110, 0.22);
 }
 
+/* Contraste du lien actif en mode sombre (dégradé clair → texte sombre) */
+[data-theme="dark"] .nav-link.active {
+  background: linear-gradient(135deg, var(--primary), var(--primary-2));
+  color: var(--bg);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--primary) 40%, transparent);
+}
+
+[data-theme="dark"] .nav-link.active .nav-link-badge {
+  background: var(--bg);
+  color: var(--primary-2);
+}
+
 /* Welcome */
 .welcome-banner {
   position: relative;
@@ -650,6 +662,12 @@ html.theme-light .group-card {
 
   .topbar-burger {
     display: grid;
+  }
+
+  /* Le menu burger doit reposer sur la topbar pleine largeur
+     (sinon il se réduit à la largeur de .topbar-right et déborde). */
+  .topbar-right {
+    position: static;
   }
 
   .topbar-actions {
@@ -2365,9 +2383,9 @@ button.alert-item--link {
 }
 
 .auth-mode-switch button.active {
-  background: white;
+  background: var(--panel);
   color: var(--primary);
-  box-shadow: 0 8px 18px rgba(11, 61, 122, 0.1);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--primary) 16%, transparent);
 }
 
 .auth-form-header h2 {
@@ -2393,9 +2411,9 @@ button.alert-item--link {
 
 .auth-demo-chip {
   appearance: none;
-  border: 1px solid var(--border);
-  background: #fffaf2;
-  color: #8a5a14;
+  border: 1px solid color-mix(in srgb, var(--accent-amber) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent-amber) 12%, var(--panel));
+  color: var(--accent-amber);
   border-radius: 999px;
   padding: 6px 12px;
   font-size: 0.78rem;
@@ -2465,9 +2483,9 @@ button.alert-item--link {
 }
 
 .auth-error {
-  background: #fdeeee;
-  border: 1px solid #f3c2c2;
-  color: #9b1c1c;
+  background: var(--sev-critical-bg);
+  border: 1px solid color-mix(in srgb, var(--sev-critical-fg) 45%, transparent);
+  color: var(--sev-critical-fg);
   border-radius: 12px;
   padding: 11px 13px;
   font-size: 0.9rem;
@@ -3094,7 +3112,7 @@ button.alert-item--link {
   width: min(280px, 80%);
   height: 6px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--primary) 12%, #fff);
+  background: color-mix(in srgb, var(--primary) 14%, var(--panel-soft));
   overflow: hidden;
   margin-top: 6px;
 }
@@ -5004,6 +5022,35 @@ button.alert-item--link {
   color: #bbf7d0;
 }
 
+[data-theme="dark"] .reports-error-panel-head p {
+  color: #fecaca;
+}
+
+[data-theme="dark"] .alert-legend--all {
+  background: rgba(71, 85, 105, 0.32);
+  color: #e2e8f0;
+  border-color: color-mix(in srgb, #64748b 55%, transparent);
+}
+
+[data-theme="dark"] .alert-legend--critical {
+  background: var(--sev-critical-bg);
+  color: var(--sev-critical-fg);
+  border-color: color-mix(in srgb, var(--sev-critical-fg) 45%, transparent);
+}
+
+[data-theme="dark"] .alert-legend--high {
+  background: var(--sev-medium-bg);
+  color: var(--sev-medium-fg);
+  border-color: color-mix(in srgb, var(--sev-medium-fg) 45%, transparent);
+}
+
+[data-theme="dark"] .alert-legend--medium,
+[data-theme="dark"] .alert-legend--low {
+  background: var(--sev-low-bg);
+  color: var(--sev-low-fg);
+  border-color: color-mix(in srgb, var(--sev-low-fg) 45%, transparent);
+}
+
 [data-theme="dark"] .reports-progress-bar {
   background: color-mix(in srgb, var(--primary) 22%, var(--panel-soft));
 }
@@ -5957,7 +6004,7 @@ button.alert-item--link {
 }
 
 .dashboard-summary-card--danger .metric-label {
-  color: #b91c1c;
+  color: var(--danger);
 }
 
 [data-theme="dark"] .dashboard-summary-card--danger h3 {
@@ -6648,6 +6695,25 @@ button.alert-item--link {
   color: #b45309;
   border-color: color-mix(in srgb, #b45309 35%, var(--border));
   background: color-mix(in srgb, #b45309 10%, var(--panel));
+}
+
+/* Chips de rôle lisibles en mode sombre */
+[data-theme="dark"] .users-admin-role-chip--admin {
+  color: #6ee7b7;
+  border-color: color-mix(in srgb, #2dd4bf 45%, var(--border));
+  background: color-mix(in srgb, #2dd4bf 14%, var(--panel));
+}
+
+[data-theme="dark"] .users-admin-role-chip--operateur {
+  color: #fdba74;
+  border-color: color-mix(in srgb, #fb923c 45%, var(--border));
+  background: color-mix(in srgb, #fb923c 14%, var(--panel));
+}
+
+[data-theme="dark"] .users-admin-role-chip {
+  color: #cbd5e1;
+  border-color: color-mix(in srgb, #94a3b8 40%, var(--border));
+  background: color-mix(in srgb, #94a3b8 12%, var(--panel));
 }
 
 .users-admin-detail {
@@ -7383,6 +7449,20 @@ button.alert-item--link {
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+
+/* Relevés (opérateur / admin) : le panneau remplit la hauteur restante
+   et défile à l'intérieur au lieu d'être rogné par le shell fixe. */
+.reports-layout--saas > .saas-section-pane {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+}
+
+.reports-layout--saas .saas-section-pane > .reports-pane-scroll,
+.reports-layout--saas .saas-section-pane > .reports-download-flow {
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .saas-section-pane--messaging,

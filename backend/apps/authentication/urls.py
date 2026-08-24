@@ -9,7 +9,6 @@ from .views import (
     LogoutAPIView,
     MeAPIView,
     PasswordChangeAPIView,
-    PublicSitesAPIView,
     RegisterAPIView,
 )
 
