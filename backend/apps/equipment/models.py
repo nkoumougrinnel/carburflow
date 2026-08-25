@@ -3,8 +3,6 @@ import re
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from apps.sites.models import Site
-
 CP_IDENTIFIANT_RE = re.compile(r'^CP\d{3,}$')
 CJ_IDENTIFIANT_RE = re.compile(r'^CJ\d{3,}$')
 
@@ -36,7 +34,7 @@ class CuvePrincipale(models.Model):
     )
     capacite = models.FloatField()
     site = models.ForeignKey(
-        Site,
+        'sites.Site',
         on_delete=models.CASCADE,
         related_name='cuves_principales',
     )

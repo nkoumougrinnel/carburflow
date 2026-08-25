@@ -41,6 +41,18 @@ services:
       # RUN_IMPORT_FORCE: "1"  # reset_and_import à chaque démarrage (destructif)
     ports:
       - "8001:8001"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import socket; s=socket.create_connection(('127.0.0.1', 8001), 2); s.close()",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 180s
 
   frontend:
     build:
@@ -51,7 +63,9 @@ services:
         # (requis pour ngrok : un seul port public)
         VITE_API_BASE_URL: ""
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    restart: on-failure
     ports:
       - "5174:5174"
 

@@ -21,7 +21,6 @@ else:
 PY
 
 echo "→ Migrations…"
-python manage.py makemigrations --noinput
 python manage.py migrate --noinput
 
 if [ "${RUN_SEED:-0}" = "1" ]; then
@@ -32,12 +31,15 @@ if [ "${RUN_SEED:-0}" = "1" ]; then
   if [ "${RUN_IMPORT_FORCE:-0}" = "1" ]; then
     NEED_IMPORT=1
   else
+    # Sites seuls ne suffisent pas : un sites.0005 mal formé a pu vider
+    # les cuves tout en laissant Site/alertes → dashboard « alertes sans équipements ».
     COUNT="$(python - <<'PY'
 import os, django
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", os.environ.get("DJANGO_SETTINGS_MODULE", "core.settings.prod"))
 django.setup()
 from apps.sites.models import Site
-print(Site.objects.count())
+from apps.equipment.models import CuvePrincipale
+print(0 if (Site.objects.count() == 0 or CuvePrincipale.objects.count() == 0) else 1)
 PY
 )"
     if [ "${COUNT:-0}" = "0" ]; then

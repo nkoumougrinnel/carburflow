@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('alerts', '0004_alter_alerte_options_and_more'),
-        ('equipment', '__first__'),
+        ('equipment', '0001_initial'),
     ]
 
     operations = [
