@@ -14,6 +14,7 @@ from apps.api.permissions import (
     user_is_agent as user_is_operateur,
 )
 
+from apps.reports.ingest import load_rapport_rows_from_bytes
 from apps.reports.norme import (
     NORME_COLUMNS,
     NORME_META,
@@ -23,8 +24,6 @@ from apps.reports.norme import (
     build_rapport_xlsx_bytes,
     build_xlsx_bytes,
     import_report_rows,
-    rows_from_csv,
-    rows_from_xlsx,
 )
 
 from .models import LigneRapport, Rapport
@@ -169,7 +168,7 @@ class GenererRapportHebdoAPIView(APIView):
 class RapportUploadAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @extend_schema(tags=['Rapports'], summary='Déposer un rapport (.xlsx ou .csv)')
+    @extend_schema(tags=['Rapports'], summary='Déposer un rapport (.xlsx, .csv, .docx, .doc)')
     def post(self, request):
         if not user_can_upload_rapports(request.user):
             return Response(
@@ -181,30 +180,10 @@ class RapportUploadAPIView(APIView):
             return Response({'detail': 'Fichier manquant (champ file).'}, status=status.HTTP_400_BAD_REQUEST)
 
         filename = upload.name or 'rapport'
-        lower = filename.lower()
         raw = upload.read()
 
         try:
-            if lower.endswith('.xlsx'):
-                rows = rows_from_xlsx(raw)
-            elif lower.endswith('.csv'):
-                rows = rows_from_csv(raw)
-            else:
-                return Response(
-                    {
-                        'detail': 'Ce type de fichier n’est pas accepté.',
-                        'errors': [
-                            {
-                                'row': None,
-                                'column': None,
-                                'column_label': None,
-                                'message': f'Le fichier « {filename} » n’est pas un Excel ou un CSV.',
-                                'how_to_fix': 'Choisissez un fichier se terminant par .xlsx ou .csv (modèle de l’étape 1).',
-                            }
-                        ],
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+            rows = load_rapport_rows_from_bytes(filename, raw)
 
             create_missing = user_is_admin(request.user)
             rapport, imported = import_report_rows(
@@ -235,8 +214,8 @@ class RapportUploadAPIView(APIView):
                             'column_label': None,
                             'message': str(exc),
                             'how_to_fix': (
-                                'Vérifiez que vous utilisez le modèle téléchargé, '
-                                'puis recommencez. Si le problème continue, contactez un responsable.'
+                                'Utilisez la fiche Excel générée, un CSV, ou la fiche Word terrain (.docx / .doc). '
+                                'Si le problème continue, contactez un responsable.'
                             ),
                         }
                     ],

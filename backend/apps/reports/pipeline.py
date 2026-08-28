@@ -20,6 +20,9 @@ from pathlib import Path
 from django.db import transaction
 
 from apps.reports.models import LigneRapport, Rapport
+from apps.reports.ingest import load_rapport_rows as _ingest_load_rows
+from apps.reports.ingest import load_rapport_rows_from_bytes as _ingest_load_bytes
+from apps.reports.ingest import write_preprocessed_export
 from apps.reports.norme import (
     ImportValidationError,
     _friendly_error,
@@ -29,8 +32,6 @@ from apps.reports.norme import (
     _to_int_or_none,
     _to_name_or_none,
     normalize_row_keys,
-    rows_from_csv,
-    rows_from_xlsx,
 )
 from apps.sites.models import CuveJournaliere, CuvePrincipale, GroupeElectrogene, Site
 
@@ -105,55 +106,32 @@ class ImportResult:
 
 
 def load_rapport_rows(path: str | Path) -> list[dict]:
-    path = Path(path)
-    if not path.exists():
-        raise ImportValidationError(
-            f'Fichier introuvable : {path}',
-            [
-                _friendly_error(
-                    row=None,
-                    column=None,
-                    message=f'Le fichier « {path} » n’existe pas.',
-                    how_to_fix='Vérifiez le chemin du fichier .xlsx ou .csv.',
-                )
-            ],
-        )
-    raw = path.read_bytes()
-    lower = path.name.lower()
-    if lower.endswith('.xlsx'):
-        return rows_from_xlsx(raw)
-    if lower.endswith('.csv'):
-        return rows_from_csv(raw)
-    raise ImportValidationError(
-        'Type de fichier non accepté.',
-        [
-            _friendly_error(
-                row=None,
-                column=None,
-                message=f'Le fichier « {path.name} » n’est pas un Excel ou un CSV.',
-                how_to_fix='Utilisez un fichier .xlsx ou .csv au format fiche de suivi.',
-            )
-        ],
-    )
+    return _ingest_load_rows(path)
 
 
 def load_rapport_rows_from_bytes(filename: str, raw: bytes) -> list[dict]:
-    lower = (filename or '').lower()
-    if lower.endswith('.xlsx'):
-        return rows_from_xlsx(raw)
-    if lower.endswith('.csv'):
-        return rows_from_csv(raw)
-    raise ImportValidationError(
-        'Type de fichier non accepté.',
-        [
-            _friendly_error(
-                row=None,
-                column=None,
-                message=f'Le fichier « {filename} » n’est pas un Excel ou un CSV.',
-                how_to_fix='Choisissez un fichier .xlsx ou .csv (modèle étape 1).',
-            )
-        ],
-    )
+    return _ingest_load_bytes(filename, raw)
+
+
+def _norm_label(value: str | None) -> str:
+    """Casse / accents / ponctuation ignorés pour comparer un nom de site terrain."""
+    import re
+    import unicodedata
+
+    if not value:
+        return ''
+    text = unicodedata.normalize('NFKD', str(value))
+    text = ''.join(ch for ch in text if not unicodedata.combining(ch))
+    text = re.sub(r'[^A-Za-z0-9]+', ' ', text)
+    return ' '.join(text.upper().split())
+
+
+def _looks_like_cj_code(name: str | None) -> bool:
+    import re
+
+    if not name:
+        return False
+    return bool(re.match(r'^CJ\d+', str(name).strip(), re.IGNORECASE))
 
 
 def _next_cp_identifiant() -> str:
@@ -181,6 +159,14 @@ def _lookup_cp(name: str | None) -> CuvePrincipale | None:
     site = Site.objects.filter(nom__iexact=key).first()
     if site:
         return site.cuves_principales.order_by('id').first()
+    wanted = _norm_label(key)
+    compact = wanted.replace(' ', '')
+    if not wanted:
+        return None
+    for site in Site.objects.all():
+        label = _norm_label(site.nom)
+        if label == wanted or label.replace(' ', '') == compact:
+            return site.cuves_principales.order_by('id').first()
     return None
 
 
@@ -201,10 +187,54 @@ def _get_or_create_cp_for_site_name(name: str, capacite: float) -> CuvePrincipal
     )
 
 
-def _lookup_cj(name: str | None) -> CuveJournaliere | None:
-    if not name:
+def _lookup_cj(
+    name: str | None,
+    *,
+    cp: CuvePrincipale | None = None,
+    groupe: GroupeElectrogene | None = None,
+) -> CuveJournaliere | None:
+    """
+    Résout une CJ par code CJxxx, ou via le couple site + groupe
+    lorsque la fiche terrain met le nom du site à la place du code.
+    """
+    if name and _looks_like_cj_code(name):
+        found = CuveJournaliere.objects.filter(identifiant__iexact=name.strip()).first()
+        if found:
+            return found
         return None
-    return CuveJournaliere.objects.filter(identifiant__iexact=name.strip()).first()
+
+    if groupe is not None:
+        related = getattr(groupe, 'cuve_journaliere', None)
+        if related is not None:
+            if cp is None or related.cuve_principale_id == cp.id:
+                return related
+        qs = CuveJournaliere.objects.filter(groupe_electrogene=groupe)
+        if cp is not None:
+            qs = qs.filter(cuve_principale=cp)
+        hit = qs.order_by('id').first()
+        if hit:
+            return hit
+
+    if cp is None:
+        return None
+
+    site_nom = getattr(cp.site, 'nom', None) if cp.site_id else None
+    name_is_site = (
+        not name
+        or (site_nom and _norm_label(name) == _norm_label(site_nom))
+        or _norm_label(name) == _norm_label(cp.identifiant)
+    )
+    if not name_is_site:
+        # Libellé libre : tenter iexact identifiant au cas où
+        found = CuveJournaliere.objects.filter(identifiant__iexact=str(name).strip()).first()
+        return found
+
+    qs = cp.cuves_journalieres.all()
+    if groupe is not None:
+        hit = qs.filter(groupe_electrogene=groupe).order_by('id').first()
+        if hit:
+            return hit
+    return qs.order_by('id').first()
 
 
 def _lookup_groupe(gid: int | None) -> GroupeElectrogene | None:
@@ -214,21 +244,62 @@ def _lookup_groupe(gid: int | None) -> GroupeElectrogene | None:
 
 
 def _lookup_groupe_by_identifiant(identifiant: str | None) -> GroupeElectrogene | None:
+    """G1-SDMO-830, « G1-SDMO-830 (SDMO) », G1, ou n° terrain « 1 »."""
+    import re
+
     if not identifiant:
         return None
     text = str(identifiant).strip()
     if not text:
         return None
-    # Affichage fiche : "G1-SDMO-830 (SDMO)" → "G1-SDMO-830"
     if ' (' in text and text.endswith(')'):
         text = text[: text.rfind(' (')].strip()
     obj = GroupeElectrogene.objects.filter(identifiant__iexact=text).first()
     if obj:
         return obj
-    gid = _extract_groupe_id(text)
-    if gid is not None:
-        return GroupeElectrogene.objects.filter(pk=gid).first()
+    match = re.match(r'^G?(\d+)$', text, re.IGNORECASE)
+    if match:
+        n = match.group(1)
+        qs = GroupeElectrogene.objects.filter(identifiant__istartswith=f'G{n}-')
+        if qs.count() == 1:
+            return qs.first()
+        if qs.exists():
+            return qs.order_by('identifiant').first()
     return None
+
+
+def resolve_row_entities(row: dict) -> tuple[
+    CuvePrincipale | None,
+    CuveJournaliere | None,
+    GroupeElectrogene | None,
+]:
+    """Rattache une ligne terrain (nom de site + n° de groupe) aux entités en base."""
+    cp_name = _to_name_or_none(row.get('id_cuve_principale'))
+    cj_name = _to_name_or_none(row.get('id_cuve_journaliere'))
+    g_key = _groupe_key_from_raw(row.get('id_groupe'))
+    if g_key and str(g_key).startswith('__NEW__'):
+        g_key = None
+    marque = _to_name_or_none(row.get('marque_groupe'))
+    puissance_raw = row.get('puissance_groupe')
+    puissance = (
+        str(puissance_raw).strip()
+        if puissance_raw is not None and str(puissance_raw).strip() != ''
+        else None
+    )
+
+    cp = _lookup_cp(cp_name)
+    groupe = _lookup_groupe_by_identifiant(g_key) if g_key else None
+    if groupe is None and (marque or puissance):
+        groupe = _lookup_groupe_by_marque_puissance(marque, puissance)
+
+    cj = _lookup_cj(cj_name, cp=cp, groupe=groupe)
+    if groupe is None and cj is not None:
+        groupe = cj.groupe_electrogene
+    if cp is None and cj is not None:
+        cp = cj.cuve_principale
+    if cj is None:
+        cj = _lookup_cj(cj_name, cp=cp, groupe=groupe)
+    return cp, cj, groupe
 
 
 def _groupe_key_from_raw(raw: object) -> str | None:
@@ -833,6 +904,49 @@ def analyze_rapport_rows(rows: list[dict], *, create_missing: bool = False) -> A
             pk_key = str(obj.pk)
             if pk_key.upper() in wanted and pk_key.upper() not in existing_g:
                 existing_g[pk_key.upper()] = obj.identifiant
+            import re as _re
+            seq = _re.match(r'^G(\d+)[-_]', obj.identifiant or '', _re.IGNORECASE)
+            if seq:
+                existing_g.setdefault(seq.group(1), obj.identifiant)
+                existing_g.setdefault(f'G{seq.group(1)}'.upper(), obj.identifiant)
+
+    # Noms terrain (site + n° groupe) → codes internes déjà en base
+    for idx, row in enumerate(rows):
+        excel_row = idx + 2
+        cp_name = _to_name_or_none(row.get('id_cuve_principale'))
+        cj_name = _to_name_or_none(row.get('id_cuve_journaliere'))
+        g_key = _groupe_key_from_raw(row.get('id_groupe'))
+        if g_key and str(g_key).startswith('__NEW__'):
+            g_key = None
+        cp, cj, groupe = resolve_row_entities(row)
+        if cp and cp_name:
+            existing_cp[cp_name.strip().upper()] = cp.identifiant
+        if groupe and g_key:
+            existing_g[str(g_key).strip().upper()] = groupe.identifiant
+        if cj and cj_name:
+            existing_cj[cj_name.strip().upper()] = cj.identifiant
+        elif cj_name and not _looks_like_cj_code(cj_name) and cp is not None:
+            issues.append(
+                AnalysisIssue(
+                    level='error',
+                    row=excel_row,
+                    column='id_cuve_journaliere',
+                    message=(
+                        f'Impossible de rattacher la cuve journalière pour '
+                        f'« {cp_name or cj_name} » / groupe « {g_key or "—"} ».'
+                    ),
+                    how_to_fix=(
+                        'Vérifiez le nom du site et le n° de groupe : ils doivent '
+                        'correspondre au parc déjà enregistré.'
+                    ),
+                )
+            )
+
+    cj_names = {
+        name: samples
+        for name, samples in cj_names.items()
+        if _looks_like_cj_code(name) or str(name).strip().upper() in existing_cj
+    }
 
     def _split_names(names_map: dict[str, list[int]], existing_map: dict[str, str], kind: str, prefix: str):
         known, new = [], []
@@ -1274,24 +1388,10 @@ def import_rapport_lignes(
         excel_row = idx + 2
         cp_name = _to_name_or_none(row.get('id_cuve_principale'))
         cj_name = _to_name_or_none(row.get('id_cuve_journaliere'))
-        raw_groupe = row.get('id_groupe')
-        marque = _to_name_or_none(row.get('marque_groupe'))
-        puissance_raw = row.get('puissance_groupe')
-        puissance = (
-            str(puissance_raw).strip()
-            if puissance_raw is not None and str(puissance_raw).strip() != ''
-            else None
-        )
-        cp = _lookup_cp(cp_name)
-        cj = _lookup_cj(cj_name)
-        g_key = _groupe_key_from_raw(raw_groupe)
+        g_key = _groupe_key_from_raw(row.get('id_groupe'))
         if g_key and str(g_key).startswith('__NEW__'):
             g_key = None
-        groupe = _lookup_groupe_by_identifiant(g_key) if g_key else None
-        if groupe is None and (marque or puissance):
-            groupe = _lookup_groupe_by_marque_puissance(marque, puissance)
-        if groupe is None and cj is not None:
-            groupe = cj.groupe_electrogene
+        cp, cj, groupe = resolve_row_entities(row)
 
         if not cp or not cj or not groupe:
             if require_entities:
@@ -1306,8 +1406,8 @@ def import_rapport_lignes(
                                 f'(site={cp_name!r}, cj={cj_name!r}, groupe={g_key!r}).'
                             ),
                             how_to_fix=(
-                                'Vérifiez les identifiants ou lancez '
-                                'create_rapport_entities / --create-missing.'
+                                'Vérifiez le nom du site et le n° de groupe, '
+                                'ou utilisez la fiche hebdo générée par l’application.'
                             ),
                         )
                     ],
@@ -1353,6 +1453,8 @@ def import_rapport_lignes(
             'Échec de la détection d’alertes après import du rapport %s',
             rapport.id,
         )
+
+    write_preprocessed_export(rows, analysis.date_debut, analysis.date_fin)
 
     return ImportResult(
         rapport_id=rapport.id,

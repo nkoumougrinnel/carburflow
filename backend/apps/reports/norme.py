@@ -83,6 +83,26 @@ COLUMN_ALIASES = {
     'etat (f/p/hs)': 'état_fonctionnement',
     'etat_fonctionnement': 'état_fonctionnement',
     'etat': 'état_fonctionnement',
+    'nom du site': 'id_cuve_principale',
+    'designation': 'id_cuve_principale',
+    'désignation': 'id_cuve_principale',
+    'localite': 'id_cuve_principale',
+    'localité': 'id_cuve_principale',
+    'n° groupe': 'id_groupe',
+    'n° ge': 'id_groupe',
+    'n° ges': 'id_groupe',
+    'numero groupe': 'id_groupe',
+    'numéro groupe': 'id_groupe',
+    'ges': 'id_groupe',
+    'ge': 'id_groupe',
+    'qte cp': 'quantités_cuve_principale',
+    'qté cp': 'quantités_cuve_principale',
+    'stock cp': 'quantités_cuve_principale',
+    'niveau cp': 'quantités_cuve_principale',
+    'qte cj': 'quantite_cuve_journaliere',
+    'qté cj': 'quantite_cuve_journaliere',
+    'stock cj': 'quantite_cuve_journaliere',
+    'niveau cj': 'quantite_cuve_journaliere',
 }
 
 
@@ -571,18 +591,9 @@ def _normalize_headers(headers: list[str]) -> list[str]:
 
 
 def _missing_required_columns(headers: list[str]) -> list[dict]:
-    missing = [c for c in ('date_debut', 'date_fin') if c not in headers]
-    if not missing:
-        return []
-    return [
-        _friendly_error(
-            row=1,
-            column=col,
-            message=f'La colonne « {COLUMN_LABELS.get(col, col)} » est absente du fichier.',
-            how_to_fix='Retéléchargez le modèle (étape 1) et ne renommez pas les titres des colonnes.',
-        )
-        for col in missing
-    ]
+    """Dates optionnelles à la lecture : injectées depuis le titre / le nom de fichier."""
+    _ = headers
+    return []
 
 
 def _detect_csv_delimiter(sample: str) -> str:
