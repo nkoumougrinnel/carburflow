@@ -336,12 +336,14 @@ class SoumissionsAPIView(APIView):
 class RapportDeleteAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @extend_schema(tags=['Rapports'], summary='Supprimer un rapport (désactivé)')
+    @extend_schema(tags=['Rapports'], summary='Retirer un rapport')
     def delete(self, request, rapport_id):
-        return Response(
-            {'detail': 'La suppression de rapports n’est plus autorisée.'},
-            status=status.HTTP_405_METHOD_NOT_ALLOWED,
-        )
+        rapport = get_object_or_404(Rapport, pk=rapport_id)
+        if not _user_can_access_rapport(request.user, rapport):
+            return Response({'detail': 'Accès refusé.'}, status=status.HTTP_403_FORBIDDEN)
+
+        rapport.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class RapportExportAPIView(APIView):

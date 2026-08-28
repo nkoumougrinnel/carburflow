@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from django.core.management.color import no_style
 from django.db import connection
 
 
@@ -38,3 +39,14 @@ def reset_autoincrement(tables: list[str]) -> list[str]:
         # MySQL / autres : non géré ici
 
     return reset
+
+
+def synchronize_sequence(model) -> None:
+    """Aligne la séquence d'un modèle sur son identifiant maximal."""
+    statements = connection.ops.sequence_reset_sql(no_style(), [model])
+    if not statements:
+        return
+
+    with connection.cursor() as cursor:
+        for statement in statements:
+            cursor.execute(statement)

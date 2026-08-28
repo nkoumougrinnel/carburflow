@@ -19,6 +19,8 @@ from pathlib import Path
 
 from django.db import transaction
 
+from apps.imports.utils import synchronize_sequence
+from apps.alerts.models import Alerte
 from apps.reports.models import LigneRapport, Rapport
 from apps.reports.norme import (
     ImportValidationError,
@@ -1115,6 +1117,10 @@ def delete_rapport_and_orphans(rapport: Rapport) -> dict:
 
     rapport_pk = rapport.id
     lignes_count = len(lignes)
+    Alerte.objects.filter(
+        ligne_rapport_id__in=[ligne.id for ligne in lignes]
+    ).delete()
+    Alerte.objects.filter(donnees_contexte__rapport_id=rapport_pk).delete()
     rapport.delete()
 
     deleted = {
@@ -1263,6 +1269,7 @@ def import_rapport_lignes(
     date_debut = date_cls.fromisoformat(analysis.date_debut)
     date_fin = date_cls.fromisoformat(analysis.date_fin)
 
+    synchronize_sequence(Rapport)
     rapport = Rapport.objects.create(
         date_debut=date_debut,
         date_fin=date_fin,

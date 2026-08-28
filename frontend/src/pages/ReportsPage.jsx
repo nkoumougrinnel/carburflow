@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Download, Upload, History, Search } from 'lucide-react'
+import { Download, Upload, History, Search, Trash2 } from 'lucide-react'
 import Topbar from '../components/Topbar.jsx'
 import PageEnter from '../components/PageEnter.jsx'
 import WelcomeBanner from '../components/WelcomeBanner.jsx'
@@ -8,6 +8,7 @@ import {
   downloadFicheHebdo,
   downloadNorme,
   downloadRapport,
+  deleteRapport,
   listMesRapports,
   normeMeta,
   uploadRapport,
@@ -99,6 +100,7 @@ function ReportsPage({ onNavigate }) {
   const [downloadingFiche, setDownloadingFiche] = useState(false)
   const [downloadingNorme, setDownloadingNorme] = useState('')
   const [downloadingRapport, setDownloadingRapport] = useState('')
+  const [deletingRapport, setDeletingRapport] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [importErrors, setImportErrors] = useState([])
@@ -118,6 +120,7 @@ function ReportsPage({ onNavigate }) {
     || downloadingFiche
     || Boolean(downloadingNorme)
     || Boolean(downloadingRapport)
+    || Boolean(deletingRapport)
 
   const navItems = useMemo(() => {
     // Admin : consultation seule — pas de dépôt de relevé
@@ -263,6 +266,23 @@ function ReportsPage({ onNavigate }) {
       setError(err.message || 'Impossible de télécharger ce rapport.')
     } finally {
       setDownloadingRapport('')
+    }
+  }
+
+  const handleDeleteRapport = async (rapportId) => {
+    if (!window.confirm(`Retirer le relevé n°${rapportId} ? Cette action est irréversible.`)) return
+    clearFeedback()
+    setDeletingRapport(String(rapportId))
+    try {
+      await deleteRapport(rapportId)
+      setRapports((current) => current.filter((rapport) => String(rapport.id) !== String(rapportId)))
+      setMatchedRapports((current) => current.filter((rapport) => String(rapport.id) !== String(rapportId)))
+      setSelectedRapportId((current) => (String(current) === String(rapportId) ? '' : current))
+      setMessage(`Le relevé n°${rapportId} a été retiré.`)
+    } catch (err) {
+      setError(err.message || 'Impossible de retirer ce relevé.')
+    } finally {
+      setDeletingRapport('')
     }
   }
 
@@ -441,6 +461,18 @@ function ReportsPage({ onNavigate }) {
                       >
                         Télécharger CSV
                       </LoadingButton>
+                      {!isAdmin && (
+                        <LoadingButton
+                          className="reports-btn--danger"
+                          loading={deletingRapport === String(selectedRapport.id)}
+                          loadingText="Retrait…"
+                          disabled={busy && deletingRapport !== String(selectedRapport.id)}
+                          onClick={() => handleDeleteRapport(selectedRapport.id)}
+                        >
+                          <Trash2 size={16} aria-hidden="true" />
+                          Retirer
+                        </LoadingButton>
+                      )}
                     </div>
                     <article className="reports-download-details">
                       <header>
@@ -551,6 +583,18 @@ function ReportsPage({ onNavigate }) {
                       >
                         CSV
                       </LoadingButton>
+                      {!isAdmin && (
+                        <LoadingButton
+                          className="reports-btn--danger"
+                          loading={deletingRapport === String(r.id)}
+                          loadingText="Retrait…"
+                          disabled={busy && deletingRapport !== String(r.id)}
+                          onClick={() => handleDeleteRapport(r.id)}
+                        >
+                          <Trash2 size={14} aria-hidden="true" />
+                          Retirer
+                        </LoadingButton>
+                      )}
                     </div>
                   </article>
                 )

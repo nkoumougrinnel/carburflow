@@ -236,6 +236,10 @@ export async function downloadRapport(rapportId, format = 'xlsx') {
   await triggerBlobDownload(response, `carburflow_rapport_${rapportId}.${format}`)
 }
 
+export async function deleteRapport(rapportId) {
+  return apiFetch(`/api/rapports/${rapportId}/delete`, { method: 'DELETE' })
+}
+
 export async function uploadRapport(file) {
   const form = new FormData()
   form.append('file', file)

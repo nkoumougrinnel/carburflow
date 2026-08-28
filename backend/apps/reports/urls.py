@@ -9,6 +9,7 @@ from .views import (
     NormeMetaAPIView,
     NormeXlsxAPIView,
     RapportExportAPIView,
+    RapportDeleteAPIView,
     RapportUploadAPIView,
     RapportViewSet,
     SoumissionsAPIView,
@@ -39,6 +40,11 @@ urlpatterns = [
         'rapports/<int:rapport_id>/export.<str:export_format>',
         RapportExportAPIView.as_view(),
         name='api-rapport-export',
+    ),
+    path(
+        'rapports/<int:rapport_id>/delete',
+        RapportDeleteAPIView.as_view(),
+        name='api-rapport-delete',
     ),
     path('', include(router.urls)),
 ]
