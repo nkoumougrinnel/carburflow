@@ -26,6 +26,7 @@ from apps.reports.norme import (
     rows_from_csv,
     rows_from_xlsx,
 )
+from apps.reports.pipeline import delete_rapport_and_orphans
 
 from .models import LigneRapport, Rapport
 from .serializers import LigneRapportSerializer, RapportListSerializer, RapportSerializer
@@ -342,7 +343,7 @@ class RapportDeleteAPIView(APIView):
         if not _user_can_access_rapport(request.user, rapport):
             return Response({'detail': 'Accès refusé.'}, status=status.HTTP_403_FORBIDDEN)
 
-        rapport.delete()
+        delete_rapport_and_orphans(rapport)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
