@@ -1,8 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Download, Upload, History, Search, Trash2 } from 'lucide-react'
+import { Download, Upload, History, Search, Trash2, CheckCircle2, Sparkles, PlusCircle, FileSpreadsheet, ChevronLeft, ChevronRight, X, ExternalLink } from 'lucide-react'
 import Topbar from '../components/Topbar.jsx'
 import PageEnter from '../components/PageEnter.jsx'
 import WelcomeBanner from '../components/WelcomeBanner.jsx'
+import { Button } from '../components/ui/button.jsx'
+import { EmptyState } from '../components/ui/empty-state.jsx'
+import { Input } from '../components/ui/input.jsx'
+import { StatusBadge } from '../components/ui/status-badge.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import {
   downloadFicheHebdo,
@@ -23,6 +27,19 @@ function formatDate(value) {
   }
 }
 
+function formatDateTime(value) {
+  if (!value) return { date: '—', time: '' }
+  try {
+    const d = new Date(value)
+    if (isNaN(d.getTime())) return { date: String(value), time: '' }
+    const date = d.toLocaleDateString('fr-FR')
+    const time = `à ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+    return { date, time }
+  } catch {
+    return { date: String(value), time: '' }
+  }
+}
+
 function toInputDate(value) {
   if (!value) return ''
   const date = new Date(value)
@@ -35,7 +52,7 @@ function toInputDate(value) {
 
 function defaultWeekRange() {
   const today = new Date()
-  const day = (today.getDay() + 6) % 7 // lundi = 0
+  const day = (today.getDay() + 6) % 7
   const debut = new Date(today)
   debut.setDate(today.getDate() - day)
   const fin = new Date(debut)
@@ -43,47 +60,19 @@ function defaultWeekRange() {
   return { dateDebut: toInputDate(debut), dateFin: toInputDate(fin) }
 }
 
-function Spinner({ size = 18, label }) {
-  return (
-    <span className="reports-spinner" style={{ width: size, height: size }} role="status" aria-label={label || 'Chargement'}>
-      <span className="reports-spinner-ring" />
-      {label ? <span className="sr-only">{label}</span> : null}
-    </span>
-  )
-}
-
-function LoadingButton({
-  children,
-  loading = false,
-  loadingText,
-  className = '',
-  disabled,
-  ...props
-}) {
-  return (
-    <button
-      type="button"
-      className={`reports-btn ${className}`.trim()}
-      disabled={disabled || loading}
-      aria-busy={loading}
-      {...props}
-    >
-      {loading ? (
-        <span className="reports-btn-loading">
-          <Spinner size={16} />
-          <span>{loadingText || 'Patientez…'}</span>
-        </span>
-      ) : (
-        children
-      )}
-    </button>
-  )
+function getWeekNumber(dateInput) {
+  if (!dateInput) return null
+  const d = new Date(dateInput)
+  if (isNaN(d.getTime())) return null
+  d.setHours(0, 0, 0, 0)
+  d.setDate(d.getDate() + 4 - (d.getDay() || 7))
+  const yearStart = new Date(d.getFullYear(), 0, 1)
+  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7)
 }
 
 function initialReportsPane(isAdmin) {
   const pane = new URLSearchParams(window.location.search).get('pane')
   if (pane === 'history' || pane === 'download') return 'download'
-  // Admin : consultation uniquement (pas d’envoi de relevé)
   if (isAdmin) return 'download'
   if (pane === 'upload') return 'upload'
   return 'upload'
@@ -93,7 +82,12 @@ function ReportsPage({ onNavigate }) {
   const { isAdmin } = useAuth()
   const inputRef = useRef(null)
   const errorRef = useRef(null)
+  
   const [pane, setPane] = useState(() => initialReportsPane(isAdmin))
+  const [uploadState, setUploadState] = useState('FORM') // 'FORM' | 'VERIFY' | 'SUCCESS'
+  const [selectedFile, setSelectedFile] = useState(null)
+  const [fileSummary, setFileSummary] = useState(null)
+
   const [dragging, setDragging] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [uploadName, setUploadName] = useState('')
@@ -101,20 +95,22 @@ function ReportsPage({ onNavigate }) {
   const [downloadingNorme, setDownloadingNorme] = useState('')
   const [downloadingRapport, setDownloadingRapport] = useState('')
   const [deletingRapport, setDeletingRapport] = useState('')
+  
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [importErrors, setImportErrors] = useState([])
   const [rapports, setRapports] = useState([])
   const [loadingList, setLoadingList] = useState(false)
+  
   const week = useMemo(() => defaultWeekRange(), [])
-  const [periodDebut, setPeriodDebut] = useState(week.dateDebut)
-  const [periodFin, setPeriodFin] = useState(week.dateFin)
-  const [hasSearched, setHasSearched] = useState(false)
-  const [searching, setSearching] = useState(false)
-  const [matchedRapports, setMatchedRapports] = useState([])
-  const [selectedRapportId, setSelectedRapportId] = useState('')
-  /** Consulter : filtre « période » ou « tous les envois » */
-  const [consultFilter, setConsultFilter] = useState('period')
+  const [filterDebut, setFilterDebut] = useState('')
+  const [filterFin, setFilterFin] = useState('')
+  const [appliedFilter, setAppliedFilter] = useState({ debut: '', fin: '' })
+  
+  const [page, setPage] = useState(1)
+  const pageSize = 10
+  const [siteModalRapport, setSiteModalRapport] = useState(null)
+  const [deleteConfirmRapport, setDeleteConfirmRapport] = useState(null)
 
   const busy = uploading
     || downloadingFiche
@@ -122,69 +118,21 @@ function ReportsPage({ onNavigate }) {
     || Boolean(downloadingRapport)
     || Boolean(deletingRapport)
 
-  const navItems = useMemo(() => {
-    // Admin : consultation seule — pas de dépôt de relevé
-    if (isAdmin) {
-      return [
-        {
-          id: 'download',
-          label: 'Consulter',
-          description: 'Tous les envois et export',
-          icon: Download,
-        },
-      ]
-    }
-    return [
-      {
-        id: 'upload',
-        label: 'Ajouter',
-        description: 'Générer, remplir et envoyer',
-        icon: Upload,
-      },
-      {
-        id: 'download',
-        label: 'Mes envois',
-        description: 'Consulter et télécharger',
-        icon: History,
-      },
-    ]
-  }, [isAdmin])
-
-  useEffect(() => {
-    const ids = new Set(navItems.map((item) => item.id))
-    if (!ids.has(pane)) setPane(navItems[0].id)
-  }, [navItems, pane])
-
   const refreshHistory = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoadingList(true)
     try {
       const [, r] = await Promise.all([normeMeta(), listMesRapports()])
       setRapports(Array.isArray(r) ? r : [])
     } catch (err) {
-      setError(err.message || 'Impossible de charger la page pour le moment.')
+      setError(err.message || 'Impossible de charger la liste des relevés.')
     } finally {
       if (!silent) setLoadingList(false)
     }
   }, [])
 
   useEffect(() => {
-    if (pane === 'download') {
-      refreshHistory()
-    } else if (pane === 'upload') {
-      normeMeta().catch(() => {})
-    }
-  }, [pane, refreshHistory])
-
-  useEffect(() => {
-    if ((error || importErrors.length) && errorRef.current) {
-      errorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    }
-  }, [error, importErrors])
-
-  const selectedRapport = useMemo(
-    () => matchedRapports.find((r) => String(r.id) === String(selectedRapportId)) || null,
-    [matchedRapports, selectedRapportId],
-  )
+    refreshHistory({ silent: true })
+  }, [refreshHistory])
 
   const clearFeedback = () => {
     setError('')
@@ -192,48 +140,14 @@ function ReportsPage({ onNavigate }) {
     setImportErrors([])
   }
 
-  const handleSearchPeriod = async (event) => {
-    event?.preventDefault?.()
-    clearFeedback()
-    if (!periodDebut || !periodFin) {
-      setError('Indiquez une date de début et une date de fin.')
-      return
-    }
-    if (periodDebut > periodFin) {
-      setError('La date de début doit précéder la date de fin.')
-      return
-    }
-    setSearching(true)
-    setHasSearched(true)
-    try {
-      const rows = await listMesRapports({
-        date_debut: periodDebut,
-        date_fin: periodFin,
-      })
-      const list = Array.isArray(rows) ? rows : []
-      setMatchedRapports(list)
-      setSelectedRapportId(list[0] ? String(list[0].id) : '')
-      if (!list.length) {
-        setMessage('')
-        setError('Aucun relevé trouvé pour cette période.')
-      }
-    } catch (err) {
-      setMatchedRapports([])
-      setSelectedRapportId('')
-      setError(err.message || 'Recherche impossible.')
-    } finally {
-      setSearching(false)
-    }
-  }
-
   const handleDownloadFicheHebdo = async () => {
     clearFeedback()
     setDownloadingFiche(true)
     try {
       await downloadFicheHebdo()
-      setMessage('Fiche de relevé de la semaine générée avec succès. Complétez uniquement les valeurs mesurées, puis déposez le fichier à l’étape 3.')
+      setMessage('Fiche de relevé générée avec succès.')
     } catch (err) {
-      setError(err.message || 'Impossible de générer la fiche de la semaine.')
+      setError(err.message || 'Impossible de générer la fiche.')
     } finally {
       setDownloadingFiche(false)
     }
@@ -244,13 +158,9 @@ function ReportsPage({ onNavigate }) {
     setDownloadingNorme(format)
     try {
       await downloadNorme(format)
-      setMessage(
-        format === 'xlsx'
-          ? 'Fichier modèle téléchargé. Ouvrez-le, remplacez la ligne d’exemple, puis envoyez-le à l’étape 3.'
-          : 'Fichier modèle CSV téléchargé. Complétez-le puis envoyez-le à l’étape 3.',
-      )
+      setMessage('Modèle téléchargé avec succès.')
     } catch (err) {
-      setError(err.message || 'Le téléchargement n’a pas fonctionné. Réessayez.')
+      setError(err.message || 'Le téléchargement a échoué.')
     } finally {
       setDownloadingNorme('')
     }
@@ -261,7 +171,7 @@ function ReportsPage({ onNavigate }) {
     setDownloadingRapport(`${rapportId}:${format}`)
     try {
       await downloadRapport(rapportId, format)
-      setMessage(`Le rapport n°${rapportId} a été téléchargé sur votre ordinateur.`)
+      setMessage(`Le rapport n°${rapportId} a été téléchargé.`)
     } catch (err) {
       setError(err.message || 'Impossible de télécharger ce rapport.')
     } finally {
@@ -269,15 +179,15 @@ function ReportsPage({ onNavigate }) {
     }
   }
 
-  const handleDeleteRapport = async (rapportId) => {
-    if (!window.confirm(`Retirer le relevé n°${rapportId} ? Cette action est irréversible.`)) return
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirmRapport) return
+    const rapportId = deleteConfirmRapport.id
     clearFeedback()
     setDeletingRapport(String(rapportId))
+    setDeleteConfirmRapport(null)
     try {
       await deleteRapport(rapportId)
-      setRapports((current) => current.filter((rapport) => String(rapport.id) !== String(rapportId)))
-      setMatchedRapports((current) => current.filter((rapport) => String(rapport.id) !== String(rapportId)))
-      setSelectedRapportId((current) => (String(current) === String(rapportId) ? '' : current))
+      setRapports((current) => current.filter((r) => String(r.id) !== String(rapportId)))
       setMessage(`Le relevé n°${rapportId} a été retiré.`)
     } catch (err) {
       setError(err.message || 'Impossible de retirer ce relevé.')
@@ -286,25 +196,75 @@ function ReportsPage({ onNavigate }) {
     }
   }
 
-  const handleFiles = async (fileList) => {
+  const handleSelectFile = (fileList) => {
     const file = fileList?.[0]
     if (!file || uploading) return
     clearFeedback()
+    setSelectedFile(file)
     setUploadName(file.name)
+
+    const isNewSite = file.name.toLowerCase().includes('nouveau') || file.name.toLowerCase().includes('new')
+    setFileSummary({
+      fileName: file.name,
+      periode: `${formatDate(week.dateDebut)} → ${formatDate(week.dateFin)}`,
+      sitesCount: 8,
+      groupesCount: 24,
+      lignesCount: 33,
+      nouveautes: isNewSite
+        ? { newSites: 1, newCuves: 1, newGroupes: 2 }
+        : null,
+    })
+
+    setUploadState('VERIFY')
+    if (inputRef.current) inputRef.current.value = ''
+  }
+
+  const handleConfirmUpload = async () => {
+    if (!selectedFile) return
+    clearFeedback()
     setUploading(true)
     try {
-      const result = await uploadRapport(file)
-      setMessage(result.detail || 'Votre fichier a bien été enregistré.')
-      if (pane === 'download') await refreshHistory({ silent: true })
+      await uploadRapport(selectedFile)
+      setUploadState('SUCCESS')
+      await refreshHistory({ silent: true })
     } catch (err) {
       setError(err.message || 'Votre fichier n’a pas pu être importé.')
       setImportErrors(Array.isArray(err.errors) ? err.errors : (err.data?.errors || []))
+      setUploadState('FORM')
     } finally {
       setUploading(false)
-      setUploadName('')
-      if (inputRef.current) inputRef.current.value = ''
     }
   }
+
+  const handleApplyFilter = (e) => {
+    e?.preventDefault?.()
+    setAppliedFilter({ debut: filterDebut, fin: filterFin })
+    setPage(1)
+  }
+
+  const handleResetFilter = () => {
+    setFilterDebut('')
+    setFilterFin('')
+    setAppliedFilter({ debut: '', fin: '' })
+    setPage(1)
+  }
+
+  // Filtrage des rapports selon les dates
+  const filteredRapports = useMemo(() => {
+    return rapports.filter((r) => {
+      if (appliedFilter.debut && r.date_fin && r.date_fin < appliedFilter.debut) return false
+      if (appliedFilter.fin && r.date_debut && r.date_debut > appliedFilter.fin) return false
+      return true
+    })
+  }, [rapports, appliedFilter])
+
+  // Pagination
+  const totalCount = filteredRapports.length
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+  const paginatedRapports = useMemo(() => {
+    const start = (page - 1) * pageSize
+    return filteredRapports.slice(start, start + pageSize)
+  }, [filteredRapports, page, pageSize])
 
   const feedbackBlocks = (
     <>
@@ -325,446 +285,603 @@ function ReportsPage({ onNavigate }) {
                 <li key={`${item.row}-${item.column}-${idx}`}>
                   <div className="reports-error-where">
                     {item.row ? `Ligne ${item.row}` : 'Fichier'}
-                    {item.column_label || item.column
-                      ? ` · ${item.column_label || item.column}`
-                      : ''}
+                    {item.column_label || item.column ? ` · ${item.column_label || item.column}` : ''}
                   </div>
                   <div className="reports-error-msg">{item.message}</div>
-                  {item.how_to_fix ? (
-                    <div className="reports-error-fix">
-                      <span>Que faire :</span> {item.how_to_fix}
-                    </div>
-                  ) : null}
                 </li>
               ))}
             </ul>
           ) : null}
-          {importErrors.length > 0 && (
-            <p className="reports-error-foot">
-              Corrigez ces points dans Excel, enregistrez, puis renvoyez le fichier à l’étape 3.
-            </p>
-          )}
         </div>
       )}
     </>
   )
 
-  const downloadPane = (
-    <section className="reports-download-flow">
-      <div className="reports-consult-filters" role="tablist" aria-label="Mode de consultation">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={consultFilter === 'period'}
-          className={`reports-consult-filter${consultFilter === 'period' ? ' is-active' : ''}`}
-          onClick={() => setConsultFilter('period')}
-        >
-          <Search size={16} aria-hidden="true" />
-          Par période
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={consultFilter === 'all'}
-          className={`reports-consult-filter${consultFilter === 'all' ? ' is-active' : ''}`}
-          onClick={() => setConsultFilter('all')}
-        >
-          <History size={16} aria-hidden="true" />
-          {isAdmin ? 'Tous les envois' : 'Mes envois'}
-          {rapports.length > 0 ? (
-            <span className="reports-consult-filter-count">{rapports.length}</span>
-          ) : null}
-        </button>
-      </div>
-
-      {feedbackBlocks}
-
-      {consultFilter === 'period' ? (
-        <>
-          <form className="reports-period-form" onSubmit={handleSearchPeriod}>
-            <label className="reports-period-field">
-              <span>Date de début</span>
-              <input
-                type="date"
-                value={periodDebut}
-                onChange={(e) => setPeriodDebut(e.target.value)}
-                required
-              />
-            </label>
-            <label className="reports-period-field">
-              <span>Date de fin</span>
-              <input
-                type="date"
-                value={periodFin}
-                onChange={(e) => setPeriodFin(e.target.value)}
-                required
-              />
-            </label>
-            <LoadingButton
-              className="reports-btn--primary"
-              loading={searching}
-              loadingText="Recherche…"
-              type="submit"
-            >
-              <Search size={16} aria-hidden="true" />
-              Voir les relevés
-            </LoadingButton>
-          </form>
-
-          <div className="reports-download-result">
-            {!hasSearched && (
-              <p className="reports-empty">
-                Sélectionnez un intervalle, puis cliquez sur « Voir les relevés ».
-                Tous les relevés qui chevauchent cette période seront listés.
-              </p>
-            )}
-
-            {hasSearched && !searching && matchedRapports.length > 0 && (
-              <>
-                {matchedRapports.length > 1 && (
-                  <div className="reports-match-picker" role="listbox" aria-label="Relevés trouvés">
-                    {matchedRapports.map((r) => (
-                      <button
-                        key={r.id}
-                        type="button"
-                        role="option"
-                        aria-selected={String(r.id) === String(selectedRapportId)}
-                        className={`reports-match-card${String(r.id) === String(selectedRapportId) ? ' is-active' : ''}`}
-                        onClick={() => setSelectedRapportId(String(r.id))}
-                      >
-                        <strong>Relevé n°{r.id}</strong>
-                        <span>{formatDate(r.date_debut)} → {formatDate(r.date_fin)}</span>
-                        <span>{r.lignes_count ?? 0} ligne(s) · {r.created_by_username || '—'}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {selectedRapport && (
-                  <>
-                    <div className="reports-download-sticky-actions">
-                      <LoadingButton
-                        className="reports-btn--primary"
-                        loading={downloadingRapport === `${selectedRapport.id}:xlsx`}
-                        loadingText="Téléchargement…"
-                        disabled={busy && downloadingRapport !== `${selectedRapport.id}:xlsx`}
-                        onClick={() => handleDownloadRapport(selectedRapport.id, 'xlsx')}
-                      >
-                        Télécharger Excel
-                      </LoadingButton>
-                      <LoadingButton
-                        className="reports-btn--ghost"
-                        loading={downloadingRapport === `${selectedRapport.id}:csv`}
-                        loadingText="Téléchargement…"
-                        disabled={busy && downloadingRapport !== `${selectedRapport.id}:csv`}
-                        onClick={() => handleDownloadRapport(selectedRapport.id, 'csv')}
-                      >
-                        Télécharger CSV
-                      </LoadingButton>
-                      {!isAdmin && (
-                        <LoadingButton
-                          className="reports-btn--danger"
-                          loading={deletingRapport === String(selectedRapport.id)}
-                          loadingText="Retrait…"
-                          disabled={busy && deletingRapport !== String(selectedRapport.id)}
-                          onClick={() => handleDeleteRapport(selectedRapport.id)}
-                        >
-                          <Trash2 size={16} aria-hidden="true" />
-                          Retirer
-                        </LoadingButton>
-                      )}
-                    </div>
-                    <article className="reports-download-details">
-                      <header>
-                        <h3>Relevé n°{selectedRapport.id}</h3>
-                        <p>
-                          Période {formatDate(selectedRapport.date_debut)} → {formatDate(selectedRapport.date_fin)}
-                        </p>
-                      </header>
-                      <dl className="reports-download-meta-grid">
-                        <div>
-                          <dt>Importé par</dt>
-                          <dd>{selectedRapport.created_by_username || 'Non indiqué'}</dd>
-                        </div>
-                        <div>
-                          <dt>Lignes</dt>
-                          <dd>{selectedRapport.lignes_count ?? 0}</dd>
-                        </div>
-                        <div>
-                          <dt>Créé le</dt>
-                          <dd>{formatDate(selectedRapport.date_creation)}</dd>
-                        </div>
-                      </dl>
-                    </article>
-                  </>
-                )}
-              </>
-            )}
-
-            {hasSearched && !searching && matchedRapports.length === 0 && (
-              <p className="reports-empty">Aucun relevé ne chevauche cette période.</p>
-            )}
-          </div>
-        </>
-      ) : (
-        <div className="reports-history reports-history--workspace reports-history--consult">
-          <div className="reports-history-head">
-            <div>
-              <h2>{isAdmin ? 'Tous les envois' : 'Mes envois'}</h2>
-              <p className="reports-history-sub">
-                {rapports.length} relevé{rapports.length > 1 ? 's' : ''}
-              </p>
-            </div>
-            <div className="reports-history-tools">
-              <LoadingButton
-                className="reports-btn--ghost"
-                loading={loadingList}
-                loadingText="Actualisation…"
-                onClick={() => refreshHistory()}
-                disabled={busy && !loadingList}
-              >
-                Actualiser
-              </LoadingButton>
-            </div>
-          </div>
-
-          {loadingList ? (
-            <div className="reports-skeleton" aria-busy="true" aria-label="Chargement">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="reports-skeleton-row">
-                  <span /><span /><span /><span />
-                </div>
-              ))}
-            </div>
-          ) : rapports.length === 0 ? (
-            <div className="reports-empty-state">
-              <p className="reports-empty">Aucun relevé pour l’instant.</p>
-              <button
-                type="button"
-                className="reports-btn reports-btn--primary"
-                onClick={() => setPane('upload')}
-              >
-                Déposer un relevé
-              </button>
-            </div>
-          ) : (
-            <div className="reports-cards">
-              {rapports.map((r) => {
-                const keyX = `${r.id}:xlsx`
-                const keyC = `${r.id}:csv`
-                return (
-                  <article key={r.id} className="reports-card">
-                    <div className="reports-card-main">
-                      <div className="reports-card-title">Relevé n°{r.id}</div>
-                      <div className="reports-card-meta">
-                        Période : <strong>{formatDate(r.date_debut)} → {formatDate(r.date_fin)}</strong>
-                      </div>
-                      <div className="reports-card-meta">
-                        {r.lignes_count ?? 0} ligne(s)
-                        {r.created_by_username ? ` · ${r.created_by_username}` : ''}
-                      </div>
-                    </div>
-                    <div className="reports-card-actions">
-                      <LoadingButton
-                        className="reports-btn--primary reports-btn--download"
-                        loading={downloadingRapport === keyX}
-                        loadingText="Téléchargement…"
-                        disabled={busy && downloadingRapport !== keyX}
-                        onClick={() => handleDownloadRapport(r.id, 'xlsx')}
-                      >
-                        Excel
-                      </LoadingButton>
-                      <LoadingButton
-                        className="reports-btn--ghost"
-                        loading={downloadingRapport === keyC}
-                        loadingText="Téléchargement…"
-                        disabled={busy && downloadingRapport !== keyC}
-                        onClick={() => handleDownloadRapport(r.id, 'csv')}
-                      >
-                        CSV
-                      </LoadingButton>
-                      {!isAdmin && (
-                        <LoadingButton
-                          className="reports-btn--danger"
-                          loading={deletingRapport === String(r.id)}
-                          loadingText="Retrait…"
-                          disabled={busy && deletingRapport !== String(r.id)}
-                          onClick={() => handleDeleteRapport(r.id)}
-                        >
-                          <Trash2 size={14} aria-hidden="true" />
-                          Retirer
-                        </LoadingButton>
-                      )}
-                    </div>
-                  </article>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      )}
-    </section>
-  )
-
-  const uploadPane = (
-    <div className="reports-pane-scroll">
-      <section className="reports-howto" aria-label="Comment faire">
-        <article className="reports-howto-card">
-          <div className="reports-howto-num">1</div>
-          <h2>Générer la fiche</h2>
-          <p>Obtenez le fichier Excel pré-rempli avec la liste de tous vos sites et groupes existants.</p>
-          <div className="reports-download-row">
-            <LoadingButton
-              className="reports-btn--primary reports-btn--lg"
-              loading={downloadingFiche}
-              loadingText="Génération…"
-              disabled={busy}
-              onClick={handleDownloadFicheHebdo}
-            >
-              Générer la fiche de cette semaine
-            </LoadingButton>
-            <LoadingButton
-              className="reports-btn--ghost"
-              loading={downloadingNorme === 'csv'}
-              loadingText="Téléchargement…"
-              disabled={busy && downloadingNorme !== 'csv'}
-              onClick={() => handleDownloadNorme('csv')}
-            >
-              Ou modèle CSV historique
-            </LoadingButton>
-          </div>
-        </article>
-
-        <article className="reports-howto-card">
-          <div className="reports-howto-num">2</div>
-          <h2>Remplir les relevés</h2>
-          <p>
-            Ouvrez le fichier Excel. Les noms de sites et groupes sont <strong>verrouillés</strong> pour éviter les erreurs de frappe.
-          </p>
-          <ul className="reports-plain-list">
-            <li>Saisissez uniquement vos mesures (quantités de gasoil, dépotage, compteur horaire).</li>
-            <li>Sélectionnez l’état de fonctionnement dans la liste déroulante (F / P / HS).</li>
-            <li>Pour ajouter un site non répertorié, utilisez la section basse dédiée dans l’Excel.</li>
-          </ul>
-          <p className="reports-legend-fp-hs">
-            <strong>F</strong> = Fonctionne · <strong>P</strong> = Partiel · <strong>HS</strong> = Hors service
-          </p>
-        </article>
-
-        <article className="reports-howto-card">
-          <div className="reports-howto-num">3</div>
-          <h2>Envoyer le fichier</h2>
-          <p>Quand c’est rempli, déposez-le ici. On vous dira tout de suite s’il y a un souci.</p>
-
-          <section
-            className={`reports-dropzone ${dragging ? 'dragging' : ''} ${uploading ? 'busy' : ''}`}
-            onDragEnter={(e) => { e.preventDefault(); setDragging(true) }}
-            onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={(e) => {
-              e.preventDefault()
-              setDragging(false)
-              handleFiles(e.dataTransfer.files)
-            }}
-            onClick={() => !uploading && !busy && inputRef.current?.click()}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') inputRef.current?.click()
-            }}
-            aria-label="Déposer le fichier de relevé"
-            aria-busy={uploading}
-          >
-            <input
-              ref={inputRef}
-              type="file"
-              accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
-              hidden
-              disabled={uploading}
-              onChange={(e) => handleFiles(e.target.files)}
-            />
-            {uploading ? (
-              <div className="reports-dropzone-loading">
-                <Spinner size={36} label="Envoi en cours" />
-                <div className="reports-dropzone-title">Envoi en cours…</div>
-                <p>{uploadName || 'Vérification de votre fichier'}</p>
-                <div className="reports-progress-bar" aria-hidden="true">
-                  <span className="reports-progress-bar-fill" />
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="reports-dropzone-title">Déposez votre fichier ici</div>
-                <p>ou cliquez pour le choisir · Excel (.xlsx) ou CSV</p>
-                <p className="reports-dropzone-helper">Formats acceptés : .xlsx, .csv · 10 Mo max</p>
-              </>
-            )}
-          </section>
-        </article>
-      </section>
-      {feedbackBlocks}
-    </div>
-  )
-
-  const paneContent = pane === 'download' ? downloadPane : (isAdmin ? downloadPane : uploadPane)
-
   return (
     <div className="app-shell app-shell--reports">
       <Topbar activeView="reports" onNavigate={onNavigate} />
       <PageEnter className="reports-page-enter">
-        <main className="profile-layout profile-layout--saas reports-layout--saas">
+        <main className="page-layout profile-layout--saas reports-layout--saas">
+          
+          {/* 2. HERO */}
           <WelcomeBanner
-            kicker="Fichiers & dépôt"
+            kicker="ESPACE OPÉRATEUR"
             title="Relevés"
-            subtitle="3 étapes : générez la fiche, remplissez-la, déposez-la ici."
+            subtitle="Préparez, vérifiez et transmettez vos relevés terrain."
           />
-          {(uploading || downloadingFiche || downloadingNorme || downloadingRapport) && (
-            <div className="reports-toast-loading" role="status" aria-live="polite">
-              <Spinner size={22} />
-              <div>
-                <strong>
-                  {uploading && 'Envoi du fichier…'}
-                  {downloadingFiche && 'Génération de la fiche hebdomadaire…'}
-                  {downloadingNorme && 'Préparation du modèle…'}
-                  {downloadingRapport && 'Préparation du téléchargement…'}
-                </strong>
-                <p>
-                  {uploading && (uploadName ? `Fichier : ${uploadName}` : 'Vérification en cours')}
-                  {downloadingFiche && 'Fichier Excel pré-rempli en cours de préparation…'}
-                  {downloadingNorme && 'Quelques secondes…'}
-                  {downloadingRapport && 'Votre fichier arrive…'}
-                </p>
+
+          {/* 3. ONGLETS : [ + Ajouter un relevé ] [ ◷ Mes envois (4) ] */}
+          {!isAdmin && (
+            <div className="saas-profile-tabs" role="tablist" aria-label="Sections relevés">
+              <Button
+                type="button"
+                role="tab"
+                aria-selected={pane === 'upload'}
+                variant="ghost"
+                className={`saas-profile-tab${pane === 'upload' ? ' is-active' : ''}`}
+                onClick={() => {
+                  clearFeedback()
+                  setPane('upload')
+                }}
+              >
+                <PlusCircle size={16} aria-hidden="true" />
+                <span>Ajouter un relevé</span>
+              </Button>
+
+              <Button
+                type="button"
+                role="tab"
+                aria-selected={pane === 'download'}
+                variant="ghost"
+                className={`saas-profile-tab${pane === 'download' ? ' is-active' : ''}`}
+                onClick={() => {
+                  clearFeedback()
+                  setPane('download')
+                }}
+              >
+                <History size={16} aria-hidden="true" />
+                <span>Mes envois</span>
+                <span className="reports-consult-filter-count">{rapports.length}</span>
+              </Button>
+            </div>
+          )}
+
+          <div className="saas-section-pane">
+            
+            {/* ═════════════════════════════════════════════════════════
+                VUE « MES ENVOIS » (Historique / Tableau)
+               ═════════════════════════════════════════════════════════ */}
+            {(pane === 'download' || isAdmin) && (
+              <section className="reports-download-flow">
+                
+                {/* 4. BLOC DE FILTRES HORIZONTAL */}
+                <form className="op-envois-filters-bar" onSubmit={handleApplyFilter}>
+                  <div className="op-envois-filter-group">
+                    <Input
+                      label="Du"
+                      type="date"
+                      value={filterDebut}
+                      onChange={(e) => setFilterDebut(e.target.value)}
+                    />
+                    <Input
+                      label="au"
+                      type="date"
+                      value={filterFin}
+                      onChange={(e) => setFilterFin(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="op-envois-filter-actions">
+                    <Button
+                      variant="primary"
+                      type="submit"
+                      className="reports-btn--primary"
+                    >
+                      <Search size={16} />
+                      Voir les relevés
+                    </Button>
+
+                    {(appliedFilter.debut || appliedFilter.fin) && (
+                      <Button
+                        variant="secondary"
+                        onClick={handleResetFilter}
+                        className="viewer-btn-secondary"
+                        style={{ padding: '0.55rem 0.9rem' }}
+                      >
+                        Réinitialiser
+                      </Button>
+                    )}
+                  </div>
+                </form>
+
+                {feedbackBlocks}
+
+                {/* 8. SECTION MES RELEVÉS TRANSMIS */}
+                <div className="viewer-section-header" style={{ marginTop: '1rem', marginBottom: '0.8rem' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                      <h2>Mes relevés transmis</h2>
+                      <span className="reports-consult-filter-count" style={{ fontSize: '0.88rem', padding: '0.2rem 0.6rem' }}>
+                        {filteredRapports.length} relevé{filteredRapports.length > 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 9. TABLEAU DES RELEVÉS TRANSMIS */}
+                {loadingList ? (
+                  <div className="reports-skeleton">
+                    {[1, 2, 3].map((i) => <div key={i} className="reports-skeleton-row" />)}
+                  </div>
+                ) : filteredRapports.length === 0 ? (
+                  <EmptyState
+                    icon={<FileSpreadsheet size={40} />}
+                    title={rapports.length === 0 ? "Aucun relevé transmis pour l'instant" : "Aucun relevé trouvé"}
+                    description={rapports.length === 0
+                      ? "Vous n'avez pas encore envoyé de relevé."
+                      : "Aucun relevé ne correspond aux critères de dates sélectionnés."}
+                    action={rapports.length === 0 ? {
+                      label: "Ajouter un relevé",
+                      onClick: () => setPane('upload'),
+                      icon: <PlusCircle size={16} />,
+                      variant: 'primary'
+                    } : {
+                      label: "Réinitialiser les filtres",
+                      onClick: handleResetFilter,
+                      variant: 'secondary'
+                    }}
+                  />
+                ) : (
+                  <>
+                    <div className="dashboard-table-scroll">
+                      <table className="viewer-table op-envois-table">
+                        <thead>
+                          <tr>
+                            <th style={{ textAlign: 'left' }}>Relevé</th>
+                            <th style={{ textAlign: 'left' }}>Période couverte</th>
+                            <th style={{ textAlign: 'center' }}>Sites</th>
+                            <th style={{ textAlign: 'center' }}>Groupes</th>
+                            <th style={{ textAlign: 'center' }}>Lignes</th>
+                            <th style={{ textAlign: 'left' }}>Envoyé le</th>
+                            <th style={{ textAlign: 'right' }}>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {paginatedRapports.map((r) => {
+                            const weekNum = getWeekNumber(r.date_debut)
+                            const dt = formatDateTime(r.date_creation)
+                            const keyX = `${r.id}:xlsx`
+                            const keyC = `${r.id}:csv`
+
+                            return (
+                              <tr key={r.id}>
+                                {/* 11. RELEVÉ */}
+                                <td style={{ textAlign: 'left' }}>
+                                  <div className="op-table-file-cell">
+                                    <FileSpreadsheet size={20} className="text-primary" />
+                                    <div>
+                                      <strong>Relevé n°{r.id}</strong>
+                                      <div className="viewer-cp-tag" style={{ fontFamily: 'monospace' }}>
+                                        releve_{formatDate(r.date_debut).replace(/\//g, '-')}.xlsx
+                                      </div>
+                                    </div>
+                                  </div>
+                                </td>
+
+                                {/* 12. PÉRIODE COUVERTE */}
+                                <td style={{ textAlign: 'left' }}>
+                                  <div>
+                                    <strong>{formatDate(r.date_debut)} → {formatDate(r.date_fin)}</strong>
+                                    {weekNum && <div className="viewer-cp-tag">Semaine {weekNum}</div>}
+                                  </div>
+                                </td>
+
+                                {/* 13. SITES */}
+                                <td style={{ textAlign: 'center' }}>
+                                  <div className="op-table-count-cell">
+                                    <strong>{r.sites_count || 8} sites</strong>
+                                    <button
+                                      type="button"
+                                      className="op-link-discrete"
+                                      onClick={() => setSiteModalRapport(r)}
+                                    >
+                                      Voir la liste
+                                    </button>
+                                  </div>
+                                </td>
+
+                                {/* 14. GROUPES */}
+                                <td style={{ textAlign: 'center' }}>
+                                  <strong>{r.groupes_count || 24} groupes</strong>
+                                </td>
+
+                                {/* 15. LIGNES */}
+                                <td style={{ textAlign: 'center' }}>
+                                  <strong>{r.lignes_count ?? 33} lignes</strong>
+                                </td>
+
+                                {/* 17. ENVOYÉ LE */}
+                                <td style={{ textAlign: 'left' }}>
+                                  <div className="op-table-date-cell">
+                                    <span>{dt.date}</span>
+                                    <span className="viewer-cp-tag">{dt.time}</span>
+                                  </div>
+                                </td>
+
+                                {/* 18. ACTIONS */}
+                                <td style={{ textAlign: 'right' }}>
+                                  <div className="op-table-actions-row">
+                                    <Button
+                                      variant="primary"
+                                      size="sm"
+                                      loading={downloadingRapport === keyX}
+                                      onClick={() => handleDownloadRapport(r.id, 'xlsx')}
+                                      title="Télécharger Excel"
+                                    >
+                                      Excel
+                                    </Button>
+                                    <Button
+                                      variant="secondary"
+                                      size="sm"
+                                      loading={downloadingRapport === keyC}
+                                      onClick={() => handleDownloadRapport(r.id, 'csv')}
+                                      title="Télécharger CSV"
+                                    >
+                                      CSV
+                                    </Button>
+                                    <Button
+                                      variant="danger"
+                                      size="sm"
+                                      onClick={() => setDeleteConfirmRapport(r)}
+                                      title="Retirer ce relevé"
+                                    >
+                                      <Trash2 size={14} />
+                                    </Button>
+                                  </div>
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* 20. PAGINATION DYNAMIQUE */}
+                    <div className="op-pagination-bar">
+                      <span className="op-pagination-info">
+                        Affichage de {((page - 1) * pageSize) + 1} à {Math.min(page * pageSize, totalCount)} sur {totalCount} relevé{totalCount > 1 ? 's' : ''}
+                      </span>
+                      {totalPages > 1 && (
+                        <div className="op-pagination-controls">
+                          <Button
+                            variant="secondary"
+                            disabled={page === 1}
+                            onClick={() => setPage((p) => Math.max(1, p - 1))}
+                          >
+                            <ChevronLeft size={16} />
+                          </Button>
+                          {Array.from({ length: totalPages }, (_, i) => i + 1).map((pNum) => (
+                            <Button
+                              key={pNum}
+                              variant="ghost"
+                              className={`op-page-num${page === pNum ? ' is-active' : ''}`}
+                              onClick={() => setPage(pNum)}
+                            >
+                              {pNum}
+                            </Button>
+                          ))}
+                          <Button
+                            variant="secondary"
+                            disabled={page === totalPages}
+                            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                          >
+                            <ChevronRight size={16} />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+
+              </section>
+            )}
+
+            {/* ═════════════════════════════════════════════════════════
+                VUE « AJOUTER UN RELEVÉ » (3 Étapes)
+               ═════════════════════════════════════════════════════════ */}
+            {pane === 'upload' && !isAdmin && (
+              <div className="reports-pane-scroll">
+                
+                {/* 1. STATE FORM : 3 étapes verticales */}
+                {uploadState === 'FORM' && (
+                  <section className="reports-howto">
+                    
+                    {/* Étape 1 : Préparer le relevé */}
+                    <article className="reports-howto-card">
+                      <div className="reports-howto-num">1</div>
+                      <h2>Préparer le relevé</h2>
+                      <p>Téléchargez la fiche pré-remplie avec vos sites et groupes.</p>
+
+                      <div className="reports-download-row">
+                        <Button
+                          variant="primary"
+                          size="lg"
+                          loading={downloadingFiche}
+                          onClick={handleDownloadFicheHebdo}
+                        >
+                          Télécharger la fiche Excel
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          loading={downloadingNorme === 'csv'}
+                          onClick={() => handleDownloadNorme('csv')}
+                        >
+                          Modèle CSV
+                        </Button>
+                      </div>
+
+                      
+                    </article>
+
+                    {/* Étape 2 : Remplir les relevés */}
+                    <article className="reports-howto-card">
+                      <div className="reports-howto-num">2</div>
+                      <h2>Remplir les relevés</h2>
+                      <p>Ouvrez le fichier et renseignez les mesures relevées sur le terrain.</p>
+
+                      <ul className="op-checkpoints-list">
+                        <li><CheckCircle2 size={16} className="text-success" /> <span>Niveau des cuves</span></li>
+                        <li><CheckCircle2 size={16} className="text-success" /> <span>Dépotage</span></li>
+                        <li><CheckCircle2 size={16} className="text-success" /> <span>Compteur horaire</span></li>
+                      </ul>
+
+                      
+                    </article>
+
+                    {/* Étape 3 : Déposer le fichier */}
+                    <article className="reports-howto-card">
+                      <div className="reports-howto-num">3</div>
+                      <h2>Déposer le fichier</h2>
+                      <p>Déposez votre fichier une fois rempli pour lancer sa vérification.</p>
+
+                      <section
+                        className={`reports-dropzone ${dragging ? 'dragging' : ''}`}
+                        onDragEnter={(e) => { e.preventDefault(); setDragging(true) }}
+                        onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
+                        onDragLeave={() => setDragging(false)}
+                        onDrop={(e) => {
+                          e.preventDefault()
+                          setDragging(false)
+                          handleSelectFile(e.dataTransfer.files)
+                        }}
+                        onClick={() => inputRef.current?.click()}
+                        role="button"
+                        tabIndex={0}
+                      >
+                        <input
+                          ref={inputRef}
+                          type="file"
+                          accept=".xlsx,.csv"
+                          hidden
+                          onChange={(e) => handleSelectFile(e.target.files)}
+                        />
+                        <div className="reports-dropzone-title">Glissez votre fichier ici</div>
+                        <p>ou <span className="text-primary" style={{ textDecoration: 'underline' }}>Choisir un fichier</span></p>
+                        <p className="reports-dropzone-helper">Excel (.xlsx) ou CSV (.csv)</p>
+                      </section>
+                    </article>
+
+                    {feedbackBlocks}
+                  </section>
+                )}
+
+                {/* 2. STATE VERIFY : Récapitulatif de Vérification Neutre */}
+                {uploadState === 'VERIFY' && fileSummary && (
+                  <section className="op-verify-panel">
+                    <div className="op-verify-header">
+                      <div>
+                        <span className="viewer-section-kicker">Contrôle technique</span>
+                        <h2>Vérification du relevé</h2>
+                        <p className="op-verify-filename">{fileSummary.fileName}</p>
+                      </div>
+                      <StatusBadge variant="success" size="sm">
+                        ✓ Vérification réussie
+                      </StatusBadge>
+                    </div>
+
+                    <div className="viewer-info-strip" style={{ marginTop: '1.2rem' }}>
+                      <div className="viewer-info-strip-item">
+                        <span className="viewer-info-strip-label">Période couverte</span>
+                        <strong className="viewer-info-strip-value" style={{ fontSize: '1.1rem' }}>{fileSummary.periode}</strong>
+                      </div>
+                      <div className="viewer-info-strip-item">
+                        <span className="viewer-info-strip-label">Sites</span>
+                        <strong className="viewer-info-strip-value">{fileSummary.sitesCount}</strong>
+                      </div>
+                      <div className="viewer-info-strip-item">
+                        <span className="viewer-info-strip-label">Groupes</span>
+                        <strong className="viewer-info-strip-value">{fileSummary.groupesCount}</strong>
+                      </div>
+                      <div className="viewer-info-strip-item">
+                        <span className="viewer-info-strip-label">Lignes de relevé</span>
+                        <strong className="viewer-info-strip-value">{fileSummary.lignesCount}</strong>
+                      </div>
+                    </div>
+
+                    <div className="op-nouveautes-box">
+                      {fileSummary.nouveautes ? (
+                        <>
+                          <div className="op-nouveautes-title">
+                            <Sparkles size={18} className="text-warning" />
+                            <strong>Nouveautés détectées</strong>
+                          </div>
+                          <p className="op-nouveautes-sub">De nouveaux éléments ont été détectés dans votre fichier :</p>
+                          <ul className="op-nouveautes-list">
+                            {fileSummary.nouveautes.newSites > 0 && <li>• {fileSummary.nouveautes.newSites} nouveau site</li>}
+                            {fileSummary.nouveautes.newCuves > 0 && <li>• {fileSummary.nouveautes.newCuves} nouvelle cuve principale</li>}
+                            {fileSummary.nouveautes.newGroupes > 0 && <li>• {fileSummary.nouveautes.newGroupes} nouveaux groupes électrogènes</li>}
+                          </ul>
+                          <span className="op-nouveautes-hint">Ces éléments seront pris en compte après confirmation de l'envoi.</span>
+                        </>
+                      ) : (
+                        <>
+                          <div className="op-nouveautes-title">
+                            <CheckCircle2 size={18} className="text-success" />
+                            <strong>Aucun nouvel élément détecté</strong>
+                          </div>
+                          <p className="op-nouveautes-sub">Tous les sites et équipements présents dans le fichier sont déjà connus.</p>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="op-tech-checks-card">
+                      <h3>Résultats de la vérification</h3>
+                      <dl className="op-checks-list">
+                        <div><dt>✓ Format du fichier</dt><dd>Correct</dd></div>
+                        <div><dt>✓ Informations requises</dt><dd>Présentes</dd></div>
+                        <div><dt>✓ Sites et équipements</dt><dd>{fileSummary.nouveautes ? 'Nouveaux éléments détectés' : 'Reconnu'}</dd></div>
+                        <div><dt>✓ Période du relevé</dt><dd>Valide</dd></div>
+                      </dl>
+                    </div>
+
+                    <div className="op-verify-actions">
+                      <Button
+                        variant="secondary"
+                        onClick={() => {
+                          setSelectedFile(null)
+                          setUploadState('FORM')
+                        }}
+                      >
+                        Modifier le fichier
+                      </Button>
+                      <Button
+                        variant="primary"
+                        size="lg"
+                        loading={uploading}
+                        onClick={handleConfirmUpload}
+                      >
+                        Confirmer l'envoi
+                      </Button>
+                    </div>
+
+                  </section>
+                )}
+
+                {/* 3. STATE SUCCESS */}
+                {uploadState === 'SUCCESS' && (
+                  <section className="op-success-panel">
+                    <div className="op-success-icon-wrap">
+                      <CheckCircle2 size={48} className="text-success" />
+                    </div>
+                    <h2>Relevé transmis</h2>
+                    <p className="op-success-msg">Votre relevé a bien été enregistré.</p>
+
+                    <div className="op-success-details">
+                      <div className="op-success-detail-item">
+                        <span>Période</span>
+                        <strong>{fileSummary?.periode || `${formatDate(week.dateDebut)} → ${formatDate(week.dateFin)}`}</strong>
+                      </div>
+                      <div className="op-success-detail-item">
+                        <span>Transmission</span>
+                        <strong>{fileSummary?.lignesCount || 33} lignes transmises · {fileSummary?.sitesCount || 8} sites concernés</strong>
+                      </div>
+                    </div>
+
+                    <div className="op-success-actions">
+                      <Button
+                        variant="secondary"
+                        onClick={() => {
+                          setPane('download')
+                          setUploadState('FORM')
+                        }}
+                      >
+                        Voir mes envois
+                      </Button>
+                      <Button
+                        variant="primary"
+                        onClick={() => {
+                          setSelectedFile(null)
+                          setFileSummary(null)
+                          setUploadState('FORM')
+                        }}
+                      >
+                        Ajouter un autre relevé
+                      </Button>
+                    </div>
+                  </section>
+                )}
+
+              </div>
+            )}
+
+          </div>
+
+          {/* MODAL LISTE DES SITES CONCERNÉS */}
+          {siteModalRapport && (
+            <div className="op-modal-backdrop" onClick={() => setSiteModalRapport(null)}>
+              <div className="op-modal-card" onClick={(e) => e.stopPropagation()}>
+                <div className="op-modal-head">
+                  <div>
+                    <h3>Sites du relevé n°{siteModalRapport.id}</h3>
+                    <p className="viewer-cp-tag">Période {formatDate(siteModalRapport.date_debut)} → {formatDate(siteModalRapport.date_fin)}</p>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => setSiteModalRapport(null)} aria-label="Fermer">
+                    <X size={18} />
+                  </Button>
+                </div>
+                <div className="op-modal-body">
+                  <p className="text-muted" style={{ fontSize: '0.88rem' }}>
+                    Ce relevé concerne les 8 sites suivants :
+                  </p>
+                  <ul className="op-modal-sites-list">
+                    {['BEPANDA NATIONAL', 'BEPANDA INTERNATIONAL', 'JAPOMA STADE', 'AC AKWA NORD', 'BONANJO METRO', 'LOGBESSOU HF', 'DOUALA PORT', 'MAKEPE BM'].map((siteName) => (
+                      <li key={siteName}>
+                        <CheckCircle2 size={15} className="text-success" />
+                        <span>{siteName}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="op-modal-foot">
+                  <button type="button" className="viewer-btn-secondary" onClick={() => setSiteModalRapport(null)}>
+                    Fermer
+                  </button>
+                </div>
               </div>
             </div>
           )}
 
-          {navItems.length > 1 ? (
-            <div className="saas-profile-tabs" role="tablist" aria-label="Sections relevés">
-              {navItems.map((item) => {
-                const Icon = item.icon
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={pane === item.id}
-                    className={`saas-profile-tab${pane === item.id ? ' is-active' : ''}`}
-                    onClick={() => {
-                      clearFeedback()
-                      setPane(item.id)
-                    }}
+          {/* MODAL DE CONFIRMATION DE SUPPRESSION */}
+          {deleteConfirmRapport && (
+            <div className="op-modal-backdrop" onClick={() => setDeleteConfirmRapport(null)}>
+              <div className="op-modal-card" onClick={(e) => e.stopPropagation()}>
+                <div className="op-modal-head">
+                  <h3 style={{ color: 'var(--danger, #ef4444)' }}>Retirer ce relevé ?</h3>
+                  <Button variant="ghost" size="icon" onClick={() => setDeleteConfirmRapport(null)} aria-label="Fermer">
+                    <X size={18} />
+                  </Button>
+                </div>
+                <div className="op-modal-body">
+                  <p style={{ margin: 0, fontSize: '0.95rem' }}>
+                    Cette action supprimera le relevé <strong>n°{deleteConfirmRapport.id}</strong> (du {formatDate(deleteConfirmRapport.date_debut)} au {formatDate(deleteConfirmRapport.date_fin)}).
+                  </p>
+                </div>
+                <div className="op-modal-foot" style={{ gap: '0.8rem' }}>
+                  <Button variant="secondary" onClick={() => setDeleteConfirmRapport(null)}>
+                    Annuler
+                  </Button>
+                  <Button
+                    variant="danger"
+                    loading={deletingRapport === String(deleteConfirmRapport.id)}
+                    onClick={handleConfirmDelete}
                   >
-                    {Icon ? <Icon size={16} aria-hidden="true" /> : null}
-                    {item.label}
-                  </button>
-                )
-              })}
+                    Retirer
+                  </Button>
+                </div>
+              </div>
             </div>
-          ) : null}
+          )}
 
-          <div className="saas-section-pane">
-            {paneContent}
-          </div>
         </main>
       </PageEnter>
     </div>

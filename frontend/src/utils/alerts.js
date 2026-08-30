@@ -216,7 +216,7 @@ export function buildDashboardAlerts(siteRows = [], groupRows = [], detectedAt =
   const groupWithHighVariance = groupRows
     .filter((g) => isEcartConso(g))
     .map((g) => {
-      const signedEcart = ((g.latest_hourly_consumption - g.mean_hourly_consumption_deduite) / g.mean_hourly_consumption_deduite) * 100
+      const signedEcart = ((g.latest_hourly_consumption - g.previous_hourly_consumption) / g.previous_hourly_consumption) * 100
       const sign = signedEcart >= 0 ? '▲' : '▼'
       const absEcart = Math.abs(signedEcart).toFixed(1)
       return {
@@ -229,8 +229,8 @@ export function buildDashboardAlerts(siteRows = [], groupRows = [], detectedAt =
         group_id: g.id,
         group_label: g.label,
         site_name: g.site_name,
-        title: `Groupe ${g.label} — écart consommation horaire ${sign}${absEcart}% (semaine N)`,
-        subtitle: `Consommation horaire semaine N : ${g.latest_hourly_consumption.toFixed(2)} L/h — Moyenne habituelle : ${g.mean_hourly_consumption_deduite.toFixed(2)} L/h — Écart : ${sign}${absEcart}%.`,
+        title: `Groupe ${g.label} — écart consommation horaire ${sign}${absEcart}% (semaine N vs N-1)`,
+        subtitle: `Consommation horaire semaine N : ${g.latest_hourly_consumption.toFixed(2)} L/h — Semaine N-1 : ${g.previous_hourly_consumption.toFixed(2)} L/h — Écart : ${sign}${absEcart}%.`,
         is_infinite_consumption: false,
         ecart_pct: Math.abs(signedEcart),
         detected_at: stamp,

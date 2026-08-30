@@ -3,6 +3,8 @@ import { ArrowRight, Bell, CheckCircle2, History } from 'lucide-react'
 import Topbar from '../components/Topbar.jsx'
 import PageEnter from '../components/PageEnter.jsx'
 import PageLoader from '../components/PageLoader.jsx'
+import { Button } from '../components/ui/button.jsx'
+import { EmptyState } from '../components/ui/empty-state.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { listAlertes, treatAlert } from '../auth.js'
 import { requestBadgesRefresh } from '../utils/badges.js'
@@ -225,15 +227,15 @@ function AlertCard({ alert, panel, isAdmin, isFocused, onOpen, onTreat, delay = 
         ) : null}
 
         <footer className="alx-card-actions">
-          <button type="button" className="alx-btn alx-btn--ghost" onClick={onOpen}>
+          <Button variant="ghost" onClick={onOpen}>
             {alert.target === 'groups' ? 'Ouvrir le groupe' : 'Ouvrir le site'}
             <ArrowRight size={16} aria-hidden="true" />
-          </button>
+          </Button>
           {isAdmin && panel === 'active' && (
-            <button type="button" className="alx-btn alx-btn--primary" onClick={onTreat}>
+            <Button variant="primary" onClick={onTreat}>
               <CheckCircle2 size={17} aria-hidden="true" />
               Marquer comme traitée
-            </button>
+            </Button>
           )}
         </footer>
       </div>
@@ -241,26 +243,6 @@ function AlertCard({ alert, panel, isAdmin, isFocused, onOpen, onTreat, delay = 
   )
 }
 
-/* ————— État vide ————— */
-
-function EmptyState({ panel }) {
-  if (panel === 'history') {
-    return (
-      <div className="alx-empty">
-        <div className="alx-empty-icon"><History size={28} aria-hidden="true" /></div>
-        <h3>Aucune alerte dans cette période.</h3>
-        <p>Changez la période ou le niveau pour retrouver plus d’historique.</p>
-      </div>
-    )
-  }
-  return (
-    <div className="alx-empty">
-      <div className="alx-empty-icon"><CheckCircle2 size={30} aria-hidden="true" /></div>
-      <h3>Rien à signaler, tout va bien.</h3>
-      <p>Les alertes apparaîtront ici dès qu’une situation demandera votre attention.</p>
-    </div>
-  )
-}
 
 /* ————— Modal de traitement ————— */
 
@@ -351,12 +333,12 @@ function TreatAlertModal({ alert, onClose, onConfirm, title }) {
           </label>
           {error && <p className="alert-treat-error" role="alert">{error}</p>}
           <div className="rapport-modal-actions">
-            <button type="button" className="reports-btn reports-btn--ghost" onClick={onClose} disabled={saving}>
+            <Button variant="ghost" onClick={onClose} disabled={saving}>
               Annuler
-            </button>
-            <button type="submit" className="reports-btn reports-btn--primary" disabled={saving}>
+            </Button>
+            <Button variant="primary" type="submit" loading={saving}>
               {saving ? 'Enregistrement…' : 'Confirmer'}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
@@ -548,13 +530,12 @@ function AlertsPage({ onNavigate }) {
               <strong>Problème</strong>
               <p>{loadError}</p>
             </div>
-            <button
-              type="button"
-              className="reports-btn reports-btn--primary"
+            <Button
+              variant="primary"
               onClick={() => window.location.reload()}
             >
               Réessayer
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -565,7 +546,7 @@ function AlertsPage({ onNavigate }) {
     <div className="app-shell dashboard-shell">
       <Topbar activeView="alerts" onNavigate={onNavigate} />
       <PageEnter className="alerts-page-enter">
-        <main className="alx-layout">
+        <main className="page-layout">
           <AlertsHero counts={counts} />
 
           {message && <div className="reports-success" role="status">{message}</div>}
@@ -615,7 +596,13 @@ function AlertsPage({ onNavigate }) {
                 }}
               />
             )) : (
-              <EmptyState panel={panel} />
+              <EmptyState
+                icon={panel === 'history' ? <History size={30} /> : <CheckCircle2 size={30} />}
+                title={panel === 'history' ? "Aucune alerte dans cette période." : "Rien à signaler, tout va bien."}
+                description={panel === 'history'
+                  ? "Changez la période ou le niveau pour retrouver plus d’historique."
+                  : "Les alertes apparaîtront ici dès qu’une situation demandera votre attention."}
+              />
             )}
           </section>
         </main>

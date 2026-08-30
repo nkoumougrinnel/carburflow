@@ -1,11 +1,28 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Fuel } from 'lucide-react'
+import { ShieldCheck } from 'lucide-react'
 import Topbar from '../components/Topbar.jsx'
 import WelcomeBanner from '../components/WelcomeBanner.jsx'
 import PageEnter from '../components/PageEnter.jsx'
 import PageLoader from '../components/PageLoader.jsx'
-import AutonomyBadge from '../components/AutonomyBadge.jsx'
 import { apiFetch } from '../auth.js'
+import { StatusBadge } from '../components/ui/status-badge.jsx'
+import { TankGauge } from '../components/ui/tank-gauge.jsx'
+
+export function ViewerStatusBadge({ statusKey, size = 'sm' }) {
+  const config = {
+    CRITICAL: { label: 'Critique', variant: 'critical' },
+    WARNING: { label: 'À surveiller', variant: 'warning' },
+    NORMAL: { label: 'Normal', variant: 'success' },
+  }
+
+  const meta = config[statusKey] || config.NORMAL
+
+  return (
+    <StatusBadge variant={meta.variant} size={size}>
+      {meta.label}
+    </StatusBadge>
+  )
+}
 
 function UserHomePage({ onNavigate }) {
   const [sitesDashboard, setSitesDashboard] = useState(null)
@@ -17,8 +34,8 @@ function UserHomePage({ onNavigate }) {
     const load = async () => {
       setLoading(true)
       try {
-        const sites = await apiFetch('/api/dashboard/sites')
-        if (!cancelled) setSitesDashboard(sites)
+        const data = await apiFetch('/api/dashboard/sites')
+        if (!cancelled) setSitesDashboard(data)
       } catch (err) {
         if (!cancelled) setError(err.message || 'Impossible de charger les sites.')
       } finally {
@@ -29,37 +46,56 @@ function UserHomePage({ onNavigate }) {
     return () => { cancelled = true }
   }, [])
 
-  const sites = useMemo(() => {
-    if (!sitesDashboard) return []
-    const byId = new Map()
-    ;[
-      ...(sitesDashboard.volumeSeries || []),
-      ...(sitesDashboard.consumptionSeries || []),
-      ...(sitesDashboard.hoursSeries || []),
-    ].forEach((site) => {
-      byId.set(String(site.id), {
-        id: site.id,
-        nom: site.nom_site || site.label || `Site ${site.id}`,
-      })
-    })
-    return [...byId.values()].sort((a, b) => String(a.nom).localeCompare(String(b.nom), 'fr'))
+  const parsedSites = useMemo(() => {
+    if (!sitesDashboard?.volumeSeries) return []
+
+    return sitesDashboard.volumeSeries.map((series) => {
+      const dataPoints = series.data || []
+      const latestVolume = dataPoints.length > 0 ? (dataPoints[dataPoints.length - 1] ?? 0) : 0
+      const capacity = series.capacity || 3000
+      const cpId = series.cp_identifiant || `CP${String(series.id).padStart(3, '0')}`
+      const percent = capacity > 0 ? (latestVolume / capacity) * 100 : 0
+
+      let statusKey = 'NORMAL'
+      if (percent < 20) statusKey = 'CRITICAL'
+      else if (percent < 40) statusKey = 'WARNING'
+
+      return {
+        id: series.id,
+        nom: series.nom_site || series.label || `Site ${series.id}`,
+        cpIdentifiant: cpId,
+        currentVolume: Math.round(latestVolume),
+        capacity: Math.round(capacity),
+        percent: Number(percent.toFixed(1)),
+        statusKey,
+      }
+    }).sort((a, b) => a.nom.localeCompare(b.nom, 'fr'))
   }, [sitesDashboard])
 
-  const autonomyBySite = sitesDashboard?.autonomyBySite || {}
-  const criticalCount = sites.filter((site) => {
-    const entity = autonomyBySite[String(site.id)] || autonomyBySite[site.id] || {}
-    if (entity.is_infinite_consumption || entity.is_infinite_autonomy || entity.is_sans_fonctionnement) {
-      return false
-    }
-    const hrs = entity.autonomie_hours
-    return hrs != null && Number(hrs) < 24
-  }).length
+  const prioritySites = useMemo(() => {
+    return parsedSites
+      .filter((s) => s.statusKey === 'CRITICAL' || s.statusKey === 'WARNING')
+      .sort((a, b) => a.percent - b.percent)
+  }, [parsedSites])
+
+  const totalSitesCount = parsedSites.length
+  const normalSitesCount = parsedSites.filter((s) => s.statusKey === 'NORMAL').length
+  const watchSitesCount = parsedSites.filter((s) => s.statusKey !== 'NORMAL').length
+
+  const openSiteDetails = (site) => {
+    onNavigate?.({
+      view: 'sites',
+      siteId: site.id,
+      siteName: site.nom,
+      mode: 'details',
+    })
+  }
 
   if (loading) {
     return (
       <div className="app-shell">
         <Topbar activeView="viewer" onNavigate={onNavigate} />
-        <PageLoader label="Chargement de votre espace…" />
+        <PageLoader label="Chargement de l'état de vos sites…" />
       </div>
     )
   }
@@ -69,77 +105,110 @@ function UserHomePage({ onNavigate }) {
       <Topbar activeView="viewer" onNavigate={onNavigate} />
       <PageEnter>
         <main className="user-home">
+
           <WelcomeBanner
             kicker="Espace consultation"
-            subtitle="Suivez l’autonomie de vos sites. Vous consultez uniquement — pas d’envoi de relevés."
+            subtitle="État de vos sites — Consultez rapidement le niveau de carburant de vos cuves principales."
           />
 
           {error && (
             <div className="reports-error-panel" role="alert">
               <div className="reports-error-panel-head">
-                <strong>Problème</strong>
+                <strong>Problème de chargement</strong>
                 <p>{error}</p>
               </div>
             </div>
           )}
 
-          <section className="user-home-stats" aria-label="Résumé">
-            <article className="user-home-stat">
-              <span className="user-home-stat-label">Sites visibles</span>
-              <strong className="user-home-stat-value">{sites.length}</strong>
-              <span className="user-home-stat-hint">Consultation seule</span>
+          {/* 3 indicateurs simples */}
+          <section className="viewer-indicators-grid" aria-label="État général du parc">
+            <article className="viewer-indicator-card">
+              <span className="viewer-indicator-value">{totalSitesCount}</span>
+              <span className="viewer-indicator-label">Sites suivis</span>
+              <span className="viewer-indicator-sub">Parc sous surveillance</span>
             </article>
-            <article className="user-home-stat">
-              <span className="user-home-stat-label">À surveiller</span>
-              <strong className={`user-home-stat-value${criticalCount > 0 ? ' is-urgent' : ''}`}>
-                {criticalCount}
-              </strong>
-              <span className="user-home-stat-hint">Autonomie &lt; 24 h</span>
+
+            <article className="viewer-indicator-card viewer-indicator-card--normal">
+              <span className="viewer-indicator-value">{normalSitesCount}</span>
+              <span className="viewer-indicator-label">Niveau normal</span>
+              <span className="viewer-indicator-sub">Cuves ≥ 40%</span>
             </article>
-            <article className="user-home-stat">
-              <span className="user-home-stat-label">Votre rôle</span>
-              <strong className="user-home-stat-value user-home-stat-value--sm">Consultation</strong>
-              <span className="user-home-stat-hint">Pas d’envoi de relevé</span>
+
+            <article className={`viewer-indicator-card ${watchSitesCount > 0 ? 'viewer-indicator-card--warning' : ''}`}>
+              <span className="viewer-indicator-value">{watchSitesCount}</span>
+              <span className="viewer-indicator-label">À surveiller</span>
+              <span className="viewer-indicator-sub">Cuves faibles ou critiques</span>
             </article>
           </section>
 
-          <section className="user-home-panel">
-            <div className="user-home-panel-head">
+          {/* Sites à surveiller */}
+          <section className="viewer-section-panel">
+            <div className="viewer-section-header">
               <div>
-                <h2>Sites</h2>
-                <p>Aperçu de l’autonomie — ouvrez un site pour le détail.</p>
+                <span className="viewer-section-kicker">Attention prioritaire</span>
+                <h2>Sites à surveiller</h2>
+                <p>Accès prioritaire aux cuves principales nécessitant votre attention.</p>
               </div>
             </div>
-            {sites.length === 0 ? (
-              <p className="reports-empty">Aucun site disponible pour le moment.</p>
+
+            {prioritySites.length === 0 ? (
+              <div className="viewer-empty-card">
+                <ShieldCheck size={32} className="text-success" />
+                <div>
+                  <strong>Toutes vos cuves principales ont un niveau normal !</strong>
+                  <p>Aucun site ne nécessite d'attention particulière actuellement.</p>
+                </div>
+              </div>
             ) : (
-              <ul className="user-home-site-list">
-                {sites.map((site) => {
-                  const siteAut = autonomyBySite[String(site.id)] || autonomyBySite[site.id] || {}
-                  return (
-                    <li key={site.id}>
-                      <button
-                        type="button"
-                        className="user-home-site-row"
-                        onClick={() => onNavigate({
-                          view: 'sites',
-                          siteId: site.id,
-                          siteName: site.nom,
-                          mode: 'details',
-                        })}
-                      >
-                        <span className="user-home-site-icon" aria-hidden="true">
-                          <Fuel size={16} />
-                        </span>
-                        <span className="user-home-site-name">{site.nom}</span>
-                        <AutonomyBadge entity={siteAut} size="sm" showLabel={false} />
-                      </button>
-                    </li>
-                  )
-                })}
-              </ul>
+              <div className="viewer-watch-grid">
+                {prioritySites.map((site) => (
+                  <article
+                    key={site.id}
+                    className="viewer-watch-card"
+                    onClick={() => openSiteDetails(site)}
+                    tabIndex={0}
+                    role="button"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        openSiteDetails(site)
+                      }
+                    }}
+                  >
+                    <div className="viewer-watch-card-head">
+                      <div>
+                        <h3>{site.nom}</h3>
+                        <span className="viewer-cp-tag">Cuve principale · {site.cpIdentifiant}</span>
+                      </div>
+                      <ViewerStatusBadge statusKey={site.statusKey} size="sm" />
+                    </div>
+
+                    <div className="viewer-watch-card-body">
+                      <TankGauge
+                        variant="vertical"
+                        percent={site.percent}
+                        currentVolume={site.currentVolume}
+                        capacity={site.capacity}
+                      />
+
+                      <div className="viewer-watch-card-info">
+                        <div className="viewer-watch-percent">{Math.round(site.percent)} %</div>
+                        <div className="viewer-watch-volumes">
+                          {site.currentVolume.toLocaleString('fr-FR')} L / {site.capacity.toLocaleString('fr-FR')} L
+                        </div>
+                        <p className="viewer-watch-hint">
+                          {site.statusKey === 'CRITICAL'
+                            ? 'Réservoir principal très faible, réapprovisionnement urgent.'
+                            : 'Niveau en baisse à suivre de près.'}
+                        </p>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
             )}
           </section>
+
         </main>
       </PageEnter>
     </div>

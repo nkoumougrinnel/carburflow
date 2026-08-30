@@ -1,10 +1,20 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import Topbar from '../components/Topbar.jsx'
 import WelcomeBanner from '../components/WelcomeBanner.jsx'
+import Button from '../components/ui/button.jsx'
+import { EmptyState } from '../components/ui/empty-state.jsx'
+import { Select } from '../components/ui/select.jsx'
 import { apiFetch, listAlertes } from '../auth.js'
 import AutonomyBadge from '../components/AutonomyBadge.jsx'
 import PageLoader from '../components/PageLoader.jsx'
 import PageEnter from '../components/PageEnter.jsx'
+import {
+  isFiniteNumber,
+  buildDerivedMetric,
+  buildPeriodSeriesStats,
+  buildHourlyRateSeries,
+  buildHourlyConsumptionStats,
+} from '../utils/stats.js'
 import { useChartPalette } from '../hooks/useChartPalette.js'
 import { createChart, defaultPeriodIndices, MAX_CHART_WEEKS, seriesPointRadius, toChartLabels, visibleChartRange, xAxisTicks } from '../utils/chartAxis.js'
 import {
@@ -15,15 +25,6 @@ import {
   METRIC_LABELS,
 } from '../utils/format.js'
 import { normalizePersistedAlert } from '../utils/alerts.js'
-
-const isFiniteNumber = (value) => typeof value === 'number' && Number.isFinite(value)
-
-const lastFinite = (values = []) => {
-  for (let i = values.length - 1; i >= 0; i -= 1) {
-    if (isFiniteNumber(values[i])) return values[i]
-  }
-  return null
-}
 
 const formatMetric = (value, digits = 1) => (
   isFiniteNumber(value) ? value.toFixed(digits) : '—'
@@ -49,177 +50,7 @@ const buildGroupAutonomyEntity = (group) => ({
   indet_reason: group.indet_reason || null,
 })
 
-
-const buildDerivedMetric = (values = []) => {
-  // Ignore uniquement les null/absents — les 0 entrent dans la moyenne
-  const normalizedValues = (values || []).filter(isFiniteNumber)
-  if (!normalizedValues.length) {
-    return {
-      total: 0,
-      mean: 0,
-      all_time_mean: 0,
-      all_time_stddev: 0,
-      variation_pct: null,
-      mean_variation_pct: null,
-      has_previous_period: false,
-    }
-  }
-
-  const total = normalizedValues.reduce((sum, value) => sum + value, 0)
-  const mean = total / normalizedValues.length
-  const firstValue = normalizedValues[0]
-  const variationPct = firstValue === 0 ? null : ((normalizedValues[normalizedValues.length - 1] - firstValue) / firstValue) * 100
-  const meanVariationPct = firstValue === 0 ? null : ((mean - firstValue) / firstValue) * 100
-  const variance = normalizedValues.reduce((sum, value) => sum + (value - mean) ** 2, 0) / normalizedValues.length
-
-  return {
-    total: Number(total.toFixed(1)),
-    mean: Number(mean.toFixed(1)),
-    all_time_mean: Number(mean.toFixed(1)),
-    all_time_stddev: Number(Math.sqrt(variance).toFixed(1)),
-    variation_pct: variationPct === null ? null : Number(variationPct.toFixed(1)),
-    mean_variation_pct: meanVariationPct === null ? null : Number(meanVariationPct.toFixed(1)),
-    has_previous_period: normalizedValues.length > 1,
-  }
-}
-
 const safeNum = (value) => (isFiniteNumber(value) ? value : 0)
-
-/** Stats sur une série (semaine N / N-1 / total / moyenne).
- * Ignore les null (pas de relevé) — les 0 entrent dans la moyenne.
- */
-const buildPeriodSeriesStats = (values = [], options = {}) => {
-  const series = values || []
-  if (!series.length) {
-    return { weekN: null, weekN1: null, total: null, mean: null }
-  }
-  const finite = series.filter(isFiniteNumber)
-  const excludeZeroValues = options.excludeZeroValues === true
-  const meaningful = excludeZeroValues ? finite.filter((value) => value > 0) : finite
-  const total = finite.reduce((sum, value) => sum + value, 0)
-  const weekN = lastFinite(series)
-  let weekN1 = null
-  if (series.length > 1) {
-    for (let i = series.length - 2; i >= 0; i -= 1) {
-      if (isFiniteNumber(series[i])) {
-        weekN1 = series[i]
-        break
-      }
-    }
-  }
-  return {
-    weekN,
-    weekN1,
-    total: finite.length ? total : null,
-    mean: meaningful.length ? totalOf(meaningful) / meaningful.length : null,
-  }
-}
-
-const totalOf = (values = []) => values.reduce((sum, value) => sum + value, 0)
-
-/**
- * Série L/h pour la courbe :
- * - zero     : conso = 0 & heures > 0 → 0 L/h (point normal sur la courbe)
- * - infinite : conso > 0 & heures = 0 → ∞ (marqueur en haut d’échelle)
- * - missing  : pas de relevé (null) → trou
- * Toute date avec heures + conso numériques est affichée (y compris 0h/0L → 0).
- */
-const buildHourlyRateSeries = (hours = [], consumption = []) => {
-  const len = Math.max(hours.length, consumption.length)
-  const kinds = []
-  const raw = []
-
-  for (let index = 0; index < len; index += 1) {
-    const hoursValue = hours[index]
-    const consumptionValue = consumption[index]
-    if (!isFiniteNumber(hoursValue) || !isFiniteNumber(consumptionValue)) {
-      kinds.push('missing')
-      raw.push(null)
-      continue
-    }
-    if (hoursValue > 0 && consumptionValue === 0) {
-      kinds.push('zero')
-      raw.push(0)
-      continue
-    }
-    if (hoursValue === 0 && consumptionValue > 0) {
-      kinds.push('infinite')
-      raw.push(Infinity)
-      continue
-    }
-    if (hoursValue > 0) {
-      kinds.push('normal')
-      raw.push(Number((consumptionValue / hoursValue).toFixed(2)))
-      continue
-    }
-    // 0 h et 0 L : point à 0 pour garder toutes les dates visibles
-    kinds.push('zero')
-    raw.push(0)
-  }
-
-  const finitePositive = raw.filter((value) => isFiniteNumber(value) && value > 0)
-  const finiteAll = raw.filter((value) => isFiniteNumber(value))
-  const hasInfinite = raw.some((value) => value === Infinity)
-  const baseMax = finitePositive.length
-    ? Math.max(...finitePositive)
-    : (finiteAll.length ? Math.max(...finiteAll, 1) : 1)
-  const infinityDisplay = Number((Math.max(baseMax * 1.35, 1)).toFixed(2))
-  const suggestedMax = hasInfinite
-    ? infinityDisplay
-    : (finiteAll.length ? Math.max(...finiteAll, 0) * 1.1 || 1 : 1)
-
-  const data = raw.map((value) => (value === Infinity ? infinityDisplay : value))
-
-  return {
-    data,
-    kinds,
-    infinityDisplay,
-    suggestedMax,
-    hasZero: kinds.includes('zero'),
-    hasInfinite,
-  }
-}
-
-/**
- * Métriques L/h : uniquement sur les taux d'heures de fonctionnement (> 0 L/h).
- * Exclus : 0 L/h (sans fonctionnement), ∞ et absents.
- */
-const buildHourlyConsumptionStats = (hours = [], consumption = []) => {
-  const series = buildHourlyRateSeries(hours, consumption)
-  const rates = series.data
-    .map((value, index) => {
-      const kind = series.kinds[index]
-      if (kind === 'normal' && isFiniteNumber(value) && value > 0) return value
-      return null
-    })
-    .filter(isFiniteNumber)
-
-  if (!rates.length) {
-    return {
-      mean: null,
-      max: null,
-      min: null,
-      stddev: null,
-      noData: true,
-      zeroCount: series.kinds.filter((k) => k === 'zero').length,
-      infiniteCount: series.kinds.filter((k) => k === 'infinite').length,
-    }
-  }
-
-  const mean = rates.reduce((sum, value) => sum + value, 0) / rates.length
-  const variance = rates.reduce((sum, value) => sum + (value - mean) ** 2, 0) / rates.length
-
-  return {
-    mean,
-    max: Math.max(...rates),
-    min: Math.min(...rates),
-    stddev: Math.sqrt(variance),
-    noData: false,
-    zeroCount: series.kinds.filter((k) => k === 'zero').length,
-    infiniteCount: series.kinds.filter((k) => k === 'infinite').length,
-  }
-}
-
 const renderHourlyMetric = (value, digits = 2) => {
   if (value == null || !Number.isFinite(value)) return '— L/h'
   return `${value.toFixed(digits)} L/h`
@@ -583,69 +414,52 @@ function GroupsPage({ onNavigate }) {
       )}
 
       <PageEnter>
-      <main className={`groups-grid ${filtering ? 'is-filtering' : ''}`}>
+      <main className={`page-layout groups-grid ${filtering ? 'is-filtering' : ''}`}>
         <WelcomeBanner
           kicker="Machines & consommation"
           title="Groupes électrogènes"
           subtitle="Heures, conso et écarts — affinez avec les filtres si besoin."
         />
         <form className="groups-filter-bar" onSubmit={(event) => event.preventDefault()}>
-          <div className="filter-field">
-            <label htmlFor="rapport_debut">Période — début</label>
-            <select
-              id="rapport_debut"
-              value={rapportDebut}
-              disabled={filtering}
-              onChange={(event) => runFilters({ rapportDebut: event.target.value })}
-            >
-              {(groupsData.rapport_choices || []).map((choice) => (
-                <option key={choice.id} value={String(choice.id)}>{choice.label}</option>
-              ))}
-            </select>
-          </div>
-          <div className="filter-field">
-            <label htmlFor="rapport_fin">Période — fin</label>
-            <select
-              id="rapport_fin"
-              value={rapportFin}
-              disabled={filtering}
-              onChange={(event) => runFilters({ rapportFin: event.target.value })}
-            >
-              {(groupsData.rapport_choices || []).map((choice) => (
-                <option key={choice.id} value={String(choice.id)}>{choice.label}</option>
-              ))}
-            </select>
-          </div>
-          <div className="filter-field">
-            <label htmlFor="site_id">Site</label>
-            <select
-              id="site_id"
-              value={siteId}
-              disabled={filtering}
-              onChange={(event) => runFilters({ siteId: event.target.value })}
-            >
-              <option value="">Tous les sites</option>
-              {(groupsData.sites || []).map((site) => (
-                <option key={site.id} value={String(site.id)}>{site.nom_site}</option>
-              ))}
-            </select>
-          </div>
-          <div className="filter-field">
-            <label htmlFor="view_mode">Affichage</label>
-            <select
-              id="view_mode"
-              value={mode}
-              disabled={filtering}
-              onChange={(event) => {
-                const next = event.target.value
-                setMode(next)
-                if (next === 'all') setSelectedGroupId('')
-              }}
-            >
-              <option value="all">Vue d’ensemble</option>
-              <option value="details">Détail</option>
-            </select>
-          </div>
+          <Select
+            label="Date — début"
+            id="rapport_debut"
+            value={rapportDebut}
+            disabled={filtering}
+            onChange={(event) => runFilters({ rapportDebut: event.target.value })}
+            options={(groupsData.rapport_choices || []).map((choice) => ({ label: choice.label, value: String(choice.id) }))}
+          />
+          <Select
+            label="Date — fin"
+            id="rapport_fin"
+            value={rapportFin}
+            disabled={filtering}
+            onChange={(event) => runFilters({ rapportFin: event.target.value })}
+            options={(groupsData.rapport_choices || []).map((choice) => ({ label: choice.label, value: String(choice.id) }))}
+          />
+          <Select
+            label="Site"
+            id="site_id"
+            value={siteId}
+            disabled={filtering}
+            onChange={(event) => runFilters({ siteId: event.target.value })}
+            options={(groupsData.sites || []).map((site) => ({ label: site.nom_site, value: String(site.id) }))}
+          />
+          <Select
+            label="Affichage"
+            id="view_mode"
+            value={mode}
+            disabled={filtering}
+            onChange={(event) => {
+              const next = event.target.value
+              setMode(next)
+              if (next === 'all') setSelectedGroupId('')
+            }}
+            options={[
+              { label: 'Vue d’ensemble', value: 'all' },
+              { label: 'Détail', value: 'details' },
+            ]}
+          />
         </form>
 
         {(mode !== 'all' && siteId) && (
@@ -697,64 +511,78 @@ function GroupsPage({ onNavigate }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {(groupsData.group_blocks || []).map((g) => {
-                      const siteName = g.site_nom || g.nom_site || g.site_name || (groupsData.sites || []).find((s) => String(s.id) === String(g.site_id))?.nom_site || ''
-                      const hoursWindow = (g.hours_run || []).slice(startIndex, endIndex + 1)
-                      const consWindow = (g.consumption || []).slice(startIndex, endIndex + 1)
-                      const consumption = buildPeriodSeriesStats(consWindow)
-                      const hours = buildPeriodSeriesStats(hoursWindow)
-                      const autonomyEntity = buildGroupAutonomyEntity(g)
-                      const severity = getAutonomySeverity(autonomyEntity)
-                      const relatedAlerts = alertsByGroupId.get(String(g.id)) || []
-                      const autonomyTitle = getAutonomyHint(autonomyEntity)
-                      return (
-                        <tr
-                          key={g.id}
-                          className={`autonomy-row autonomy-row--${severity} dashboard-row-link`}
-                          onClick={() => openGroupDetails(g)}
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter' || event.key === ' ') {
-                              event.preventDefault()
-                              openGroupDetails(g)
-                            }
-                          }}
-                          tabIndex={0}
-                          role="link"
-                          aria-label={`Ouvrir le détail du groupe ${g.label}`}
-                        >
-                          <td>{g.label}</td>
-                          <td>{siteName}</td>
-                          <td>
-                            {relatedAlerts.length ? (
-                              <button
-                                type="button"
-                                className="group-alert-chip"
-                                title={relatedAlerts.map((a) => a.title).join(' · ')}
-                                onClick={(event) => {
-                                  event.stopPropagation()
-                                  onNavigate?.({
-                                    view: 'alerts',
-                                    groupId: g.id,
-                                    groupLabel: g.label,
-                                  })
-                                }}
-                              >
-                                {relatedAlerts.length} alerte{relatedAlerts.length > 1 ? 's' : ''}
-                              </button>
-                            ) : (
-                              <span className="group-alert-none">—</span>
-                            )}
-                          </td>
-                          <td>{formatMetric(consumption.weekN)}</td>
-                          <td>{formatMetric(consumption.weekN1)}</td>
-                          <td>{formatMetric(consumption.mean)}</td>
-                          <td>{formatMetric(hours.weekN)}</td>
-                          <td>
-                            <AutonomyBadge entity={autonomyEntity} size="sm" />
-                          </td>
-                        </tr>
-                      )
-                    })}
+                    {(groupsData.group_blocks || []).length > 0 ? (
+                      (groupsData.group_blocks || []).map((g) => {
+                        const siteName = g.site_nom || g.nom_site || g.site_name || (groupsData.sites || []).find((s) => String(s.id) === String(g.site_id))?.nom_site || ''
+                        const hoursWindow = (g.hours_run || []).slice(startIndex, endIndex + 1)
+                        const consWindow = (g.consumption || []).slice(startIndex, endIndex + 1)
+                        const consumption = buildPeriodSeriesStats(consWindow)
+                        const hours = buildPeriodSeriesStats(hoursWindow)
+                        const autonomyEntity = buildGroupAutonomyEntity(g)
+                        const severity = getAutonomySeverity(autonomyEntity)
+                        const relatedAlerts = alertsByGroupId.get(String(g.id)) || []
+                        const autonomyTitle = getAutonomyHint(autonomyEntity)
+                        return (
+                          <tr
+                            key={g.id}
+                            className={`autonomy-row autonomy-row--${severity} dashboard-row-link`}
+                            onClick={() => openGroupDetails(g)}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault()
+                                openGroupDetails(g)
+                              }
+                            }}
+                            tabIndex={0}
+                            role="link"
+                            aria-label={`Ouvrir le détail du groupe ${g.label}`}
+                          >
+                            <td>{g.label}</td>
+                            <td>{siteName}</td>
+                            <td>
+                              {relatedAlerts.length ? (
+                                <Button
+                                  type="button"
+                                  variant="secondary"
+                                  size="sm"
+                                  className="group-alert-chip"
+                                  title={relatedAlerts.map((a) => a.title).join(' · ')}
+                                  onClick={(event) => {
+                                    event.stopPropagation()
+                                    onNavigate?.({
+                                      view: 'alerts',
+                                      groupId: g.id,
+                                      groupLabel: g.label,
+                                    })
+                                  }}
+                                >
+                                  {relatedAlerts.length} alerte{relatedAlerts.length > 1 ? 's' : ''}
+                                </Button>
+                              ) : (
+                                <span className="group-alert-none">—</span>
+                              )}
+                            </td>
+                            <td>{formatMetric(consumption.weekN)}</td>
+                            <td>{formatMetric(consumption.weekN1)}</td>
+                            <td>{formatMetric(consumption.mean)}</td>
+                            <td>{formatMetric(hours.weekN)}</td>
+                            <td>
+                              <AutonomyBadge entity={autonomyEntity} size="sm" />
+                            </td>
+                          </tr>
+                        )
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan={8}>
+                          <EmptyState
+                            icon={<div className="text-muted">⚙️</div>}
+                            title="Aucun groupe électrogène"
+                            description="Aucune machine n'est actuellement enregistrée dans le système."
+                          />
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -792,8 +620,9 @@ function GroupsPage({ onNavigate }) {
                       <ul>
                         {relatedAlerts.map((alert) => (
                           <li key={alert.id}>
-                            <button
+                            <Button
                               type="button"
+                              variant="ghost"
                               className="group-related-alert-link"
                               onClick={() => onNavigate?.({
                                 view: 'alerts',
@@ -802,7 +631,7 @@ function GroupsPage({ onNavigate }) {
                               })}
                             >
                               {alert.title}
-                            </button>
+                            </Button>
                           </li>
                         ))}
                       </ul>
@@ -881,7 +710,6 @@ function GroupsPage({ onNavigate }) {
 
                       <div className="metric-stat-block">
                         <span className="curve-title">Consommation horaire</span>
-                        <p className="group-block-note">Sur les périodes de fonctionnement (&gt; 0 L/h)</p>
                         {hourlyStats.noData ? (
                           <div className="group-stats">
                             <div>

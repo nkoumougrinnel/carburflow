@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import Topbar from '../components/Topbar.jsx'
 import WelcomeBanner from '../components/WelcomeBanner.jsx'
+import Button from '../components/ui/button.jsx'
+import { EmptyState } from '../components/ui/empty-state.jsx'
+import { Select } from '../components/ui/select.jsx'
 import { apiFetch } from '../auth.js'
 import AutonomyBadge from '../components/AutonomyBadge.jsx'
 import PageLoader from '../components/PageLoader.jsx'
@@ -8,6 +11,8 @@ import PageEnter from '../components/PageEnter.jsx'
 import { useChartPalette } from '../hooks/useChartPalette.js'
 import { createChart, defaultPeriodIndices, MAX_CHART_WEEKS, seriesPointRadius, toChartLabels, visibleChartRange, xAxisTicks } from '../utils/chartAxis.js'
 import { formatAutonomyValue, getAutonomySeverity } from '../utils/format.js'
+import { windowStats } from '../utils/stats.js'
+import { aggregateSeries, aggregateHoursSeries } from '../utils/chart-utils.js'
 
 function SitesPage({ onNavigate }) {
   const chartPalette = useChartPalette()
@@ -25,63 +30,6 @@ function SitesPage({ onNavigate }) {
   // (querySiteId présent, ex. depuis une alerte du Dashboard), on garde le
   // comportement existant : vue détail sur ce site.
   const [mode, setMode] = useState(queryMode || (querySiteId ? 'details' : 'all'))
-
-  const isFiniteNumber = (value) => typeof value === 'number' && Number.isFinite(value)
-
-  const windowStats = (values = [], start, end, options = {}) => {
-    const ignoreZeros = options.ignoreZeros ?? false
-    // Conserve null (pas de relevé) — ne convertit pas en 0
-    const series = values || []
-    const finiteOf = (arr) => arr.filter(isFiniteNumber)
-    const meaningfulOf = (arr) => {
-      const finite = finiteOf(arr)
-      return ignoreZeros ? finite.filter((value) => value > 0) : finite
-    }
-
-    const window = series.slice(start, end + 1)
-    const meaningfulWindow = meaningfulOf(window)
-    const total = meaningfulWindow.reduce((sum, value) => sum + value, 0)
-    const mean = meaningfulWindow.length ? total / meaningfulWindow.length : 0
-
-    const prevWindowLength = end - start + 1
-    const prevStart = start - prevWindowLength
-    const prevEnd = start - 1
-    const prevWindow = prevStart >= 0 ? series.slice(prevStart, prevEnd + 1) : []
-    const meaningfulPrevWindow = meaningfulOf(prevWindow)
-    const prevTotal = meaningfulPrevWindow.reduce((sum, value) => sum + value, 0)
-    const prevMean = meaningfulPrevWindow.length ? prevTotal / meaningfulPrevWindow.length : 0
-
-    const meaningfulValues = meaningfulOf(series)
-    const allTimeMean = meaningfulValues.length ? meaningfulValues.reduce((sum, value) => sum + value, 0) / meaningfulValues.length : 0
-    const variance = meaningfulValues.length
-      ? meaningfulValues.reduce((sum, value) => sum + (value - allTimeMean) ** 2, 0) / meaningfulValues.length
-      : 0
-    const allTimeStddev = Math.sqrt(variance)
-
-    const variationPct = prevTotal === 0 ? null : ((total - prevTotal) / prevTotal) * 100
-    const meanVariationPct = prevMean === 0 ? null : ((mean - prevMean) / prevMean) * 100
-
-    let latest = null
-    for (let i = window.length - 1; i >= 0; i -= 1) {
-      if (isFiniteNumber(window[i])) {
-        latest = window[i]
-        break
-      }
-    }
-
-    return {
-      total: Number(total.toFixed(1)),
-      mean: Number(mean.toFixed(1)),
-      latest: latest == null ? 0 : Number(latest.toFixed(1)),
-      previous_total: meaningfulPrevWindow.length ? Number(prevTotal.toFixed(1)) : null,
-      previous_mean: meaningfulPrevWindow.length ? Number(prevMean.toFixed(1)) : null,
-      variation_pct: variationPct === null ? null : Number(variationPct.toFixed(1)),
-      mean_variation_pct: meanVariationPct === null ? null : Number(meanVariationPct.toFixed(1)),
-      all_time_mean: Number(allTimeMean.toFixed(1)),
-      all_time_stddev: Number(allTimeStddev.toFixed(1)),
-      has_previous_period: meaningfulPrevWindow.length > 0,
-    }
-  }
 
   const renderDelta = (metric, suffix = '') => {
     if (metric?.has_previous_period === false) {
@@ -398,9 +346,9 @@ function SitesPage({ onNavigate }) {
           <div className="loading-state" style={{ marginTop: 24 }}>
             {loadError}
             <div style={{ marginTop: 12 }}>
-              <button type="button" className="filter-submit" onClick={() => window.location.reload()}>
+              <Button variant="primary" onClick={() => window.location.reload()}>
                 Réessayer
-              </button>
+              </Button>
             </div>
           </div>
         ) : (
@@ -415,51 +363,52 @@ function SitesPage({ onNavigate }) {
       <Topbar activeView="sites" onNavigate={onNavigate} />
 
       <PageEnter>
-      <main className="groups-grid">
+      <main className="page-layout groups-grid">
         <WelcomeBanner
           kicker="Suivi terrain"
           title="Sites"
           subtitle="Niveaux, autonomie et consommation — affinez avec les filtres si besoin."
         />
         <form className="groups-filter-bar" onSubmit={(event) => event.preventDefault()}>
-          <div className="filter-field">
-            <label htmlFor="site-start">Période — début</label>
-            <select id="site-start" value={String(startIdx)} onChange={(event) => setStartIdx(Number(event.target.value))}>
-              {(sitesDashboard?.labels || []).map((label, index) => (<option key={`${label}-${index}`} value={String(index)}>{label}</option>))}
-            </select>
-          </div>
-          <div className="filter-field">
-            <label htmlFor="site-end">Période — fin</label>
-            <select id="site-end" value={String(endIdx)} onChange={(event) => setEndIdx(Number(event.target.value))}>
-              {(sitesDashboard?.labels || []).map((label, index) => (<option key={`${label}-${index}`} value={String(index)}>{label}</option>))}
-            </select>
-          </div>
-          <div className="filter-field">
-            <label htmlFor="site-select">Site</label>
-            <select
-              id="site-select"
-              value={siteId ?? ''}
-              onChange={(event) => {
-                const nextSiteId = event.target.value
-                setSiteId(nextSiteId)
-                if (nextSiteId) {
-                  setMode('details')
-                } else {
-                  setMode('all')
-                }
-              }}
-            >
-              <option value="">Tous les sites</option>
-              {siteOptions.map((site) => (<option key={site.id} value={site.id}>{site.nom_site}</option>))}
-            </select>
-          </div>
-          <div className="filter-field">
-            <label htmlFor="view_mode">Affichage</label>
-            <select id="view_mode" value={mode} onChange={(event) => setMode(event.target.value)}>
-              <option value="all">Vue d’ensemble</option>
-              <option value="details">Détail</option>
-            </select>
-          </div>
+          <Select
+            label="Période — début"
+            id="site-start"
+            value={String(startIdx)}
+            onChange={(event) => setStartIdx(Number(event.target.value))}
+            options={(sitesDashboard?.labels || []).map((label, index) => ({ label, value: String(index) }))}
+          />
+          <Select
+            label="Période — fin"
+            id="site-end"
+            value={String(endIdx)}
+            onChange={(event) => setEndIdx(Number(event.target.value))}
+            options={(sitesDashboard?.labels || []).map((label, index) => ({ label, value: String(index) }))}
+          />
+          <Select
+            label="Site"
+            id="site-select"
+            value={siteId ?? ''}
+            onChange={(event) => {
+              const nextSiteId = event.target.value
+              setSiteId(nextSiteId)
+              if (nextSiteId) {
+                setMode('details')
+              } else {
+                setMode('all')
+              }
+            }}
+            options={siteOptions.map((site) => ({ label: site.nom_site, value: site.id }))}
+          />
+          <Select
+            label="Affichage"
+            id="view_mode"
+            value={mode}
+            onChange={(event) => setMode(event.target.value)}
+            options={[
+              { label: 'Vue d’ensemble', value: 'all' },
+              { label: 'Détail', value: 'details' },
+            ]}
+          />
         </form>
 
         {mode === 'all' ? (
@@ -484,38 +433,50 @@ function SitesPage({ onNavigate }) {
                   </tr>
                 </thead>
                   <tbody>
-                  {siteTableRows.map((site) => {
-                    const siteAut = sitesDashboard?.autonomyBySite?.[String(site.id)] || {}
-                    const severity = getAutonomySeverity(siteAut)
-                    return (
-                      <tr
-                        key={site.id}
-                        className={`autonomy-row autonomy-row--${severity} dashboard-row-link`}
-                        onClick={() => openSiteDetails(site)}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter' || event.key === ' ') {
-                            event.preventDefault()
-                            openSiteDetails(site)
-                          }
-                        }}
-                        tabIndex={0}
-                        role="link"
-                        aria-label={`Ouvrir le détail du site ${site.nom_site}`}
-                      >
-                        <td>{site.nom_site}</td>
-                        <td>{site.hours.total.toFixed(1)}</td>
-                        <td>{site.hours.mean.toFixed(1)}</td>
-                        <td>{site.consumption.total.toFixed(1)}</td>
-                        <td>{site.consumption.mean.toFixed(1)}</td>
-                        <td>{site.volume.latest.toFixed(1)}</td>
-                        <td>{site.volume.mean.toFixed(1)}</td>
-                        <td>
-                          <AutonomyBadge entity={siteAut} size="sm" />
+                    {siteTableRows.length > 0 ? (
+                      siteTableRows.map((site) => {
+                        const siteAut = sitesDashboard?.autonomyBySite?.[String(site.id)] || {}
+                        const severity = getAutonomySeverity(siteAut)
+                        return (
+                          <tr
+                            key={site.id}
+                            className={`autonomy-row autonomy-row--${severity} dashboard-row-link`}
+                            onClick={() => openSiteDetails(site)}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault()
+                                openSiteDetails(site)
+                              }
+                            }}
+                            tabIndex={0}
+                            role="link"
+                            aria-label={`Ouvrir le détail du site ${site.nom_site}`}
+                          >
+                            <td>{site.nom_site}</td>
+                            <td>{site.hours.total.toFixed(1)}</td>
+                            <td>{site.hours.mean.toFixed(1)}</td>
+                            <td>{site.consumption.total.toFixed(1)}</td>
+                            <td>{site.consumption.mean.toFixed(1)}</td>
+                            <td>{site.volume.latest.toFixed(1)}</td>
+                            <td>{site.volume.mean.toFixed(1)}</td>
+                            <td>
+                              <AutonomyBadge entity={siteAut} size="sm" />
+                            </td>
+                          </tr>
+                        )
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan={8}>
+                          <EmptyState
+                            icon={<div className="text-muted">📍</div>}
+                            title="Aucun site disponible"
+                            description="Il n'y a actuellement aucun site enregistré dans le système."
+                          />
                         </td>
                       </tr>
-                    )
-                  })}
-                </tbody>
+                    )}
+                  </tbody>
               </table>
             </div>
           </section>

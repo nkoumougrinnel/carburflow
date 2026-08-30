@@ -307,7 +307,7 @@ def _candidates_from_block(block, groupe, cp, site, cuve_j, latest_report, repor
                 'date_apparition': report.date_fin,
             })
 
-    # 3. Écart de consommation horaire > 15% (par rapport)
+    # 3. Écart de consommation horaire > 15% (par rapport, référence semaine N-1)
     valid_pairs = []
     for idx, report in enumerate(reports):
         c = consumption_series[idx] if idx < len(consumption_series) else None
@@ -323,9 +323,9 @@ def _candidates_from_block(block, groupe, cp, site, cuve_j, latest_report, repor
                 historical_rates.append(hourly)
                 continue
 
-            reference_mean = sum(historical_rates) / len(historical_rates)
-            ecart = abs((hourly - reference_mean) / reference_mean) * 100
-            if should_emit_hourly_variance_alert(reference_mean, hourly, SEUIL_ECART_CONSO_PCT):
+            previous_rate = historical_rates[-1]
+            ecart = abs((hourly - previous_rate) / previous_rate) * 100
+            if should_emit_hourly_variance_alert(previous_rate, hourly, SEUIL_ECART_CONSO_PCT):
                 candidates.append({
                     'cle': Alerte.generer_cle('ecart_conso', gid, suffix=report.id),
                     'type_alerte': 'ecart_conso',
@@ -339,7 +339,7 @@ def _candidates_from_block(block, groupe, cp, site, cuve_j, latest_report, repor
                         **base_ctx,
                         'rapport_id': report.id,
                         'ecart_pourcent': round(ecart, 1),
-                        'mean_hourly': round(reference_mean, 2),
+                        'previous_hourly': round(previous_rate, 2),
                         'latest_hourly': round(hourly, 2),
                     },
                     'date_apparition': report.date_fin,

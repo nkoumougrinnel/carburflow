@@ -345,6 +345,7 @@ class SitesDashboardAPIView(APIView):
                 'label': site_name,
                 'data': volume_data,
                 'color': color,
+                'capacity': site.capacite,
             })
 
             consumption_series.append({
@@ -498,6 +499,8 @@ class DashboardOverviewAPIView(APIView):
                 'id': site.id,
                 'site_name': _site_label_from_cuve(site),
                 'label': _site_label_from_cuve(site),
+                'cp_identifiant': site.identifiant,
+                'capacity': site.capacite,
                 'avg_consumption': avg_consumption,
                 'latest_consumption': latest_consumption,
                 'previous_consumption': previous_consumption,
@@ -559,9 +562,11 @@ class DashboardOverviewAPIView(APIView):
             previous_hours = round(float(hours_series[-2]), 1) if len(hours_series) >= 2 and hours_series[-2] is not None else 0.0
 
             numeric_consumption = self._numeric_values(consumption_series, positive_only=True)
+            latest_hourly = block.get('latest_hourly_consumption')
+            previous_hourly = block.get('previous_hourly_consumption')
             variance_pct = 0.0
-            if previous_hours > 0 and latest_hours > 0:
-                variance_pct = abs((latest_hours - previous_hours) / previous_hours) * 100
+            if previous_hourly and previous_hourly > 0 and latest_hourly is not None:
+                variance_pct = abs((latest_hourly - previous_hourly) / previous_hourly) * 100
 
             weekly_hourly_change_pct = variance_pct
             weekly_consumption_change_pct = 0.0

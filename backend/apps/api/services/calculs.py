@@ -192,7 +192,7 @@ def _consommation_periode(
     """
     prev_total = float(previous_cp) + float(previous_cj)
     curr_total = float(current_cp) + float(current_cj)
-    return max(0.0, prev_total - curr_total + float(depotage or 0.0))
+    return prev_total - curr_total + float(depotage or 0.0)
 
 
 def somme_conso_groupes(group_blocks: list, n_periods: int) -> list:
@@ -355,6 +355,38 @@ def calculer_groupes(
         if groupe not in bucket:
             bucket.append(groupe)
 
+    # Pré-calcul des deltas horaires de tous les groupes sur chaque rapport
+    group_hour_deltas = {}
+    for g in groupes:
+        p_site_id = group_primary_site_ids.get(g.id)
+        prev_c = None
+        for r in reports:
+            g_lines = lines_by_group_report.get((g.id, r.id), [])
+            if p_site_id is not None:
+                g_lines = [l for l in g_lines if _line_belongs_to_site(l, p_site_id)]
+            s_state = site_report_state.get((p_site_id, r.id), {}) if p_site_id is not None else {}
+            if not bool(s_state.get('present')) or not g_lines:
+                group_hour_deltas[(g.id, r.id)] = None
+                continue
+
+            has_c = False
+            r_c = 0.0
+            for l in g_lines:
+                if l.compteur_horaire is not None:
+                    r_c = max(r_c, float(l.compteur_horaire))
+                    has_c = True
+
+            if not has_c:
+                h_delta = None
+            elif prev_c is None:
+                h_delta = 0.0
+                prev_c = r_c
+            else:
+                h_delta = max(0.0, r_c - prev_c)
+                prev_c = r_c
+
+            group_hour_deltas[(g.id, r.id)] = h_delta
+
     group_blocks = []
     for groupe in groupes:
         primary_site_id = group_primary_site_ids.get(groupe.id)
@@ -383,7 +415,7 @@ def calculer_groupes(
         for report in reports:
             lines = lines_by_group_report.get((groupe.id, report.id), [])
             if primary_site_id is not None:
-                lines = [l for l in lines if l.cuve_principale_id == primary_site_id]
+                lines = [l for l in lines if _line_belongs_to_site(l, primary_site_id)]
 
             site_state = (
                 site_report_state.get((primary_site_id, report.id), {})
@@ -422,20 +454,40 @@ def calculer_groupes(
             # delta = conso réelle (CP+CJ, prélèvements exclus) avant prorata puissance
             site_delta = float(site_state.get('delta') or 0.0)
 
-            # Conso période : partage au prorata des groupes ACTIFS sur ce rapport
+            # Conso période : si au moins un groupe du site a un delta horaire > 0,
+            # la consommation du site est affectée uniquement aux groupes ayant fonctionné.
             active_group_ids = (
                 groups_by_site_report.get((primary_site_id, report.id), set())
                 if primary_site_id is not None
                 else set()
             )
-            report_groups = [groupes_by_id[gid] for gid in active_group_ids if gid in groupes_by_id]
-            total_power_report = sum(extraire_puissance(g.puissance) for g in report_groups)
-            if total_power_report > 0:
-                period_share = extraire_puissance(groupe.puissance) / total_power_report
-            elif report_groups:
-                period_share = 1.0 / len(report_groups)
+            running_group_ids = [
+                gid for gid in active_group_ids
+                if group_hour_deltas.get((gid, report.id)) is not None
+                and group_hour_deltas.get((gid, report.id)) > 0
+            ]
+
+            if running_group_ids:
+                if groupe.id in running_group_ids:
+                    running_groups = [groupes_by_id[gid] for gid in running_group_ids if gid in groupes_by_id]
+                    total_power_running = sum(extraire_puissance(g.puissance) for g in running_groups)
+                    if total_power_running > 0:
+                        period_share = extraire_puissance(groupe.puissance) / total_power_running
+                    elif running_groups:
+                        period_share = 1.0 / len(running_groups)
+                    else:
+                        period_share = 1.0
+                else:
+                    period_share = 0.0
             else:
-                period_share = 1.0
+                report_groups = [groupes_by_id[gid] for gid in active_group_ids if gid in groupes_by_id]
+                total_power_report = sum(extraire_puissance(g.puissance) for g in report_groups)
+                if total_power_report > 0:
+                    period_share = extraire_puissance(groupe.puissance) / total_power_report
+                elif report_groups:
+                    period_share = 1.0 / len(report_groups)
+                else:
+                    period_share = 1.0
 
             # Volume courbe / autonomie : proportion stable × volume CP réel
             weighted_report_volume = round(site_current_volume * power_share, 1)

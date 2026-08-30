@@ -4,8 +4,9 @@ import Topbar from '../components/Topbar.jsx'
 import PageEnter from '../components/PageEnter.jsx'
 import WelcomeBanner from '../components/WelcomeBanner.jsx'
 import AdminProfilesManager from '../components/AdminProfilesManager.jsx'
+import { Input } from '../components/ui/input.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
-import { LoadingButton } from '../components/reports/ReportsUi.jsx'
+import Button from '../components/ui/button.jsx'
 
 const ROLE_LABELS = {
   admin: 'Responsable',
@@ -123,54 +124,50 @@ function ProfilePage({ onNavigate }) {
             </div>
           </div>
 
-          <label className="profile-field">
-            <span>E-mail</span>
-            <input type="email" value={user?.email || ''} disabled readOnly />
-          </label>
+          <Input
+            label="E-mail"
+            type="email"
+            value={user?.email || ''}
+            disabled
+            readOnly
+          />
 
-          <label className="profile-field">
-            <span>Nom d’utilisateur</span>
-            <input
-              type="text"
-              value={profileForm.username}
-              onChange={(e) => setProfileForm((p) => ({ ...p, username: e.target.value }))}
-              autoComplete="username"
-              required
-            />
-          </label>
+          <Input
+            label="Nom d’utilisateur"
+            type="text"
+            value={profileForm.username}
+            onChange={(e) => setProfileForm((p) => ({ ...p, username: e.target.value }))}
+            autoComplete="username"
+            required
+          />
 
           <div className="profile-row">
-            <label className="profile-field">
-              <span>Prénom</span>
-              <input
-                type="text"
-                value={profileForm.first_name}
-                onChange={(e) => setProfileForm((p) => ({ ...p, first_name: e.target.value }))}
-                autoComplete="given-name"
-              />
-            </label>
-            <label className="profile-field">
-              <span>Nom</span>
-              <input
-                type="text"
-                value={profileForm.last_name}
-                onChange={(e) => setProfileForm((p) => ({ ...p, last_name: e.target.value }))}
-                autoComplete="family-name"
-              />
-            </label>
+            <Input
+              label="Prénom"
+              type="text"
+              value={profileForm.first_name}
+              onChange={(e) => setProfileForm((p) => ({ ...p, first_name: e.target.value }))}
+              autoComplete="given-name"
+            />
+            <Input
+              label="Nom"
+              type="text"
+              value={profileForm.last_name}
+              onChange={(e) => setProfileForm((p) => ({ ...p, last_name: e.target.value }))}
+              autoComplete="family-name"
+            />
           </div>
 
           {profileMsg && <div className="reports-success" role="status">{profileMsg}</div>}
           {profileErr && <div className="reports-error" role="alert">{profileErr}</div>}
 
-          <LoadingButton
-            className="reports-btn--primary"
+          <Button
+            variant="primary"
             loading={savingProfile}
-            loadingText="Enregistrement…"
             type="submit"
           >
             Enregistrer
-          </LoadingButton>
+          </Button>
         </form>
 
         <form className="saas-profile-panel" onSubmit={handlePasswordSubmit}>
@@ -182,51 +179,44 @@ function ProfilePage({ onNavigate }) {
             </div>
           </div>
 
-          <label className="profile-field">
-            <span>Mot de passe actuel</span>
-            <input
-              type="password"
-              value={passwordForm.current_password}
-              onChange={(e) => setPasswordForm((p) => ({ ...p, current_password: e.target.value }))}
-              autoComplete="current-password"
-              required
-            />
-          </label>
-          <label className="profile-field">
-            <span>Nouveau mot de passe</span>
-            <input
-              type="password"
-              value={passwordForm.new_password}
-              onChange={(e) => setPasswordForm((p) => ({ ...p, new_password: e.target.value }))}
-              autoComplete="new-password"
-              required
-              minLength={6}
-            />
-            <small className="profile-field-hint">Minimum 6 caractères.</small>
-          </label>
-          <label className="profile-field">
-            <span>Confirmer</span>
-            <input
-              type="password"
-              value={passwordForm.new_password_confirm}
-              onChange={(e) => setPasswordForm((p) => ({ ...p, new_password_confirm: e.target.value }))}
-              autoComplete="new-password"
-              required
-              minLength={6}
-            />
-          </label>
+          <Input
+            label="Mot de passe actuel"
+            type="password"
+            value={passwordForm.current_password}
+            onChange={(e) => setPasswordForm((p) => ({ ...p, current_password: e.target.value }))}
+            autoComplete="current-password"
+            required
+          />
+          <Input
+            label="Nouveau mot de passe"
+            type="password"
+            value={passwordForm.new_password}
+            onChange={(e) => setPasswordForm((p) => ({ ...p, new_password: e.target.value }))}
+            autoComplete="new-password"
+            required
+            minLength={6}
+            hint="Minimum 6 caractères."
+          />
+          <Input
+            label="Confirmer"
+            type="password"
+            value={passwordForm.new_password_confirm}
+            onChange={(e) => setPasswordForm((p) => ({ ...p, new_password_confirm: e.target.value }))}
+            autoComplete="new-password"
+            required
+            minLength={6}
+          />
 
           {passwordMsg && <div className="reports-success" role="status">{passwordMsg}</div>}
           {passwordErr && <div className="reports-error" role="alert">{passwordErr}</div>}
 
-          <LoadingButton
-            className="reports-btn--primary"
+          <Button
+            variant="primary"
             loading={savingPassword}
-            loadingText="Mise à jour…"
             type="submit"
           >
             Mettre à jour le mot de passe
-          </LoadingButton>
+          </Button>
         </form>
       </div>
     </div>
@@ -236,7 +226,7 @@ function ProfilePage({ onNavigate }) {
     <div className="app-shell">
       <Topbar activeView="profile" onNavigate={onNavigate} />
       <PageEnter>
-        <main className="profile-layout profile-layout--saas">
+        <main className="page-layout profile-layout--saas">
           <WelcomeBanner
             kicker="Identité & accès"
             title={isAdmin ? 'Comptes' : 'Mon profil'}

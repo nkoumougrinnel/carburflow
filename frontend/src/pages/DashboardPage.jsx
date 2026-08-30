@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import Topbar from '../components/Topbar.jsx'
 import WelcomeBanner from '../components/WelcomeBanner.jsx'
+import Button from '../components/ui/button.jsx'
 import { apiFetch } from '../auth.js'
 import AutonomyBadge from '../components/AutonomyBadge.jsx'
 import PageLoader from '../components/PageLoader.jsx'
@@ -184,11 +185,10 @@ function DashboardPage({ onNavigate }) {
   }
 
   const getGroupEcartPct = (g) => {
-    // Écart de conso horaire uniquement (pas de fallback volume / « Non dispo. »)
-    if (!(g.latest_hours > 0) || !(g.latest_consumption > 0)) return null
-    if (g.latest_hourly_consumption == null || !(g.mean_hourly_consumption_deduite > 0)) return null
+    // Écart de conso horaire uniquement (référence semaine N-1)
+    if (g.latest_hourly_consumption == null || g.previous_hourly_consumption == null || !(g.previous_hourly_consumption > 0)) return null
     return Math.abs(
-      ((g.latest_hourly_consumption - g.mean_hourly_consumption_deduite) / g.mean_hourly_consumption_deduite) * 100,
+      ((g.latest_hourly_consumption - g.previous_hourly_consumption) / g.previous_hourly_consumption) * 100,
     )
   }
 
@@ -325,9 +325,9 @@ function DashboardPage({ onNavigate }) {
           <div className="loading-state" style={{ marginTop: 24 }}>
             {loadError}
             <div style={{ marginTop: 12 }}>
-              <button type="button" className="filter-submit" onClick={() => window.location.reload()}>
+              <Button variant="primary" onClick={() => window.location.reload()}>
                 Réessayer
-              </button>
+              </Button>
             </div>
           </div>
         ) : (
@@ -342,7 +342,8 @@ function DashboardPage({ onNavigate }) {
       <Topbar activeView="dashboard" onNavigate={onNavigate} />
 
       <PageEnter>
-      <main className="dashboard-grid dashboard-grid-4col">
+        <div className="page-layout">
+          <main className="dashboard-grid dashboard-grid-4col">
         <WelcomeBanner />
 
         <div className="dashboard-summary-grid">
@@ -417,9 +418,8 @@ function DashboardPage({ onNavigate }) {
           </div>
           {alerts.length > previewAlerts.length && (
             <div className="dashboard-alerts-footer">
-              <button
-                type="button"
-                className="dashboard-alerts-more-btn"
+              <Button
+                variant="outline"
                 onClick={() => onNavigate?.({
                   view: 'alerts',
                   priority: alertCounts.critique > 0 ? 'critique' : 'all',
@@ -432,7 +432,7 @@ function DashboardPage({ onNavigate }) {
                 >
                   {alerts.length - previewAlerts.length}
                 </span>
-              </button>
+              </Button>
             </div>
           )}
         </section>
@@ -696,6 +696,7 @@ function DashboardPage({ onNavigate }) {
         </section>
 
       </main>
+        </div>
       </PageEnter>
     </div>
   )

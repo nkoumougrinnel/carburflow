@@ -105,6 +105,8 @@ class SitesDashboardAPIView(APIView):
                 'id': site_id,
                 'nom_site': site_name,
                 'label': site_name,
+                'cp_identifiant': site.identifiant,
+                'capacity': site.capacite,
                 'data': volume_data,
                 'color': color,
             })

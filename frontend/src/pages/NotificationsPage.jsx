@@ -5,7 +5,8 @@ import PageEnter from '../components/PageEnter.jsx'
 import PageLoader from '../components/PageLoader.jsx'
 import SectionWorkspace from '../components/SectionWorkspace.jsx'
 import WelcomeBanner from '../components/WelcomeBanner.jsx'
-import { LoadingButton } from '../components/reports/ReportsUi.jsx'
+import Button from '../components/ui/button.jsx'
+import { EmptyState } from '../components/ui/empty-state.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { requestBadgesRefresh } from '../utils/badges.js'
 import {
@@ -177,19 +178,18 @@ function ComposeMessageModal({ onClose, onSent, toAdminsOnly = false }) {
           </label>
 
           <div className="rapport-modal-actions">
-            <button type="button" className="reports-btn reports-btn--ghost" onClick={onClose} disabled={saving}>
+            <Button variant="ghost" onClick={onClose} disabled={saving}>
               Annuler
-            </button>
-            <LoadingButton
-              className="reports-btn--primary"
+            </Button>
+            <Button
+              variant="primary"
               loading={saving}
-              loadingText="Envoi…"
               type="submit"
               disabled={toAdminsOnly && (loadingAdmins || !compose.userId)}
             >
               <Send size={16} aria-hidden="true" />
               Envoyer
-            </LoadingButton>
+            </Button>
           </div>
         </form>
       </div>
@@ -197,27 +197,6 @@ function ComposeMessageModal({ onClose, onSent, toAdminsOnly = false }) {
   )
 }
 
-function EmptyState({ isAdmin, onCompose }) {
-  return (
-    <div className="cf-empty-rich">
-      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <rect x="8" y="14" width="48" height="36" rx="6" stroke="currentColor" strokeWidth="2.5" />
-        <path d="M10 18 L32 34 L54 18" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinejoin="round" />
-        <circle cx="50" cy="14" r="6" fill="#16a34a" />
-      </svg>
-      <h3>Tout est vide. Bonne nouvelle.</h3>
-      <p>
-        {isAdmin
-          ? 'Aucun message pour l’instant. Cliquez sur « Écrire un message » pour en envoyer un à un utilisateur.'
-          : 'Aucun message pour l’instant. Cliquez sur « Écrire un message » pour contacter un responsable CarburFlow.'}
-      </p>
-      <button type="button" className="reports-btn reports-btn--primary" onClick={onCompose}>
-        <MailPlus size={16} aria-hidden="true" />
-        Écrire un message
-      </button>
-    </div>
-  )
-}
 
 function NotificationsPage({ onNavigate }) {
   const { isAdmin } = useAuth()
@@ -355,14 +334,13 @@ function NotificationsPage({ onNavigate }) {
               : 'Aucun message non lu')}
         </p>
         <div className="notif-inbox-actions">
-          <LoadingButton
-            className="reports-btn--ghost"
+          <Button
+            variant="ghost"
             loading={loading}
-            loadingText="Actualisation…"
             onClick={() => refresh({ mailbox: box })}
           >
             Actualiser
-          </LoadingButton>
+          </Button>
         </div>
       </div>
 
@@ -374,9 +352,25 @@ function NotificationsPage({ onNavigate }) {
           <PageLoader label="Chargement de la messagerie…" />
         ) : items.length === 0 ? (
           isSent ? (
-            <p className="notif-empty">Aucun envoi pour le moment.</p>
+            <EmptyState
+              icon={<Send size={30} />}
+              title="Aucun envoi"
+              description="Vous n'avez pas encore envoyé de messages."
+            />
           ) : (
-            <EmptyState isAdmin={isAdmin} onCompose={handleCompose} />
+            <EmptyState
+              icon={<Inbox size={30} />}
+              title="Boîte de réception vide"
+              description={isAdmin
+                ? 'Aucun message pour l’instant. Cliquez sur « Écrire un message » pour en envoyer un.'
+                : 'Aucun message pour l’instant. Cliquez sur « Écrire un message » pour contacter un responsable.'}
+              action={{
+                label: 'Écrire un message',
+                onClick: handleCompose,
+                icon: <MailPlus size={16} />,
+                variant: 'primary'
+              }}
+            />
           )
         ) : (
           <div className={`notif-split ${selectedId ? 'is-detail-open' : ''}`}>
@@ -456,7 +450,7 @@ function NotificationsPage({ onNavigate }) {
     <div className="app-shell app-shell--messaging">
       <Topbar activeView="notifications" onNavigate={onNavigate} />
       <PageEnter className="notif-page-enter">
-        <main className="notifications-layout">
+        <main className="page-layout">
           <WelcomeBanner
             kicker="Échanges internes"
             title="Messagerie"
@@ -484,15 +478,15 @@ function NotificationsPage({ onNavigate }) {
         + Nouveau message
       </span>
 
-      <button
-        type="button"
+      <Button
+        variant="primary"
         className="notif-fab"
         aria-label="Écrire un message"
         title="Écrire un message"
         onClick={handleCompose}
       >
         <MailPlus size={26} strokeWidth={2.4} aria-hidden="true" />
-      </button>
+      </Button>
 
       {composeOpen && (
         <ComposeMessageModal

@@ -7,7 +7,9 @@ import GroupsPage from './pages/GroupsPage.jsx'
 import AuthPage from './pages/AuthPage.jsx'
 import ReportsPage from './pages/ReportsPage.jsx'
 import OperatorHomePage from './pages/OperatorHomePage.jsx'
+import OperatorSitesPage from './pages/OperatorSitesPage.jsx'
 import UserHomePage from './pages/UserHomePage.jsx'
+import UserSitesPage from './pages/UserSitesPage.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
 import AlertsPage from './pages/AlertsPage.jsx'
 import NotificationsPage from './pages/NotificationsPage.jsx'
@@ -161,13 +163,13 @@ function AppRoutes() {
 
   if (isViewer) {
     if (view === 'viewer') return <UserHomePage onNavigate={navigate} />
-    if (view === 'sites') return <SitesPage onNavigate={navigate} />
+    if (view === 'sites') return <UserSitesPage onNavigate={navigate} />
     return <UserHomePage onNavigate={navigate} />
   }
 
   if (isOperator) {
     if (view === 'operator') return <OperatorHomePage onNavigate={navigate} />
-    if (view === 'sites') return <SitesPage onNavigate={navigate} />
+    if (view === 'sites') return <OperatorSitesPage onNavigate={navigate} />
     if (view === 'reports') return <ReportsPage onNavigate={navigate} />
     return <OperatorHomePage onNavigate={navigate} />
   }

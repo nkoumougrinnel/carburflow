@@ -76,7 +76,6 @@ class DashboardAlertsTests(TestCase):
 
         updated, should_alert = _upsert_active(
             alerte.cle,
-            cle=alerte.cle,
             message='Alerte existante',
             type_alerte='ecart_conso',
             priorite='moyenne',
@@ -87,3 +86,90 @@ class DashboardAlertsTests(TestCase):
         self.assertFalse(should_alert)
         self.assertEqual(updated.date_apparition, date(2026, 7, 17))
         self.assertEqual(Alerte.objects.get(pk=alerte.pk).date_apparition, date(2026, 7, 17))
+
+    def test_consommation_periode_allows_negative_values(self):
+        from apps.services.calculs import _consommation_periode
+        # Prev total = 8676, Curr total = 23462, depotage = 15166
+        # 8676 - 23462 + 15166 = +380
+        # If Curr total = 25000 (negative consumption case):
+        # 8676 - 25000 + 15166 = -1158.0
+        conso = _consommation_periode(8676.0, 0.0, 25000.0, 0.0, 15166.0)
+        self.assertEqual(conso, -1158.0)
+
+    def test_ecart_conso_uses_previous_week_as_reference(self):
+        from apps.alerts.services.detection import _candidates_from_block
+        from apps.reports.models import Rapport
+
+        reports = [
+            Rapport(id=1, date_debut=date(2026, 7, 1), date_fin=date(2026, 7, 7)),
+            Rapport(id=2, date_debut=date(2026, 7, 8), date_fin=date(2026, 7, 14)),
+            Rapport(id=3, date_debut=date(2026, 7, 15), date_fin=date(2026, 7, 21)),
+        ]
+        block = {
+            'id': 10,
+            'label': 'G10',
+            'consumption': [100.0, 100.0, 150.0],
+            'hours_run': [10.0, 10.0, 10.0],  # rates: 10 L/h, 10 L/h, 15 L/h (50% increase vs week N-1)
+            'autonomie_hours': 48.0,
+            'is_infinite_autonomy': False,
+        }
+        candidates = _candidates_from_block(block, None, None, None, None, reports[-1], reports)
+        ecart_alerts = [c for c in candidates if c.get('type_alerte') == 'ecart_conso']
+        self.assertTrue(len(ecart_alerts) > 0)
+        # Verify reference is week N-1 (10.0 L/h), leading to 50.0% variance
+        last_ecart_alert = ecart_alerts[-1]
+        self.assertEqual(last_ecart_alert['donnees_contexte']['previous_hourly'], 10.0)
+        self.assertEqual(last_ecart_alert['donnees_contexte']['ecart_pourcent'], 50.0)
+
+    @pytest.mark.django_db
+    def test_consumption_assigned_only_to_group_with_running_hours_variation(self):
+        from apps.services.calculs import calculer_groupes
+        from apps.reports.models import Rapport, LigneRapport
+        from apps.sites.models import GroupeElectrogene, CuvePrincipale
+
+        reports = [
+            Rapport(id=1, date_debut=date(2026, 7, 1), date_fin=date(2026, 7, 7)),
+            Rapport(id=2, date_debut=date(2026, 7, 8), date_fin=date(2026, 7, 14)),
+        ]
+        g1 = GroupeElectrogene(id=101, identifiant='G1', puissance='100 kVA')
+        g2 = GroupeElectrogene(id=102, identifiant='G2', puissance='100 kVA')
+        groupes = [g1, g2]
+        groupes_by_id = {101: g1, 102: g2}
+
+        # Site state: report 1 CP=1000 (delta=0), report 2 CP=500 (delta=500 L)
+        site_report_state = {
+            (1, 1): {'present': True, 'current_volume': 1000.0, 'delta': 0.0},
+            (1, 2): {'present': True, 'current_volume': 500.0, 'delta': 500.0},
+        }
+        groups_by_site_report = {
+            (1, 1): {101, 102},
+            (1, 2): {101, 102},
+        }
+        group_primary_site_ids = {101: 1, 102: 1}
+
+        # Lignes: Report 1 (G1: h=100, G2: h=200), Report 2 (G1: h=110 [+10h], G2: h=200 [+0h])
+        lines_by_group_report = {
+            (101, 1): [LigneRapport(groupe_electrogene_id=101, cuve_principale_id=1, compteur_horaire=100.0)],
+            (101, 2): [LigneRapport(groupe_electrogene_id=101, cuve_principale_id=1, compteur_horaire=110.0)],
+            (102, 1): [LigneRapport(groupe_electrogene_id=102, cuve_principale_id=1, compteur_horaire=200.0)],
+            (102, 2): [LigneRapport(groupe_electrogene_id=102, cuve_principale_id=1, compteur_horaire=200.0)],
+        }
+
+        blocks = calculer_groupes(
+            reports=reports,
+            groupes=groupes,
+            sites=[CuvePrincipale(id=1, identifiant='CP001')],
+            lines_by_group_report=lines_by_group_report,
+            site_report_state=site_report_state,
+            groups_by_site_report=groups_by_site_report,
+            groupes_by_id=groupes_by_id,
+            group_primary_site_ids=group_primary_site_ids,
+        )
+
+        g1_block = next(b for b in blocks if b['id'] == 101)
+        g2_block = next(b for b in blocks if b['id'] == 102)
+
+        # On report 2 (index 1), G1 ran (+10h) while G2 did not run (+0h).
+        # Therefore, all 500 L consumption is assigned to G1, and 0 L to G2.
+        self.assertEqual(g1_block['consumption'][1], 500.0)
+        self.assertEqual(g2_block['consumption'][1], 0.0)
