@@ -145,7 +145,7 @@ class SitesDureeAPIView(APIView):
                             has_counter = True
 
                     if not has_counter:
-                        delta = 0.0
+                        delta = None
                     elif previous_counter is None:
                         delta = 0.0
                         previous_counter = report_counter
@@ -153,7 +153,7 @@ class SitesDureeAPIView(APIView):
                         delta = max(0.0, report_counter - previous_counter)
                         previous_counter = report_counter
 
-                    values.append(round(delta, 1))
+                    values.append(round(delta, 1) if delta is not None else None)
 
                 site_datasets.append({
                     'label': groupe.identifiant,
@@ -422,12 +422,25 @@ class DashboardOverviewAPIView(APIView):
         return default
 
     def _previous_numeric(self, values, default=0.0):
-        if not values or len(values) < 2:
+        if not values:
             return default
-        value = values[-2]
-        if value is None:
+
+        # Find the index of the last numeric value
+        last_idx = None
+        for i in range(len(values) - 1, -1, -1):
+            if values[i] is not None:
+                last_idx = i
+                break
+
+        if last_idx is None:
             return default
-        return round(float(value), 1)
+
+        # Find the first numeric value before that index
+        for i in range(last_idx - 1, -1, -1):
+            if values[i] is not None:
+                return round(float(values[i]), 1)
+
+        return default
 
     def _numeric_values(self, values, *, positive_only=False):
         out = []
@@ -490,7 +503,7 @@ class DashboardOverviewAPIView(APIView):
             latest_volume = self._last_numeric(volume_series)
 
             previous_consumption = self._previous_numeric(consumption_series, default=0.0)
-            previous_hours = self._previous_numeric(volume_series, default=0.0)
+            previous_volume = self._previous_numeric(volume_series, default=0.0)
             consumption_change_pct = 0.0
             if previous_consumption > 0 and latest_consumption > 0:
                 consumption_change_pct = abs((latest_consumption - previous_consumption) / previous_consumption) * 100
@@ -505,7 +518,7 @@ class DashboardOverviewAPIView(APIView):
                 'latest_consumption': latest_consumption,
                 'previous_consumption': previous_consumption,
                 'consumption_change_pct': round(consumption_change_pct, 1),
-                'previous_hours': previous_hours,
+                'previous_volume': previous_volume,
                 'latest_volume': latest_volume,
                 'autonomy': None,
                 'autonomie_hours': None,
@@ -554,12 +567,12 @@ class DashboardOverviewAPIView(APIView):
             consumption_series = block['consumption']
             # Moyennes significatives (> 0), alignées sur les métriques Groupes
             avg_consumption = round(self._mean_positive(consumption_series), 1)
-            # Semaine N = dernière période du rapport (None → 0), pas le dernier numérique non-null
-            latest_consumption = round(float(consumption_series[-1]), 1) if consumption_series and consumption_series[-1] is not None else 0.0
-            previous_consumption = round(float(consumption_series[-2]), 1) if len(consumption_series) >= 2 and consumption_series[-2] is not None else 0.0
+            # Semaine N = dernier rapport avec donnée, pas forcément le dernier de la liste
+            latest_consumption = self._last_numeric(consumption_series)
+            previous_consumption = self._previous_numeric(consumption_series, default=0.0)
             avg_hours = round(self._mean_positive(hours_series), 1)
-            latest_hours = round(float(hours_series[-1]), 1) if hours_series and hours_series[-1] is not None else 0.0
-            previous_hours = round(float(hours_series[-2]), 1) if len(hours_series) >= 2 and hours_series[-2] is not None else 0.0
+            latest_hours = self._last_numeric(hours_series)
+            previous_hours = self._previous_numeric(hours_series, default=0.0)
 
             numeric_consumption = self._numeric_values(consumption_series, positive_only=True)
             latest_hourly = block.get('latest_hourly_consumption')
@@ -639,22 +652,22 @@ class DashboardOverviewAPIView(APIView):
         )
         alerts = serialize_dashboard_alerts(active_alerts)
 
-        prev_consumption = None
-        prev_runtime = None
-        if any(len(block['consumption']) >= 2 for block in group_blocks):
-            prev_vals = [
-                block['consumption'][-2]
-                for block in group_blocks
-                if len(block['consumption']) >= 2 and block['consumption'][-2] is not None
-            ]
-            prev_consumption = round(sum(prev_vals), 1) if prev_vals else None
-        if any(len(block['hours_run']) >= 2 for block in group_blocks):
-            prev_hrs = [
-                block['hours_run'][-2]
-                for block in group_blocks
-                if len(block['hours_run']) >= 2 and block['hours_run'][-2] is not None
-            ]
-            prev_runtime = round(sum(prev_hrs), 1) if prev_hrs else None
+        prev_consumption = 0.0
+        prev_runtime = 0.0
+        has_prev_cons = False
+        has_prev_hrs = False
+        for block in group_blocks:
+            p_cons = self._previous_numeric(block['consumption'], default=None)
+            p_hrs = self._previous_numeric(block['hours_run'], default=None)
+            if p_cons is not None:
+                prev_consumption += p_cons
+                has_prev_cons = True
+            if p_hrs is not None:
+                prev_runtime += p_hrs
+                has_prev_hrs = True
+
+        prev_consumption = round(prev_consumption, 1) if has_prev_cons else None
+        prev_runtime = round(prev_runtime, 1) if has_prev_hrs else None
 
         def _site_is_critical(site):
             if site['is_infinite_consumption']:

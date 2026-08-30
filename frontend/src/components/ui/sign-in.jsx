@@ -15,15 +15,20 @@ function GlassInputWrapper({ children }) {
  * Testimonials intentionally omitted for CarburFlow.
  */
 export function SignInPage({
-  title = <span className="font-light tracking-tighter text-foreground">Bon retour</span>,
-  description = 'Accédez à votre espace et continuez le pilotage de vos sites.',
+  title = (
+    <span className="font-display tracking-tight text-foreground">
+      <span className="block text-4xl font-semibold text-petrol sm:text-5xl">CarburFlow</span>
+      <span className="mt-3 block text-2xl font-semibold text-foreground sm:text-3xl">Accédez à votre espace</span>
+    </span>
+  ),
+  description = 'Connectez-vous à CarburFlow pour consulter les données, suivre les sites et accéder aux fonctionnalités correspondant à votre profil.',
   heroImageSrc,
   heroHeadline = 'Chaque litre compte.',
-  heroSubline = 'Pilotez vos stocks multi-sites sans tableurs dispersés ni alertes trop tardives.',
+  heroSubline = 'Une vision centralisée du carburant, des sites et des groupes électrogènes.',
   heroPhrases = [
-    'Une vision claire, site par site.',
-    'Des relevés terrain qui arrivent à temps.',
-    'Relever. Déposer. Piloter.',
+    'Consulter les données de vos installations.',
+    'Comprendre consommation, fonctionnement et autonomie.',
+    'Agir sur les écarts nécessitant votre attention.',
   ],
   onSignIn,
   onGoogleSignIn,
@@ -42,10 +47,10 @@ export function SignInPage({
   const [showPassword, setShowPassword] = useState(false)
 
   return (
-    <div className="flex h-[100dvh] w-[100dvw] flex-col font-sans md:flex-row">
-      <section className="flex flex-1 items-center justify-center overflow-y-auto p-6 sm:p-8">
+    <div className="flex h-[calc(100dvh-4rem)] w-[100dvw] flex-col overflow-hidden font-sans md:h-[100dvh] md:flex-row">
+      <section className="flex flex-1 items-center justify-center p-6 sm:p-8">
         <div className="w-full max-w-md">
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-5">
             <h1 className="animate-element animate-delay-100 font-display text-4xl font-semibold leading-tight md:text-5xl">
               {title}
             </h1>

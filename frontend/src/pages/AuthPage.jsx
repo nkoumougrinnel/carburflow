@@ -7,7 +7,6 @@ import { SignUpPage } from '@/components/ui/sign-up'
 import { Button } from '@/components/ui/button'
 import BrandLogo from '../components/BrandLogo.jsx'
 import PageLoader from '../components/PageLoader.jsx'
-import PageEnter from '../components/PageEnter.jsx'
 
 /* Login : contexte carburant / énergie (cuves, infrastructure) — même traitement photo que register */
 const LOGIN_HERO =
@@ -96,7 +95,7 @@ function AuthPage({ onNavigate, initialMode = 'login' }) {
   }
 
   return (
-    <div className="relative bg-background text-foreground min-h-[100dvh]">
+    <div className="relative min-h-[100dvh] overflow-hidden bg-background text-foreground">
       {submitting && (
         <div className="cf-auth-loading-overlay" role="status" aria-live="polite">
           <PageLoader
@@ -106,13 +105,13 @@ function AuthPage({ onNavigate, initialMode = 'login' }) {
         </div>
       )}
 
-      <div className="absolute left-4 top-4 z-20 flex flex-wrap items-center gap-2 sm:left-6 sm:top-6 sm:gap-3">
+      <div className="absolute left-4 top-4 z-20 flex items-center justify-start gap-2 sm:left-6 sm:top-6 sm:gap-3">
         <button
           type="button"
           onClick={() => onNavigate('home')}
-          className="flex items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex items-center gap-2 rounded-lg bg-background/75 px-2 py-1.5 backdrop-blur-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <BrandLogo variant="icon" className="size-9 rounded-md object-contain bg-black p-0.5" />
+          <BrandLogo variant="icon" className="size-8 rounded-md object-contain bg-black p-0.5" />
           <span className="font-display text-base font-semibold text-petrol">CarburFlow</span>
         </button>
         <Button variant="ghost" size="sm" onClick={() => onNavigate('home')}>
@@ -129,23 +128,23 @@ function AuthPage({ onNavigate, initialMode = 'login' }) {
         </Button>
       </div>
 
-      <PageEnter delay={0.02}>
-      {mode === 'login' ? (
+      <div className="relative z-10 h-[100dvh] overflow-hidden">
+        {mode === 'login' ? (
         <SignInPage
           title={
             <span className="font-display tracking-tight text-foreground">
-              <span className="font-semibold text-petrol">CarburFlow</span>
-              <span className="mt-2 block font-medium">Bon retour</span>
+              <span className="block text-4xl font-semibold text-petrol sm:text-5xl">CarburFlow</span>
+              <span className="mt-3 block text-2xl font-semibold text-foreground sm:text-3xl">Accédez à votre espace</span>
             </span>
           }
-          description="Connectez-vous pour piloter vos stocks ou déposer un relevé terrain."
+          description="Connectez-vous à CarburFlow pour consulter les données, suivre les sites et accéder aux fonctionnalités correspondant à votre profil."
           heroImageSrc={LOGIN_HERO}
           heroHeadline="Chaque litre compte."
-          heroSubline="Pilotez vos stocks multi-sites sans tableurs dispersés ni alertes trop tardives."
+          heroSubline="Une vision centralisée du carburant, des sites et des groupes électrogènes."
           heroPhrases={[
-            'Une vision claire, site par site.',
-            'Des relevés terrain qui arrivent à temps.',
-            'Relever. Déposer. Piloter.',
+            'Suivez vos installations, site par site.',
+            'Analysez consommation, fonctionnement et autonomie.',
+            'Identifiez les écarts nécessitant votre attention.',
           ]}
           onSignIn={handleSignIn}
           onCreateAccount={() => switchMode('register')}
@@ -155,12 +154,12 @@ function AuthPage({ onNavigate, initialMode = 'login' }) {
       ) : (
         <SignUpPage
           heroImageSrc={REGISTER_HERO}
-          heroHeadline="Votre relevé, enfin simple."
-          heroSubline="Rejoignez les équipes qui déposent leurs rapports sans friction ni tableurs dispersés."
+          heroHeadline="Entrez dans l’univers CarburFlow."
+          heroSubline="Une plateforme centralisée pour suivre les données carburant, les installations et les situations nécessitant votre attention."
           heroPhrases={[
-            'Norme Excel ou CSV, prête en quelques minutes.',
-            'Historique clair de chaque envoi.',
-            'L’admin pilote. Vous relevez et déposez.',
+            'Centralisez vos données et vos relevés.',
+            'Retrouvez facilement votre historique.',
+            'Accédez aux outils adaptés à votre rôle.',
           ]}
           onSignUp={handleRegister}
           onSignIn={() => switchMode('login')}
@@ -169,8 +168,8 @@ function AuthPage({ onNavigate, initialMode = 'login' }) {
           form={form}
           onFieldChange={updateField}
         />
-      )}
-      </PageEnter>
+        )}
+      </div>
     </div>
   )
 }

@@ -6,6 +6,13 @@ import { useAuth } from '@/context/AuthContext.jsx'
 import { useTheme } from '@/context/ThemeContext.jsx'
 import { cn } from '@/lib/utils'
 
+const navLinks = [
+  { label: 'Accueil', id: 'home' },
+  { label: 'Fonctionnalités', id: 'features' },
+  { label: 'Comment ça fonctionne', id: 'how-it-works' },
+  { label: 'À propos', id: 'about' },
+]
+
 function LandingNav({ onNavigate }) {
   const { isAuthenticated, isAdmin, logout } = useAuth()
   const { theme, toggleTheme } = useTheme()
@@ -14,6 +21,14 @@ function LandingNav({ onNavigate }) {
   const go = (view) => {
     setOpen(false)
     onNavigate(view)
+  }
+
+  const scrollToSection = (id) => {
+    setOpen(false)
+    const node = document.getElementById(id)
+    if (node) {
+      node.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
   }
 
   const isDark = theme === 'dark'
@@ -33,6 +48,16 @@ function LandingNav({ onNavigate }) {
         </button>
 
         <nav className="hidden items-center gap-2 md:flex" aria-label="Navigation principale">
+          {navLinks.map((link) => (
+            <button
+              key={link.id}
+              type="button"
+              onClick={() => scrollToSection(link.id)}
+              className="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted/80 hover:text-foreground"
+            >
+              {link.label}
+            </button>
+          ))}
           <Button
             type="button"
             variant="ghost"
@@ -67,7 +92,7 @@ function LandingNav({ onNavigate }) {
               <Button variant="ghost" onClick={() => go('login')}>
                 Se connecter
               </Button>
-              <Button onClick={() => go('register')}>Créer un compte</Button>
+              <Button onClick={() => go('register')}>S’inscrire</Button>
             </>
           )}
         </nav>
@@ -101,6 +126,16 @@ function LandingNav({ onNavigate }) {
         )}
       >
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-4">
+          {navLinks.map((link) => (
+            <Button
+              key={link.id}
+              variant="ghost"
+              className="justify-start"
+              onClick={() => scrollToSection(link.id)}
+            >
+              {link.label}
+            </Button>
+          ))}
           {isAuthenticated ? (
             <>
               {isAdmin && (
@@ -128,7 +163,7 @@ function LandingNav({ onNavigate }) {
                 Se connecter
               </Button>
               <Button className="justify-start" onClick={() => go('register')}>
-                Créer un compte
+                S’inscrire
               </Button>
             </>
           )}

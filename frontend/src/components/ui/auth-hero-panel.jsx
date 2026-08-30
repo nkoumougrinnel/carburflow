@@ -14,8 +14,8 @@ export function AuthHeroPanel({
   className,
 }) {
   return (
-    <section className={cn('relative hidden min-h-[100dvh] flex-1 p-4 md:block', className)}>
-      <div className="absolute inset-4 overflow-hidden rounded-3xl">
+    <section className={cn('relative hidden min-h-[100dvh] flex-1 overflow-hidden md:block', className)}>
+      <div className="absolute inset-0 overflow-hidden">
         <div
           className="auth-hero-image absolute inset-0 scale-105 bg-cover bg-center"
           style={{
@@ -40,14 +40,7 @@ export function AuthHeroPanel({
         />
       </div>
 
-      <div className="absolute inset-4 z-10 flex flex-col justify-between p-8 lg:p-10">
-        <div className="animate-element animate-delay-400 flex items-center gap-3">
-          <BrandLogo variant="icon" className="size-11 rounded-xl object-cover shadow-lg" />
-          <p className="font-display text-sm font-semibold uppercase tracking-[0.2em] text-white/80">
-            {brand}
-          </p>
-        </div>
-
+      <div className="absolute inset-0 z-10 flex flex-col justify-end p-8 lg:p-10">
         <div className="max-w-md">
           <h2 className="animate-element animate-delay-500 font-display text-3xl font-semibold leading-tight tracking-tight text-white lg:text-4xl">
             {headline}

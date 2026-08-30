@@ -14,17 +14,17 @@ export function SignUpPage({
   title = (
     <span className="font-display tracking-tight text-foreground">
       <span className="font-semibold text-petrol">CarburFlow</span>
-      <span className="mt-2 block font-medium">Créer un compte</span>
+      <span className="mt-2 block font-medium">Créez votre espace</span>
     </span>
   ),
-  description = 'Les inscriptions ouvrent un compte opérateur pour déposer les relevés.',
+  description = 'Créez votre compte pour accéder à CarburFlow et utiliser les fonctionnalités correspondant à votre profil.',
   heroImageSrc,
-  heroHeadline = 'Votre relevé, enfin simple.',
-  heroSubline = 'Rejoignez les équipes qui déposent leurs rapports sans friction ni tableurs dispersés.',
+  heroHeadline = 'Entrez dans l’univers CarburFlow.',
+  heroSubline = 'Une plateforme centralisée pour suivre les données carburant, les installations et les situations nécessitant votre attention.',
   heroPhrases = [
-    'Norme Excel ou CSV, prête en quelques minutes.',
-    'Historique clair de chaque envoi.',
-    'L’admin pilote. Vous relevez et déposez.',
+    'Centralisez vos données et vos relevés.',
+    'Retrouvez facilement votre historique.',
+    'Accédez aux outils adaptés à votre rôle.',
   ],
   onSignUp,
   onSignIn,
@@ -36,10 +36,10 @@ export function SignUpPage({
   const [showPassword, setShowPassword] = useState(false)
 
   return (
-    <div className="flex h-[100dvh] w-[100dvw] flex-col overflow-hidden font-sans md:flex-row">
-      <section className="flex flex-1 items-center justify-center overflow-y-auto p-6 sm:p-8">
-        <div className="w-full max-w-md py-4">
-          <div className="flex flex-col gap-5">
+    <div className="flex h-[calc(100dvh-4rem)] w-[100dvw] flex-col overflow-hidden font-sans md:h-[100dvh] md:flex-row">
+      <section className="flex flex-1 items-center justify-center p-4 sm:p-6">
+        <div className="w-full max-w-md py-1">
+          <div className="flex flex-col gap-4">
             <h1 className="animate-element animate-delay-100 font-display text-4xl font-semibold leading-tight md:text-5xl">
               {title}
             </h1>
