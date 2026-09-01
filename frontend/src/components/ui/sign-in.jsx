@@ -88,7 +88,6 @@ export function SignInPage({
                       type={showPassword ? 'text' : 'password'}
                       autoComplete="current-password"
                       required
-                      minLength={6}
                       placeholder="Entrez votre mot de passe"
                       className="w-full rounded-2xl bg-transparent p-4 pr-12 text-sm text-foreground focus:outline-none"
                     />

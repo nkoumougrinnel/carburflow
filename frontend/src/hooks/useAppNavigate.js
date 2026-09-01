@@ -34,6 +34,8 @@ export function useAppNavigate() {
       }
     }
 
-    rrNavigate(`${pathForView(nextView)}${searchForView(nextView, options)}`)
+    rrNavigate(`${pathForView(nextView)}${searchForView(nextView, options)}`, {
+      replace: Boolean(options.replace),
+    })
   }, [rrNavigate, isAuthenticated, isAdmin, isOperator, isViewer, loading])
 }

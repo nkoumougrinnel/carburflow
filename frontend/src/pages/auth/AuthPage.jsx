@@ -37,7 +37,7 @@ function AuthPage({ onNavigate, initialMode = 'login' }) {
 
   useEffect(() => {
     if (isAuthenticated) {
-      onNavigate(homeViewForUser({ isAdmin, isOperator, isViewer }))
+      onNavigate(homeViewForUser({ isAdmin, isOperator, isViewer }), { replace: true })
     }
   }, [isAuthenticated, isAdmin, isOperator, isViewer, onNavigate])
 
@@ -61,7 +61,7 @@ function AuthPage({ onNavigate, initialMode = 'login' }) {
       const username = String(formData.get('username') || '').trim()
       const password = String(formData.get('password') || '')
       const user = await login(username, password)
-      onNavigate(homeViewForUser(user))
+      onNavigate(homeViewForUser(user), { replace: true })
     } catch (err) {
       setError(err.message || 'Impossible de se connecter.')
     } finally {
@@ -86,7 +86,7 @@ function AuthPage({ onNavigate, initialMode = 'login' }) {
         password: form.password,
         password_confirm: form.password_confirm,
       })
-      onNavigate('viewer')
+      onNavigate('viewer', { replace: true })
     } catch (err) {
       setError(err.message || 'Impossible de continuer.')
     } finally {

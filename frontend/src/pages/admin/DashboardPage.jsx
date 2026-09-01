@@ -36,6 +36,12 @@ function DashboardPage({ onNavigate }) {
   // Écart (Semaine N vs Semaine N-1) / Semaine N-1
   // Hausse de consommation (N > N-1) = rouge (mauvais)
   // Baisse de consommation (N < N-1) = vert (bon)
+  const getDeviation = (current, previous) => {
+    if (current == null || previous == null || Number(previous) === 0) return null
+    const gap = ((Number(current) - Number(previous)) / Number(previous)) * 100
+    return Number.isFinite(gap) ? gap : null
+  }
+
   const renderEcartVsN1 = (latest, previous, fallback = '—', invert = false) => {
     if (latest == null || previous == null || previous === 0) {
       return <span title={ecartTitle(null)}>{fallback}</span>

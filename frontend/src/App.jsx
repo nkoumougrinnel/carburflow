@@ -62,22 +62,29 @@ function SitesByRole() {
   return <UserSitesPage onNavigate={onNavigate} />
 }
 
+const APP_ROUTES = [
+  { path: '/login/', element: <GuestOnly><Routed component={AuthPage} extra={{ initialMode: 'login' }} /></GuestOnly> },
+  { path: '/register/', element: <GuestOnly><Routed component={AuthPage} extra={{ initialMode: 'register' }} /></GuestOnly> },
+  { path: '/dashboard/', element: <Guard roles={['admin']}><Routed component={DashboardPage} /></Guard> },
+  { path: '/alertes/', element: <Guard roles={['admin']}><Routed component={AlertsPage} /></Guard> },
+  { path: '/groupes/', element: <Guard roles={['admin']}><Routed component={GroupsPage} /></Guard> },
+  { path: '/sites/', element: <Guard roles={['admin', 'operator', 'viewer']}><SitesByRole /></Guard> },
+  { path: '/rapports/', element: <Guard roles={['admin', 'operator']}><Routed component={ReportsPage} /></Guard> },
+  { path: '/historique/', element: <Navigate to="/rapports/" replace /> },
+  { path: '/operateur/', element: <Guard roles={['operator']}><Routed component={OperatorHomePage} /></Guard> },
+  { path: '/espace/', element: <Guard roles={['viewer']}><Routed component={UserHomePage} /></Guard> },
+  { path: '/profil/', element: <Guard roles={['admin', 'operator', 'viewer']}><Routed component={ProfilePage} /></Guard> },
+  { path: '/notifications/', element: <Guard roles={['admin', 'operator', 'viewer']}><Routed component={NotificationsPage} /></Guard> },
+]
+
 function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Routed component={HomePage} />} />
-      <Route path="/login/" element={<GuestOnly><Routed component={AuthPage} extra={{ initialMode: 'login' }} /></GuestOnly>} />
-      <Route path="/register/" element={<GuestOnly><Routed component={AuthPage} extra={{ initialMode: 'register' }} /></GuestOnly>} />
-      <Route path="/dashboard/" element={<Guard roles={['admin']}><Routed component={DashboardPage} /></Guard>} />
-      <Route path="/alertes/" element={<Guard roles={['admin']}><Routed component={AlertsPage} /></Guard>} />
-      <Route path="/groupes/" element={<Guard roles={['admin']}><Routed component={GroupsPage} /></Guard>} />
-      <Route path="/sites/" element={<Guard roles={['admin', 'operator', 'viewer']}><SitesByRole /></Guard>} />
-      <Route path="/rapports/" element={<Guard roles={['admin', 'operator']}><Routed component={ReportsPage} /></Guard>} />
-      <Route path="/historique/" element={<Navigate to="/rapports/" replace />} />
-      <Route path="/operateur/" element={<Guard roles={['operator']}><Routed component={OperatorHomePage} /></Guard>} />
-      <Route path="/espace/" element={<Guard roles={['viewer']}><Routed component={UserHomePage} /></Guard>} />
-      <Route path="/profil/" element={<Guard roles={['admin', 'operator', 'viewer']}><Routed component={ProfilePage} /></Guard>} />
-      <Route path="/notifications/" element={<Guard roles={['admin', 'operator', 'viewer']}><Routed component={NotificationsPage} /></Guard>} />
+      {APP_ROUTES.flatMap(({ path, element }) => [
+        <Route key={path} path={path} element={element} />,
+        <Route key={`${path}-bare`} path={path.replace(/\/$/, '')} element={<Navigate to={path} replace />} />,
+      ])}
       <Route path="*" element={<Routed component={HomePage} />} />
     </Routes>
   )

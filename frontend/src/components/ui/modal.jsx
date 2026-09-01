@@ -36,10 +36,10 @@ function Modal({
     >
       <DialogContent
         showCloseButton={false}
-        overlayClassName={backdropClass}
+        overlayClassName={cn(backdropClass, '!z-[80]')}
         aria-labelledby={headingId}
         className={cn(
-          'max-w-none sm:max-w-none w-auto p-0 gap-0 border-0 bg-transparent shadow-none',
+          'max-w-none sm:max-w-none w-auto p-0 gap-0 border-0 bg-transparent shadow-none !z-[90]',
           cardClass,
           cardClassName,
         )}
