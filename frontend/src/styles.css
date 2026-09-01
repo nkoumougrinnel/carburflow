@@ -265,13 +265,19 @@ main.page-layout.reports-layout--saas {
   isolation: isolate;
 }
 
+.topbar.is-scrolled {
+  background: var(--panel);
+  box-shadow: var(--shadow-soft), 0 8px 20px color-mix(in srgb, var(--primary) 10%, transparent);
+}
+
 .topbar-right {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-left: auto;
+  margin-left: 0;
   min-width: 0;
   position: relative;
+  flex: 0 0 auto;
 }
 
 .cf-interaction-shell {
@@ -474,6 +480,8 @@ html.theme-light .group-card {
 .topbar-burger {
   display: none;
   appearance: none;
+  position: relative;
+  flex: 0 0 auto;
   border: 1px solid var(--border);
   background: var(--panel-soft);
   color: var(--primary);
@@ -484,12 +492,21 @@ html.theme-light .group-card {
   cursor: pointer;
 }
 
+.topbar-burger-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  pointer-events: none;
+}
+
 .topbar-actions {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
   justify-content: flex-end;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .nav-link {
@@ -566,7 +583,7 @@ html.theme-light .group-card {
   overflow: hidden;
   border-radius: 24px;
   padding: 28px 30px;
-  margin-top: 20px;
+  margin-top: 0;
   background:
     linear-gradient(135deg, rgba(15, 76, 110, 0.96), rgba(26, 107, 138, 0.9)),
     var(--primary);
@@ -630,7 +647,7 @@ html.theme-light .group-card {
 .groups-grid {
   display: grid;
   gap: clamp(16px, 1.8vw, 24px);
-  margin-top: clamp(16px, 2vw, 24px);
+  margin-top: 0;
   width: 100%;
   min-width: 0;
   max-width: 100%;
@@ -786,10 +803,10 @@ html.theme-light .group-card {
     display: grid;
   }
 
-  /* Le menu burger doit reposer sur la topbar pleine largeur
-     (sinon il se réduit à la largeur de .topbar-right et déborde). */
+  /* Le menu burger reste dans le flux à droite ; le panneau se pose sur la topbar. */
   .topbar-right {
-    position: static;
+    position: relative;
+    flex: 0 0 auto;
   }
 
   .topbar-actions {
@@ -2904,7 +2921,7 @@ button.alert-item--link {
 .reports-layout {
   display: grid;
   gap: clamp(16px, 1.8vw, 22px);
-  margin-top: clamp(16px, 2vw, 24px);
+  margin-top: 0;
   width: 100%;
   max-width: 100%;
   min-width: 0;
@@ -5473,7 +5490,7 @@ button.alert-item--link {
 
 .user-home > .welcome-banner,
 .op-home > .welcome-banner {
-  margin-top: 20px;
+  margin-top: 0;
   margin-bottom: 0;
   width: 100%;
   background: linear-gradient(135deg, #ffffff 0%, #f5f9ff 100%);
@@ -5712,7 +5729,7 @@ button.alert-item--link {
 
 @media (max-width: 520px) {
   .user-home > .welcome-banner {
-    margin-top: 12px;
+    margin-top: 0;
     padding: 22px 18px;
     border-radius: 18px;
   }
@@ -5760,7 +5777,7 @@ button.alert-item--link {
 
 .op-home > .welcome-banner {
   flex: 0 0 auto;
-  margin-top: 12px;
+  margin-top: 0;
   margin-bottom: 0;
   width: 100%;
 }
@@ -6242,7 +6259,7 @@ button.alert-item--link {
 .alerts-page > .welcome-banner,
 .reports-layout--workspace > .welcome-banner,
 .profile-layout > .welcome-banner {
-  margin-top: 20px;
+  margin-top: 0;
   margin-bottom: clamp(4px, 0.8vw, 10px);
   width: 100%;
   flex: 0 0 auto;
