@@ -202,7 +202,7 @@ button {
 }
 
 .app-shell {
-  --shell-pad-x: clamp(14px, 2.2vw, 40px);
+  --shell-pad-x: clamp(14px, 2.4vw, 48px);
   --shell-pad-y: clamp(14px, 1.6vw, 28px);
   min-height: 100vh;
   min-height: 100dvh;
@@ -221,9 +221,9 @@ button {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-6);
-  width: min(100%, 1280px);
-  max-width: 1280px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: none;
+  margin: 0;
   padding: 0 var(--shell-pad-x);
   box-sizing: border-box;
 }
@@ -231,9 +231,9 @@ button {
 main.page-layout.groups-grid,
 main.page-layout.profile-layout--saas,
 main.page-layout.reports-layout--saas {
-  width: min(100%, 1280px);
-  max-width: 1280px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: none;
+  margin: 0;
   box-sizing: border-box;
 }
 
@@ -3388,9 +3388,9 @@ button.alert-item--link {
 .reports-download-flow {
   display: flex;
   flex-direction: column;
-  width: min(100%, 1200px);
-  max-width: 1200px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: none;
+  margin: 0;
   gap: 0.85rem;
   position: relative;
 }
@@ -7554,8 +7554,9 @@ button.alert-item--link {
 }
 
 .saas-profile {
-  width: min(100%, 1200px);
-  margin: 0 auto;
+  width: 100%;
+  max-width: none;
+  margin: 0;
 }
 
 .saas-profile-tabs {
@@ -7563,7 +7564,8 @@ button.alert-item--link {
   flex-wrap: wrap;
   justify-content: center;
   gap: 0.35rem;
-  width: min(100%, 1200px);
+  width: 100%;
+  max-width: none;
   padding: 0.3rem;
   margin: 0 auto 1.1rem;
   border-radius: 14px;
@@ -10529,18 +10531,28 @@ body {
 /* Cuves Journalières Grid */
 .cj-cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: 1fr;
   gap: 1.2rem;
 }
 
 .cj-card {
-  background: var(--bg);
+  background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 16px;
-  padding: 1.3rem;
+  padding: 1.5rem;
   display: flex;
-  gap: 1.2rem;
   align-items: center;
+  gap: 3.5rem;
+  justify-content: center;
+  width: 100%;
+}
+
+@media (max-width: 899px) {
+  .cj-card {
+    flex-direction: column;
+    gap: 1.5rem;
+    align-items: stretch;
+  }
 }
 
 .cj-mini-tank {

@@ -29,14 +29,7 @@ gsap.registerPlugin(useGSAP, ScrollTrigger, SplitText)
 
 const ILLU = {
   hero: 'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?auto=format&fit=crop&w=2400&q=80',
-  field: 'https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?auto=format&fit=crop&w=1600&q=80',
-  tanks: 'https://images.unsplash.com/photo-1581094794329-c8112a89af12?auto=format&fit=crop&w=1600&q=80',
   control: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1600&q=80',
-  night: 'https://images.unsplash.com/photo-1497436072909-60f360e1d4b1?auto=format&fit=crop&w=2000&q=80',
-  team: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=2000&q=80',
-  gauge: 'https://images.unsplash.com/photo-1513828583688-c52646db42da?auto=format&fit=crop&w=1200&q=80',
-  truck: 'https://images.unsplash.com/photo-1601584115197-b54892c1f236?auto=format&fit=crop&w=1200&q=80',
-  plant: 'https://images.unsplash.com/photo-1565514020176-efe690483095?auto=format&fit=crop&w=1200&q=80',
 }
 
 const challengePoints = [
@@ -138,25 +131,6 @@ const situations = [
   },
 ]
 
-const productFeatures = [
-  {
-    title: 'Dashboard',
-    text: 'Une vue synthétique de l’état du réseau, des alertes et des principaux indicateurs.',
-  },
-  {
-    title: 'Sites',
-    text: 'Une vision opérationnelle de chaque site : stock, consommation, évolution, autonomie et alertes.',
-  },
-  {
-    title: 'Groupes',
-    text: 'Une analyse plus détaillée du fonctionnement et de la consommation des groupes électrogènes.',
-  },
-  {
-    title: 'Alertes',
-    text: 'Une file de traitement permettant d’identifier les situations à vérifier, de les ouvrir et de conserver leur historique de traitement.',
-  },
-]
-
 const roles = [
   {
     title: 'Responsable',
@@ -191,9 +165,12 @@ const benefits = [
 ]
 
 const team = [
-  { name: 'Amélie N.', role: 'Product owner', image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=900&q=80' },
-  { name: 'Jean M.', role: 'Chef de projet', image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=900&q=80' },
-  { name: 'Sophie T.', role: 'Data & alertes', image: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?auto=format&fit=crop&w=900&q=80' },
+  { name: 'Daniel Beni', role: 'Frontend et UX', image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=900&q=80' },
+  { name: 'Grinnel Germain', role: 'Backend et logique métier', image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=900&q=80' },
+  { name: 'Evijo', role: 'Fullstack', image: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=900&q=80' },
+  { name: 'Rayanne Kengne', role: 'Données et import', image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=900&q=80' },
+  { name: 'Divine Ndzana', role: 'Contribution métier', image: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?auto=format&fit=crop&w=900&q=80' },
+  { name: '003bnb', role: 'Contribution technique', image: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=900&q=80' },
 ]
 
 function HomePage({ onNavigate }) {
@@ -317,23 +294,6 @@ function HomePage({ onNavigate }) {
               </Button>
             </div>
             <p className="mt-6 text-sm text-slate-300">Une vision centralisée. Des données structurées. Des alertes exploitables.</p>
-          </div>
-        </section>
-
-        <section className="illu-gallery reveal-section border-b border-slate-200 bg-slate-50 py-10 lg:py-14">
-          <div className="mx-auto grid max-w-6xl gap-3 px-4 sm:grid-cols-3 sm:px-6 lg:px-8">
-            {[
-              { src: ILLU.field, label: 'Dashboard' },
-              { src: ILLU.tanks, label: 'Sites' },
-              { src: ILLU.control, label: 'Alertes' },
-            ].map((item) => (
-              <figure key={item.label} className="illu-frame group relative aspect-[4/3] overflow-hidden rounded-2xl shadow-sm ring-1 ring-slate-200">
-                <img src={item.src} alt={item.label} className="unsplash-ph h-full w-full object-cover transition duration-700 group-hover:scale-105" loading="lazy" />
-                <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/80 to-transparent px-4 pb-4 pt-10 text-sm font-semibold text-white">
-                  {item.label}
-                </figcaption>
-              </figure>
-            ))}
           </div>
         </section>
 
@@ -489,31 +449,6 @@ function HomePage({ onNavigate }) {
           </div>
         </section>
 
-        <section className="reveal-section mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
-          <div className="max-w-3xl">
-            <p className="reveal-head text-sm font-semibold uppercase tracking-[0.2em] text-sky-700">STRUCTURE</p>
-            <h2 className="reveal-head mt-4 font-display text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
-              Du site à l’équipement, chaque niveau a sa place.
-            </h2>
-            <p className="reveal-head mt-4 text-lg text-slate-600">
-              CarburFlow structure les informations selon la réalité technique des installations afin de permettre une navigation cohérente entre les différents niveaux d’analyse.
-            </p>
-          </div>
-
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-3 text-center text-sm font-semibold text-slate-700">
-            {['SITE', 'CUVE PRINCIPALE', 'CUVE JOURNALIÈRE', 'GROUPE ÉLECTROGÈNE', 'DONNÉES DE FONCTIONNEMENT ET DE CONSOMMATION'].map((item, index) => (
-              <React.Fragment key={item}>
-                <div className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 shadow-sm">{item}</div>
-                {index < 4 && <ArrowRight className="size-4 text-sky-700" />}
-              </React.Fragment>
-            ))}
-          </div>
-
-          <p className="reveal-head mt-8 text-lg text-slate-600">
-            Cette organisation permet de partir d’une vue réseau, d’identifier un site concerné, puis de descendre jusqu’au groupe à l’origine des données analysées.
-          </p>
-        </section>
-
         <section className="reveal-section bg-slate-50 py-16 lg:py-20">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <div className="max-w-3xl">
@@ -604,33 +539,6 @@ function HomePage({ onNavigate }) {
           </div>
         </section>
 
-        <section id="features" className="reveal-section mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
-          <div className="max-w-3xl">
-            <h2 className="reveal-head font-display text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
-              Une plateforme pensée pour le suivi quotidien.
-            </h2>
-          </div>
-          <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {[
-              'Tableau de bord',
-              'Gestion des sites',
-              'Gestion des groupes',
-              'Gestion des alertes',
-              'Historique',
-              'Navigation par niveaux',
-            ].map((item) => (
-              <div key={item} className="reveal-item rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <span className="flex size-8 items-center justify-center rounded-lg bg-sky-50 text-sky-700">
-                    <ShieldCheck className="size-4" />
-                  </span>
-                  <h3 className="font-display text-lg font-semibold text-slate-900">{item}</h3>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
         <section id="about" className="reveal-section bg-slate-50 py-16 lg:py-20">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <div className="max-w-3xl">
@@ -643,13 +551,13 @@ function HomePage({ onNavigate }) {
               </p>
             </div>
 
-            <div className="mt-10 grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="mt-10 grid gap-8">
               <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h3 className="font-display text-2xl font-semibold text-slate-900">La team ultime</h3>
+                <h3 className="font-display text-2xl font-semibold text-slate-900">L’équipe CarburFlow</h3>
                 <p className="mt-4 text-slate-600">
                   Une équipe orientée produit, analyse, sécurité et exploitation, avec un objectif simple : rendre lisible le suivi carburant sur un parc technique large et hétérogène.
                 </p>
-                <div className="mt-6 grid gap-4 sm:grid-cols-3">
+                <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {team.map((person) => (
                     <div key={person.name} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                       <img src={person.image} alt={person.name} className="unsplash-ph h-28 w-full rounded-xl object-cover" loading="lazy" />
@@ -717,9 +625,9 @@ function HomePage({ onNavigate }) {
           </div>
           <div className="flex flex-wrap items-center gap-4">
             <a href="#home" className="hover:text-sky-700">Accueil</a>
-            <a href="#features" className="hover:text-sky-700">Fonctionnalités</a>
-            <a href="#how-it-works" className="hover:text-sky-700">Connexion</a>
-            <a href="#about" className="hover:text-sky-700">Inscription</a>
+            <a href="#how-it-works" className="hover:text-sky-700">Fonctionnalités</a>
+            <button type="button" className="hover:text-sky-700" onClick={() => onNavigate('login')}>Connexion</button>
+            <button type="button" className="hover:text-sky-700" onClick={() => onNavigate('register')}>Inscription</button>
           </div>
         </div>
         <Separator className="bg-slate-200" />

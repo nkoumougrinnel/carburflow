@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Building2, ChevronDown, ArrowLeft, Zap, Fuel, Layers } from 'lucide-react'
+import { Building2, ChevronDown, ArrowLeft, Layers } from 'lucide-react'
 import Topbar from '@/components/Topbar.jsx'
 import WelcomeBanner from '@/components/WelcomeBanner.jsx'
 import PageEnter from '@/components/PageEnter.jsx'
@@ -248,47 +248,41 @@ function OperatorSitesPage({ onNavigate }) {
                 <div className="cj-cards-grid">
                   {selectedSite.cuvesJournalieres.map((cj) => {
                     const cap = cj.capacite || 1000
-                    // Estimation niveau CJ basée sur le ratio du site si non spécifié
                     const cjPct = selectedSite.percent
                     const cjVol = Math.round((cjPct / 100) * cap)
+                    const groupLabel = cj.groupe_electrogene_identifiant || cj.groupe_electrogene || selectedSite.groupLabels || 'Groupe G1'
 
                     return (
                       <article key={cj.id} className="cj-card">
-                        <div className="cj-card-left">
-                          <TankGauge
-                            variant="vertical"
-                            size="sm"
-                            percent={cjPct}
-                          />
-                        </div>
-
-                        <div className="cj-card-center">
-                          <h3 className="cj-code">{cj.identifiant || `CJ${cj.id}`}</h3>
-                          <span className="cj-status">Fonctionnelle</span>
-
-                          <div className="cj-info-row">
-                            <span className="cj-info-label">Capacité</span>
-                            <strong>{cap.toLocaleString('fr-FR')} L</strong>
+                        <TankGauge
+                          variant="vertical"
+                          size="md"
+                          percent={cjPct}
+                          currentVolume={cjVol}
+                          capacity={cap}
+                        />
+                        <div className="op-tank-main-metrics">
+                          <div className="op-tank-metric">
+                            <strong className="op-tank-metric-value">{cj.identifiant || `CJ${cj.id}`}</strong>
+                            <span className="op-tank-metric-label">Identifiant</span>
                           </div>
-
-                          <div className="cj-info-row">
-                            <span className="cj-info-label">Niveau actuel</span>
-                            <strong>{Math.round(cjPct)} % ({cjVol} / {cap} L)</strong>
+                          <div className="op-tank-metric">
+                            <strong className="op-tank-metric-value">{cjVol.toLocaleString('fr-FR')} L</strong>
+                            <span className="op-tank-metric-label">Niveau actuel</span>
                           </div>
-
-                          <TankGauge
-                            variant="horizontal"
-                            percent={cjPct}
-                            currentVolume={cjVol}
-                            capacity={cap}
-                          />
-                        </div>
-
-                        <div className="cj-card-right">
-                          <span className="cj-group-tag">Groupe alimenté</span>
-                          <div className="cj-group-badge">
-                            <Zap size={14} className="text-primary" />
-                            <span>{cj.groupe_electrogene_identifiant || cj.groupe_electrogene || selectedSite.groupLabels || 'Groupe G1'}</span>
+                          <div className="op-tank-metric">
+                            <strong className="op-tank-metric-value">{Math.round(cjPct)} %</strong>
+                            <span className="op-tank-metric-label">Remplissage</span>
+                          </div>
+                          <div className="op-tank-metric">
+                            <strong className="op-tank-metric-value">{cap.toLocaleString('fr-FR')} L</strong>
+                            <span className="op-tank-metric-label">Capacité</span>
+                          </div>
+                          <div className="op-tank-metric">
+                            <strong className="op-tank-metric-value" style={{ color: 'var(--primary)' }}>
+                              {groupLabel}
+                            </strong>
+                            <span className="op-tank-metric-label">Groupe alimenté</span>
                           </div>
                         </div>
                       </article>
