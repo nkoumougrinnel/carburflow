@@ -6385,6 +6385,42 @@ button.alert-item--link {
   padding-bottom: 1.5rem;
 }
 
+@media (max-width: 720px) {
+  .app-shell--alerts,
+  .app-shell--reports,
+  .app-shell--messaging {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  .app-shell--alerts > .page-enter-root,
+  .app-shell--alerts > .alerts-page-enter,
+  .app-shell--reports > .page-enter-root,
+  .app-shell--reports > .reports-page-enter,
+  .app-shell--messaging > .page-enter-root,
+  .app-shell--messaging > .notif-page-enter {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
+  }
+
+  .app-shell--alerts .alerts-page--workspace,
+  .app-shell--alerts .alerts-layout--saas.profile-layout--saas,
+  .app-shell--alerts .saas-section-pane--alerts,
+  .app-shell--alerts .saas-section-pane--alerts > .alerts-saas-body,
+  .app-shell--alerts .section-workspace-main,
+  .app-shell--messaging .section-workspace--messaging .section-workspace-main,
+  .app-shell--messaging .section-workspace--messaging .section-workspace-pane,
+  .app-shell--messaging .notif-inbox--solo {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+}
+
 .alerts-page--workspace .alerts-filters,
 .alerts-page--workspace .alerts-list-panel {
   background: var(--panel);
