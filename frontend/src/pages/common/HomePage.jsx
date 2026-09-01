@@ -166,12 +166,12 @@ const roles = [
   {
     title: 'Opérateur',
     text: 'Importe les relevés, contrôle les données saisies et assure la transmission des informations nécessaires au suivi.',
-    items: ['Imports', 'Rapports', 'Historique'],
+    items: ['Envois', 'Sites', 'Historique'],
   },
   {
-    title: 'Utilisateur',
+    title: 'Consultation',
     text: 'Consulte les informations qui lui sont accessibles selon son périmètre.',
-    items: ['Consultation', 'Données disponibles'],
+    items: ['Sites', 'Données disponibles'],
   },
 ]
 
@@ -293,7 +293,7 @@ function HomePage({ onNavigate }) {
 
       <main>
         <section id="home" className="hero-section relative isolate overflow-hidden bg-slate-950">
-          <img src={ILLU.hero} alt="" className="hero-bg-img absolute inset-0 h-full w-full object-cover opacity-75" fetchPriority="high" />
+          <img src={ILLU.hero} alt="" className="hero-bg-img unsplash-ph absolute inset-0 h-full w-full object-cover opacity-75" fetchPriority="high" />
           <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-950/80 to-sky-950/55" aria-hidden="true" />
           <div className="relative z-10 mx-auto max-w-6xl px-4 pb-16 pt-20 sm:px-6 lg:px-8 lg:pb-24 lg:pt-24">
             <p className="hero-brand text-sm font-semibold uppercase tracking-[0.22em] text-sky-200">
@@ -328,7 +328,7 @@ function HomePage({ onNavigate }) {
               { src: ILLU.control, label: 'Alertes' },
             ].map((item) => (
               <figure key={item.label} className="illu-frame group relative aspect-[4/3] overflow-hidden rounded-2xl shadow-sm ring-1 ring-slate-200">
-                <img src={item.src} alt={item.label} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" loading="lazy" />
+                <img src={item.src} alt={item.label} className="unsplash-ph h-full w-full object-cover transition duration-700 group-hover:scale-105" loading="lazy" />
                 <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/80 to-transparent px-4 pb-4 pt-10 text-sm font-semibold text-white">
                   {item.label}
                 </figcaption>
@@ -652,7 +652,7 @@ function HomePage({ onNavigate }) {
                 <div className="mt-6 grid gap-4 sm:grid-cols-3">
                   {team.map((person) => (
                     <div key={person.name} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                      <img src={person.image} alt={person.name} className="h-28 w-full rounded-xl object-cover" loading="lazy" />
+                      <img src={person.image} alt={person.name} className="unsplash-ph h-28 w-full rounded-xl object-cover" loading="lazy" />
                       <div className="mt-3">
                         <p className="font-semibold text-slate-900">{person.name}</p>
                         <p className="text-sm text-slate-500">{person.role}</p>
@@ -686,7 +686,7 @@ function HomePage({ onNavigate }) {
         </section>
 
         <section className="final-cta-section relative isolate overflow-hidden px-4 py-20 sm:px-6 lg:px-8">
-          <img src={ILLU.control} alt="" className="absolute inset-0 h-full w-full object-cover opacity-90" loading="lazy" />
+          <img src={ILLU.control} alt="" className="unsplash-ph absolute inset-0 h-full w-full object-cover opacity-90" loading="lazy" />
           <div className="absolute inset-0 bg-sky-950/90" aria-hidden="true" />
           <div className="final-cta-inner relative z-10 mx-auto flex max-w-6xl flex-col items-start gap-6 text-white md:flex-row md:items-center md:justify-between">
             <div className="max-w-2xl">

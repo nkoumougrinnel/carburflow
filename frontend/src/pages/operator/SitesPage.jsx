@@ -140,7 +140,7 @@ function OperatorSitesPage({ onNavigate }) {
 
             <button
                 type="button"
-                className="viewer-btn-back"
+                className="op-btn-back"
                 onClick={() => setSelectedSiteId('ALL')}
                 style={{ marginTop: '0.8rem' }}
               >
@@ -173,7 +173,7 @@ function OperatorSitesPage({ onNavigate }) {
                 Site · {selectedSite.cpIdentifiant} · {groupsCount} groupe{groupsCount > 1 ? 's' : ''}
               </p>
 
-              <div className="viewer-tank-main-layout">
+              <div className="op-tank-main-layout">
                 {/* À gauche : grande cuve */}
                 <TankGauge
                   variant="vertical"
@@ -184,40 +184,40 @@ function OperatorSitesPage({ onNavigate }) {
                 />
 
                 {/* À droite : métriques essentielles + Autonomie */}
-                <div className="viewer-tank-main-metrics">
-                  <div className="viewer-tank-metric">
-                    <strong className="viewer-tank-metric-value">
+                <div className="op-tank-main-metrics">
+                  <div className="op-tank-metric">
+                    <strong className="op-tank-metric-value">
                       {selectedSite.currentVolume.toLocaleString('fr-FR')} L
                     </strong>
-                    <span className="viewer-tank-metric-label">Niveau actuel</span>
+                    <span className="op-tank-metric-label">Niveau actuel</span>
                   </div>
 
-                  <div className="viewer-tank-metric">
-                    <strong className="viewer-tank-metric-value">
+                  <div className="op-tank-metric">
+                    <strong className="op-tank-metric-value">
                       {Math.round(selectedSite.percent)} %
                     </strong>
-                    <span className="viewer-tank-metric-label">Niveau de remplissage</span>
+                    <span className="op-tank-metric-label">Niveau de remplissage</span>
                   </div>
 
-                  <div className="viewer-tank-metric">
-                    <strong className="viewer-tank-metric-value">
+                  <div className="op-tank-metric">
+                    <strong className="op-tank-metric-value">
                       {selectedSite.capacity.toLocaleString('fr-FR')} L
                     </strong>
-                    <span className="viewer-tank-metric-label">Capacité totale</span>
+                    <span className="op-tank-metric-label">Capacité totale</span>
                   </div>
 
-                  <div className="viewer-tank-metric">
-                    <strong className="viewer-tank-metric-value">
+                  <div className="op-tank-metric">
+                    <strong className="op-tank-metric-value">
                       {volumeDisponible.toLocaleString('fr-FR')} L
                     </strong>
-                    <span className="viewer-tank-metric-label">Volume disponible</span>
+                    <span className="op-tank-metric-label">Volume disponible</span>
                   </div>
 
-                  <div className="viewer-tank-metric">
-                    <strong className="viewer-tank-metric-value" style={{ color: 'var(--primary)' }}>
+                  <div className="op-tank-metric">
+                    <strong className="op-tank-metric-value" style={{ color: 'var(--primary)' }}>
                       {selectedSite.formattedAutonomy}
                     </strong>
-                    <span className="viewer-tank-metric-label">Autonomie estimée</span>
+                    <span className="op-tank-metric-label">Autonomie estimée</span>
                   </div>
                 </div>
               </div>
@@ -227,17 +227,17 @@ function OperatorSitesPage({ onNavigate }) {
             
 
             {/* Section CUVES JOURNALIÈRES */}
-            <section className="viewer-section-panel">
-              <div className="viewer-section-header">
+            <section className="op-section-panel">
+              <div className="op-section-header">
                 <div>
-                  <span className="viewer-section-kicker">Stockage journalier</span>
+                  <span className="op-section-kicker">Stockage journalier</span>
                   <h2>Cuves journalières</h2>
                   <p>Cuves secondaires rattachées aux groupes électrogènes du site.</p>
                 </div>
               </div>
 
               {selectedSite.cuvesJournalieres.length === 0 ? (
-                <div className="viewer-empty-card">
+                <div className="op-empty-card">
                   <Layers size={24} className="text-muted" />
                   <div>
                     <strong>Aucune cuve journalière configurée</strong>
@@ -329,10 +329,10 @@ function OperatorSitesPage({ onNavigate }) {
           )}
 
           {/* 3 Filtres Opérateur : Site, Niveau, Autonomie */}
-          <div className="viewer-filters-bar">
-            <div className="viewer-filter-field">
+          <div className="op-filters-bar">
+            <div className="op-filter-field">
               <label htmlFor="op-sites-select">Site</label>
-              <div className="viewer-select-wrap">
+              <div className="op-select-wrap">
                 <select
                   id="op-sites-select"
                   value={selectedSiteId}
@@ -343,13 +343,13 @@ function OperatorSitesPage({ onNavigate }) {
                     <option key={s.id} value={s.id}>{s.nom}</option>
                   ))}
                 </select>
-                <ChevronDown size={16} className="viewer-select-icon" />
+                <ChevronDown size={16} className="op-select-icon" />
               </div>
             </div>
 
-            <div className="viewer-filter-field">
+            <div className="op-filter-field">
               <label htmlFor="op-level-select">Niveau</label>
-              <div className="viewer-select-wrap">
+              <div className="op-select-wrap">
                 <select
                   id="op-level-select"
                   value={selectedLevelFilter}
@@ -361,13 +361,13 @@ function OperatorSitesPage({ onNavigate }) {
                   <option value="WARNING">À surveiller (20-40%)</option>
                   <option value="NORMAL">Normal (≥ 40%)</option>
                 </select>
-                <ChevronDown size={16} className="viewer-select-icon" />
+                <ChevronDown size={16} className="op-select-icon" />
               </div>
             </div>
 
-            <div className="viewer-filter-field">
+            <div className="op-filter-field">
               <label htmlFor="op-autonomy-select">Autonomie</label>
-              <div className="viewer-select-wrap">
+              <div className="op-select-wrap">
                 <select
                   id="op-autonomy-select"
                   value={selectedAutonomyFilter}
@@ -379,23 +379,23 @@ function OperatorSitesPage({ onNavigate }) {
                   <option value="INDET">Indéterminée</option>
                   <option value="OFF">Sans fonctionnement</option>
                 </select>
-                <ChevronDown size={16} className="viewer-select-icon" />
+                <ChevronDown size={16} className="op-select-icon" />
               </div>
             </div>
           </div>
 
           {/* Liste "Mes sites" */}
-          <section className="viewer-section-panel">
-            <div className="viewer-section-header">
+          <section className="op-section-panel">
+            <div className="op-section-header">
               <div>
-                <span className="viewer-section-kicker">Mes sites</span>
+                <span className="op-section-kicker">Mes sites</span>
                 <h2>Sites sous votre charge</h2>
                 <p>Aperçu opérationnel des sites, niveaux et autonomies.</p>
               </div>
             </div>
 
             <div className="dashboard-table-scroll">
-              <table className="viewer-table">
+              <table className="op-table">
                 <thead>
                   <tr>
                     <th style={{ textAlign: 'left' }}>Site</th>
@@ -412,6 +412,7 @@ function OperatorSitesPage({ onNavigate }) {
                       onClick={() => setSelectedSiteId(String(site.id))}
                       tabIndex={0}
                       role="link"
+                      aria-label={`Ouvrir le site ${site.nom}`}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault()
@@ -420,11 +421,11 @@ function OperatorSitesPage({ onNavigate }) {
                       }}
                     >
                       <td style={{ textAlign: 'left' }}>
-                        <div className="viewer-table-site-name">
-                          <Building2 size={16} className="viewer-table-site-icon" />
+                        <div className="op-table-site-name">
+                          <Building2 size={16} className="op-table-site-icon" />
                           <div>
                             <strong>{site.nom}</strong>
-                            <div className="viewer-cp-tag">{site.cpIdentifiant}</div>
+                            <div className="op-cp-tag">{site.cpIdentifiant}</div>
                           </div>
                         </div>
                       </td>
@@ -444,7 +445,7 @@ function OperatorSitesPage({ onNavigate }) {
                       </td>
 
                       <td style={{ textAlign: 'left' }}>
-                        <span className="viewer-cp-tag">{site.groupLabels}</span>
+                        <span className="op-cp-tag">{site.groupLabels}</span>
                       </td>
                     </tr>
                   ))}

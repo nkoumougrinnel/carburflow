@@ -538,18 +538,12 @@ function AlertsPage({ onNavigate }) {
       <div className="app-shell dashboard-shell">
         <Topbar activeView="alerts" onNavigate={onNavigate} />
         <div className="alx-layout">
-          <div className="reports-error-panel" role="alert">
-            <div className="reports-error-panel-head">
-              <strong>Problème</strong>
-              <p>{loadError}</p>
-            </div>
-            <Button
-              variant="primary"
-              onClick={() => window.location.reload()}
-            >
-              Réessayer
-            </Button>
-          </div>
+          <EmptyState
+            icon={<Bell size={40} />}
+            title="Impossible de charger les alertes"
+            description={loadError}
+            action={{ label: 'Réessayer', onClick: () => window.location.reload() }}
+          />
         </div>
       </div>
     )

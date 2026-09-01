@@ -319,6 +319,7 @@ function UserSitesPage({ onNavigate }) {
                       onClick={() => setSelectedSiteId(String(site.id))}
                       tabIndex={0}
                       role="link"
+                      aria-label={`Ouvrir le site ${site.nom}`}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault()

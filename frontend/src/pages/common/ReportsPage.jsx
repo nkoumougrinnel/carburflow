@@ -306,9 +306,11 @@ function ReportsPage({ onNavigate }) {
           
           {/* 2. HERO */}
           <WelcomeBanner
-            kicker="ESPACE OPÉRATEUR"
-            title="Relevés"
-            subtitle="Préparez, vérifiez et transmettez vos relevés terrain."
+            kicker={isAdmin ? 'RESPONSABLE' : 'ESPACE OPÉRATEUR'}
+            title={isAdmin ? 'Historique' : 'Envois'}
+            subtitle={isAdmin
+              ? 'Consultez et téléchargez les relevés transmis.'
+              : 'Préparez, vérifiez et transmettez vos relevés terrain.'}
           />
 
           {/* 3. ONGLETS : [ + Ajouter un relevé ] [ ◷ Mes envois (4) ] */}
@@ -341,7 +343,7 @@ function ReportsPage({ onNavigate }) {
                 }}
               >
                 <History size={16} aria-hidden="true" />
-                <span>Mes envois</span>
+                <span>Envois</span>
                 <span className="reports-consult-filter-count">{rapports.length}</span>
               </Button>
             </div>
@@ -386,7 +388,7 @@ function ReportsPage({ onNavigate }) {
                       <Button
                         variant="secondary"
                         onClick={handleResetFilter}
-                        className="viewer-btn-secondary"
+                        className="op-btn-secondary"
                         style={{ padding: '0.55rem 0.9rem' }}
                       >
                         Réinitialiser
@@ -398,10 +400,10 @@ function ReportsPage({ onNavigate }) {
                 {feedbackBlocks}
 
                 {/* 8. SECTION MES RELEVÉS TRANSMIS */}
-                <div className="viewer-section-header" style={{ marginTop: '1rem', marginBottom: '0.8rem' }}>
+                <div className="op-section-header" style={{ marginTop: '1rem', marginBottom: '0.8rem' }}>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                      <h2>Mes relevés transmis</h2>
+                      <h2>{isAdmin ? 'Historique' : 'Derniers relevés'}</h2>
                       <span className="reports-consult-filter-count" style={{ fontSize: '0.88rem', padding: '0.2rem 0.6rem' }}>
                         {filteredRapports.length} relevé{filteredRapports.length > 1 ? 's' : ''}
                       </span>
@@ -435,7 +437,7 @@ function ReportsPage({ onNavigate }) {
                 ) : (
                   <>
                     <div className="dashboard-table-scroll">
-                      <table className="viewer-table op-envois-table">
+                      <table className="op-table op-envois-table">
                         <thead>
                           <tr>
                             <th style={{ textAlign: 'left' }}>Relevé</th>
@@ -462,7 +464,7 @@ function ReportsPage({ onNavigate }) {
                                     <FileSpreadsheet size={20} className="text-primary" />
                                     <div>
                                       <strong>Relevé n°{r.id}</strong>
-                                      <div className="viewer-cp-tag" style={{ fontFamily: 'monospace' }}>
+                                      <div className="op-cp-tag" style={{ fontFamily: 'monospace' }}>
                                         releve_{formatDate(r.date_debut).replace(/\//g, '-')}.xlsx
                                       </div>
                                     </div>
@@ -473,7 +475,7 @@ function ReportsPage({ onNavigate }) {
                                 <td style={{ textAlign: 'left' }}>
                                   <div>
                                     <strong>{formatDate(r.date_debut)} → {formatDate(r.date_fin)}</strong>
-                                    {weekNum && <div className="viewer-cp-tag">Semaine {weekNum}</div>}
+                                    {weekNum && <div className="op-cp-tag">Semaine {weekNum}</div>}
                                   </div>
                                 </td>
 
@@ -505,7 +507,7 @@ function ReportsPage({ onNavigate }) {
                                 <td style={{ textAlign: 'left' }}>
                                   <div className="op-table-date-cell">
                                     <span>{dt.date}</span>
-                                    <span className="viewer-cp-tag">{dt.time}</span>
+                                    <span className="op-cp-tag">{dt.time}</span>
                                   </div>
                                 </td>
 
@@ -681,7 +683,7 @@ function ReportsPage({ onNavigate }) {
                   <section className="op-verify-panel">
                     <div className="op-verify-header">
                       <div>
-                        <span className="viewer-section-kicker">Contrôle technique</span>
+                        <span className="op-section-kicker">Contrôle technique</span>
                         <h2>Vérification du relevé</h2>
                         <p className="op-verify-filename">{fileSummary.fileName}</p>
                       </div>
@@ -690,22 +692,22 @@ function ReportsPage({ onNavigate }) {
                       </StatusBadge>
                     </div>
 
-                    <div className="viewer-info-strip" style={{ marginTop: '1.2rem' }}>
-                      <div className="viewer-info-strip-item">
-                        <span className="viewer-info-strip-label">Période couverte</span>
-                        <strong className="viewer-info-strip-value" style={{ fontSize: '1.1rem' }}>{fileSummary.periode}</strong>
+                    <div className="op-info-strip" style={{ marginTop: '1.2rem' }}>
+                      <div className="op-info-strip-item">
+                        <span className="op-info-strip-label">Période couverte</span>
+                        <strong className="op-info-strip-value" style={{ fontSize: '1.1rem' }}>{fileSummary.periode}</strong>
                       </div>
-                      <div className="viewer-info-strip-item">
-                        <span className="viewer-info-strip-label">Sites</span>
-                        <strong className="viewer-info-strip-value">{fileSummary.sitesCount}</strong>
+                      <div className="op-info-strip-item">
+                        <span className="op-info-strip-label">Sites</span>
+                        <strong className="op-info-strip-value">{fileSummary.sitesCount}</strong>
                       </div>
-                      <div className="viewer-info-strip-item">
-                        <span className="viewer-info-strip-label">Groupes</span>
-                        <strong className="viewer-info-strip-value">{fileSummary.groupesCount}</strong>
+                      <div className="op-info-strip-item">
+                        <span className="op-info-strip-label">Groupes</span>
+                        <strong className="op-info-strip-value">{fileSummary.groupesCount}</strong>
                       </div>
-                      <div className="viewer-info-strip-item">
-                        <span className="viewer-info-strip-label">Lignes de relevé</span>
-                        <strong className="viewer-info-strip-value">{fileSummary.lignesCount}</strong>
+                      <div className="op-info-strip-item">
+                        <span className="op-info-strip-label">Lignes de relevé</span>
+                        <strong className="op-info-strip-value">{fileSummary.lignesCount}</strong>
                       </div>
                     </div>
 
@@ -823,12 +825,12 @@ function ReportsPage({ onNavigate }) {
               onClose={() => setSiteModalRapport(null)}
               title={`Sites du relevé n°${siteModalRapport.id}`}
               subtitle={(
-                <p className="viewer-cp-tag">
+                <p className="op-cp-tag">
                   Période {formatDate(siteModalRapport.date_debut)} → {formatDate(siteModalRapport.date_fin)}
                 </p>
               )}
               footer={(
-                <button type="button" className="viewer-btn-secondary" onClick={() => setSiteModalRapport(null)}>
+                <button type="button" className="op-btn-secondary" onClick={() => setSiteModalRapport(null)}>
                   Fermer
                 </button>
               )}

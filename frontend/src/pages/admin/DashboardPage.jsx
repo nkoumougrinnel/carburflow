@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { CircleAlert } from 'lucide-react'
 import Topbar from '@/components/Topbar.jsx'
 import WelcomeBanner from '@/components/WelcomeBanner.jsx'
 import Button from '@/components/ui/button.jsx'
+import { EmptyState } from '@/components/ui/empty-state.jsx'
 import { apiFetch } from '@/auth.js'
 import AutonomyBadge from '@/components/AutonomyBadge.jsx'
 import PageLoader from '@/components/PageLoader.jsx'
@@ -291,14 +293,12 @@ function DashboardPage({ onNavigate }) {
       <div className="app-shell dashboard-shell">
         <Topbar activeView="dashboard" onNavigate={onNavigate} />
         {loadError ? (
-          <div className="loading-state" style={{ marginTop: 24 }}>
-            {loadError}
-            <div style={{ marginTop: 12 }}>
-              <Button variant="primary" onClick={() => window.location.reload()}>
-                Réessayer
-              </Button>
-            </div>
-          </div>
+          <EmptyState
+            icon={<CircleAlert size={40} />}
+            title="Impossible de charger le tableau de bord"
+            description={loadError}
+            action={{ label: 'Réessayer', onClick: () => window.location.reload() }}
+          />
         ) : (
           <PageLoader label="Préparation du tableau de bord…" />
         )}
@@ -448,6 +448,7 @@ function DashboardPage({ onNavigate }) {
                       }}
                       tabIndex={0}
                       role="link"
+                      aria-label={`Ouvrir le site ${row.site_name || row.label}`}
                     >
                       <td style={{ textAlign: 'left' }}>{row.site_name || row.label}</td>
                       <td style={{ textAlign: 'right' }}>{formatValue(row.latest_volume, ' L')}</td>
@@ -515,6 +516,7 @@ function DashboardPage({ onNavigate }) {
                     }}
                     tabIndex={0}
                     role="link"
+                    aria-label={`Ouvrir le groupe ${row.label}`}
                   >
                     <td style={{ textAlign: 'left' }}>{row.label}</td>
                     <td style={{ textAlign: 'left' }}>{row.site_name || '—'}</td>
@@ -585,6 +587,7 @@ function DashboardPage({ onNavigate }) {
                     }}
                     tabIndex={0}
                     role="link"
+                    aria-label={`Ouvrir le groupe ${row.label}`}
                   >
                     <td style={{ textAlign: 'left' }}>{row.label}</td>
                     <td style={{ textAlign: 'left' }}>{row.site_name || '—'}</td>
@@ -644,6 +647,7 @@ function DashboardPage({ onNavigate }) {
                     }}
                     tabIndex={0}
                     role="link"
+                    aria-label={`Ouvrir le site ${row.site_name || row.label}`}
                   >
                     <td style={{ textAlign: 'left' }}>{row.site_name || row.label}</td>
                     <td style={{ textAlign: 'right' }}><strong>{formatValue(row.avg_consumption, ' L')}</strong></td>

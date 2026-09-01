@@ -128,27 +128,27 @@ function OperatorHomePage({ onNavigate }) {
           )}
 
           {/* RÉSUMÉ : 3 KPI Opérationnels (repères du quotidien) */}
-          <section className="viewer-indicators-grid" aria-label="Repères opérationnels">
-            <article className="viewer-indicator-card">
-              <span className="viewer-indicator-value">{parsedSites.length}</span>
-              <span className="viewer-indicator-label">Sites suivis</span>
-              <span className="viewer-indicator-sub">Sites sous votre charge</span>
+          <section className="op-indicators-grid" aria-label="Repères opérationnels">
+            <article className="op-indicator-card">
+              <span className="op-indicator-value">{parsedSites.length}</span>
+              <span className="op-indicator-label">Sites suivis</span>
+              <span className="op-indicator-sub">Sites sous votre charge</span>
             </article>
 
-            <article className="viewer-indicator-card viewer-indicator-card--normal">
-              <span className="viewer-indicator-value">{rapports.length}</span>
-              <span className="viewer-indicator-label">Relevés transmis</span>
-              <span className="viewer-indicator-sub">Rapports envoyés</span>
+            <article className="op-indicator-card op-indicator-card--normal">
+              <span className="op-indicator-value">{rapports.length}</span>
+              <span className="op-indicator-label">Relevés transmis</span>
+              <span className="op-indicator-sub">Rapports envoyés</span>
             </article>
 
-            <article className="viewer-indicator-card">
-              <span className="viewer-indicator-value" style={{ fontSize: '1.4rem', marginTop: '0.4rem' }}>
+            <article className="op-indicator-card">
+              <span className="op-indicator-value" style={{ fontSize: '1.4rem', marginTop: '0.4rem' }}>
                 {lastRapport
                   ? `${formatDate(lastRapport.date_debut)} → ${formatDate(lastRapport.date_fin)}`
                   : 'Aucun'}
               </span>
-              <span className="viewer-indicator-label">Dernier relevé</span>
-              <span className="viewer-indicator-sub">
+              <span className="op-indicator-label">Dernier relevé</span>
+              <span className="op-indicator-sub">
                 {lastRapport ? `${lastRapport.lignes_count ?? 0} ligne(s)` : 'Période récente'}
               </span>
             </article>
@@ -158,16 +158,16 @@ function OperatorHomePage({ onNavigate }) {
           <div className="op-home-grid-layout">
             
             {/* Colonne Gauche (~65%) : MES SITES */}
-            <section className="viewer-section-panel op-home-left-col">
-              <div className="viewer-section-header">
+            <section className="op-section-panel op-home-left-col">
+              <div className="op-section-header">
                 <div>
-                  <span className="viewer-section-kicker">Vos équipements</span>
+                  <span className="op-section-kicker">Vos équipements</span>
                   <h2>Mes sites</h2>
                   <p>État actuel des sites dont vous avez la charge.</p>
                 </div>
                 <button
                   type="button"
-                  className="viewer-btn-secondary"
+                  className="op-btn-secondary"
                   onClick={() => onNavigate('sites')}
                 >
                   <span>Voir tous les sites</span>
@@ -176,7 +176,7 @@ function OperatorHomePage({ onNavigate }) {
               </div>
 
               {homeSites.length === 0 ? (
-                <div className="viewer-empty-card">
+                <div className="op-empty-card">
                   <Building2 size={24} className="text-muted" />
                   <div>
                     <strong>Aucun site sous votre charge pour le moment.</strong>
@@ -213,7 +213,7 @@ function OperatorHomePage({ onNavigate }) {
                           <Building2 size={18} className="text-primary" />
                           <div>
                             <h3>{site.nom}</h3>
-                            <span className="viewer-cp-tag">{site.cpIdentifiant}</span>
+                            <span className="op-cp-tag">{site.cpIdentifiant}</span>
                           </div>
                         </div>
                         <StatusBadge
@@ -249,7 +249,7 @@ function OperatorHomePage({ onNavigate }) {
 
                         <div className="op-site-metric-col">
                           <span className="op-site-metric-lbl">Groupe principal</span>
-                          <span className="viewer-cp-tag">{site.mainGroup}</span>
+                          <span className="op-cp-tag">{site.mainGroup}</span>
                         </div>
                       </div>
                     </article>
@@ -260,7 +260,7 @@ function OperatorHomePage({ onNavigate }) {
               <div className="op-home-panel-footer">
                 <button
                   type="button"
-                  className="viewer-btn-secondary"
+                  className="op-btn-secondary"
                   onClick={() => onNavigate('sites')}
                   style={{ width: '100%', justifyContent: 'center' }}
                 >
@@ -271,17 +271,17 @@ function OperatorHomePage({ onNavigate }) {
             </section>
 
             {/* Colonne Droite (~35%) : DERNIERS RELEVÉS */}
-            <section className="viewer-section-panel op-home-right-col">
-              <div className="viewer-section-header">
+            <section className="op-section-panel op-home-right-col">
+              <div className="op-section-header">
                 <div>
-                  <span className="viewer-section-kicker">Historique d'envoi</span>
+                  <span className="op-section-kicker">Envois</span>
                   <h2>Derniers relevés</h2>
                   <p>Mes derniers relevés transmis.</p>
                 </div>
               </div>
 
               {recentRapports.length === 0 ? (
-                <div className="viewer-empty-card" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.8rem' }}>
+                <div className="op-empty-card" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.8rem' }}>
                   <p className="text-muted" style={{ margin: 0 }}>Aucun relevé envoyé pour le moment.</p>
                   <button
                     type="button"
@@ -324,7 +324,7 @@ function OperatorHomePage({ onNavigate }) {
               <div className="op-home-panel-footer">
                 <button
                   type="button"
-                  className="viewer-btn-secondary"
+                  className="op-btn-secondary"
                   onClick={() => onNavigate({ view: 'reports', pane: 'download' })}
                   style={{ width: '100%', justifyContent: 'center' }}
                 >

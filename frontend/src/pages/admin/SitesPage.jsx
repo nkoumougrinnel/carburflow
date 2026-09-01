@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { CircleAlert } from 'lucide-react'
 import Topbar from '@/components/Topbar.jsx'
 import WelcomeBanner from '@/components/WelcomeBanner.jsx'
 import Button from '@/components/ui/button.jsx'
@@ -348,14 +349,12 @@ function SitesPage({ onNavigate }) {
       <div className="app-shell dashboard-shell">
         <Topbar activeView="sites" onNavigate={onNavigate} />
         {loadError ? (
-          <div className="loading-state" style={{ marginTop: 24 }}>
-            {loadError}
-            <div style={{ marginTop: 12 }}>
-              <Button variant="primary" onClick={() => window.location.reload()}>
-                Réessayer
-              </Button>
-            </div>
-          </div>
+          <EmptyState
+            icon={<CircleAlert size={40} />}
+            title="Impossible de charger les sites"
+            description={loadError}
+            action={{ label: 'Réessayer', onClick: () => window.location.reload() }}
+          />
         ) : (
           <PageLoader label="Chargement des sites…" />
         )}
