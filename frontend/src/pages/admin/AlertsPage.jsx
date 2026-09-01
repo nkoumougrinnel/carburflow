@@ -6,6 +6,7 @@ import PageLoader from '@/components/PageLoader.jsx'
 import WelcomeBanner from '@/components/WelcomeBanner.jsx'
 import { Button } from '@/components/ui/button.jsx'
 import { EmptyState } from '@/components/ui/empty-state.jsx'
+import Modal from '@/components/ui/modal.jsx'
 import { useAuth } from '@/context/AuthContext.jsx'
 import { listAlertes, treatAlert } from '@/auth.js'
 import { requestBadgesRefresh } from '@/utils/badges.js'
@@ -306,67 +307,55 @@ function TreatAlertModal({ alert, onClose, onConfirm, title }) {
   }
 
   return (
-    <div className="rapport-modal-backdrop" role="presentation" onClick={onClose}>
-      <div
-        className="rapport-modal alert-treat-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="alert-treat-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="rapport-modal-head">
-          <div>
-            <p className="rapport-modal-kicker">Résolution</p>
-            <h2 id="alert-treat-title">{title || 'Marquer comme traitée'}</h2>
-            <p>{alert.title}</p>
-          </div>
-          <button type="button" className="rapport-modal-close" onClick={onClose} aria-label="Fermer">
-            ×
-          </button>
+    <Modal
+      onClose={onClose}
+      kicker="Résolution"
+      title={title || 'Marquer comme traitée'}
+      subtitle={alert.title}
+      titleId="alert-treat-title"
+      cardClassName="alert-treat-modal"
+    >
+      <form className="rapport-modal-form" onSubmit={submit}>
+        <div className="cf-reason-chips" role="group" aria-label="Justifications rapides">
+          {REASON_PRESETS.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              className={`cf-reason-chip${reasonId === preset.id ? ' is-active' : ''}`}
+              onClick={() => applyReason(preset)}
+            >
+              {preset.label}
+            </button>
+          ))}
         </div>
-
-        <form className="rapport-modal-form" onSubmit={submit}>
-          <div className="cf-reason-chips" role="group" aria-label="Justifications rapides">
-            {REASON_PRESETS.map((preset) => (
-              <button
-                key={preset.id}
-                type="button"
-                className={`cf-reason-chip${reasonId === preset.id ? ' is-active' : ''}`}
-                onClick={() => applyReason(preset)}
-              >
-                {preset.label}
-              </button>
-            ))}
-          </div>
-          <label className="alert-treat-field">
-            <span>Pourquoi cette alerte est-elle traitée ?</span>
-            <textarea
-              value={justification}
-              onChange={(event) => {
-                setJustification(event.target.value)
-                setReasonId('')
-              }}
-              rows={5}
-              placeholder={`Expliquez en ${MIN_JUSTIF} caractères minimum…`}
-              required
-              autoFocus
-            />
-            <span className={`cf-reason-counter${tooShort ? ' is-error' : ''}`}>
-              {length}/{MAX_JUSTIF}
-            </span>
-          </label>
-          {error && <p className="alert-treat-error" role="alert">{error}</p>}
-          <div className="rapport-modal-actions">
-            <Button variant="ghost" onClick={onClose} disabled={saving}>
-              Annuler
-            </Button>
-            <Button variant="primary" type="submit" loading={saving}>
-              {saving ? 'Enregistrement…' : 'Confirmer'}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <label className="alert-treat-field">
+          <span>Pourquoi cette alerte est-elle traitée ?</span>
+          <textarea
+            value={justification}
+            onChange={(event) => {
+              setJustification(event.target.value)
+              setReasonId('')
+            }}
+            rows={5}
+            placeholder={`Expliquez en ${MIN_JUSTIF} caractères minimum…`}
+            required
+            autoFocus
+          />
+          <span className={`cf-reason-counter${tooShort ? ' is-error' : ''}`}>
+            {length}/{MAX_JUSTIF}
+          </span>
+        </label>
+        {error && <p className="alert-treat-error" role="alert">{error}</p>}
+        <div className="rapport-modal-actions">
+          <Button variant="ghost" onClick={onClose} disabled={saving}>
+            Annuler
+          </Button>
+          <Button variant="primary" type="submit" loading={saving}>
+            {saving ? 'Enregistrement…' : 'Confirmer'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   )
 }
 

@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Download, Upload, History, Search, Trash2, CheckCircle2, Sparkles, PlusCircle, FileSpreadsheet, ChevronLeft, ChevronRight, X, ExternalLink } from 'lucide-react'
+import { Download, Upload, History, Search, Trash2, CheckCircle2, Sparkles, PlusCircle, FileSpreadsheet, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react'
 import Topbar from '@/components/Topbar.jsx'
 import PageEnter from '@/components/PageEnter.jsx'
 import WelcomeBanner from '@/components/WelcomeBanner.jsx'
 import { Button } from '@/components/ui/button.jsx'
 import { EmptyState } from '@/components/ui/empty-state.jsx'
 import { Input } from '@/components/ui/input.jsx'
+import Modal from '@/components/ui/modal.jsx'
 import { StatusBadge } from '@/components/ui/status-badge.jsx'
 import { useAuth } from '@/context/AuthContext.jsx'
 import {
@@ -816,57 +817,45 @@ function ReportsPage({ onNavigate }) {
 
           </div>
 
-          {/* MODAL LISTE DES SITES CONCERNÉS */}
           {siteModalRapport && (
-            <div className="op-modal-backdrop" onClick={() => setSiteModalRapport(null)}>
-              <div className="op-modal-card" onClick={(e) => e.stopPropagation()}>
-                <div className="op-modal-head">
-                  <div>
-                    <h3>Sites du relevé n°{siteModalRapport.id}</h3>
-                    <p className="viewer-cp-tag">Période {formatDate(siteModalRapport.date_debut)} → {formatDate(siteModalRapport.date_fin)}</p>
-                  </div>
-                  <Button variant="ghost" size="icon" onClick={() => setSiteModalRapport(null)} aria-label="Fermer">
-                    <X size={18} />
-                  </Button>
-                </div>
-                <div className="op-modal-body">
-                  <p className="text-muted" style={{ fontSize: '0.88rem' }}>
-                    Ce relevé concerne les 8 sites suivants :
-                  </p>
-                  <ul className="op-modal-sites-list">
-                    {['BEPANDA NATIONAL', 'BEPANDA INTERNATIONAL', 'JAPOMA STADE', 'AC AKWA NORD', 'BONANJO METRO', 'LOGBESSOU HF', 'DOUALA PORT', 'MAKEPE BM'].map((siteName) => (
-                      <li key={siteName}>
-                        <CheckCircle2 size={15} className="text-success" />
-                        <span>{siteName}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="op-modal-foot">
-                  <button type="button" className="viewer-btn-secondary" onClick={() => setSiteModalRapport(null)}>
-                    Fermer
-                  </button>
-                </div>
+            <Modal
+              variant="op"
+              onClose={() => setSiteModalRapport(null)}
+              title={`Sites du relevé n°${siteModalRapport.id}`}
+              subtitle={(
+                <p className="viewer-cp-tag">
+                  Période {formatDate(siteModalRapport.date_debut)} → {formatDate(siteModalRapport.date_fin)}
+                </p>
+              )}
+              footer={(
+                <button type="button" className="viewer-btn-secondary" onClick={() => setSiteModalRapport(null)}>
+                  Fermer
+                </button>
+              )}
+            >
+              <div className="op-modal-body">
+                <p className="text-muted" style={{ fontSize: '0.88rem' }}>
+                  Ce relevé concerne les 8 sites suivants :
+                </p>
+                <ul className="op-modal-sites-list">
+                  {['BEPANDA NATIONAL', 'BEPANDA INTERNATIONAL', 'JAPOMA STADE', 'AC AKWA NORD', 'BONANJO METRO', 'LOGBESSOU HF', 'DOUALA PORT', 'MAKEPE BM'].map((siteName) => (
+                    <li key={siteName}>
+                      <CheckCircle2 size={15} className="text-success" />
+                      <span>{siteName}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-            </div>
+            </Modal>
           )}
 
-          {/* MODAL DE CONFIRMATION DE SUPPRESSION */}
           {deleteConfirmRapport && (
-            <div className="op-modal-backdrop" onClick={() => setDeleteConfirmRapport(null)}>
-              <div className="op-modal-card" onClick={(e) => e.stopPropagation()}>
-                <div className="op-modal-head">
-                  <h3 style={{ color: 'var(--danger, #ef4444)' }}>Retirer ce relevé ?</h3>
-                  <Button variant="ghost" size="icon" onClick={() => setDeleteConfirmRapport(null)} aria-label="Fermer">
-                    <X size={18} />
-                  </Button>
-                </div>
-                <div className="op-modal-body">
-                  <p style={{ margin: 0, fontSize: '0.95rem' }}>
-                    Cette action supprimera le relevé <strong>n°{deleteConfirmRapport.id}</strong> (du {formatDate(deleteConfirmRapport.date_debut)} au {formatDate(deleteConfirmRapport.date_fin)}).
-                  </p>
-                </div>
-                <div className="op-modal-foot" style={{ gap: '0.8rem' }}>
+            <Modal
+              variant="op"
+              onClose={() => setDeleteConfirmRapport(null)}
+              title={<span style={{ color: 'var(--danger, #ef4444)' }}>Retirer ce relevé ?</span>}
+              footer={(
+                <>
                   <Button variant="secondary" onClick={() => setDeleteConfirmRapport(null)}>
                     Annuler
                   </Button>
@@ -877,9 +866,15 @@ function ReportsPage({ onNavigate }) {
                   >
                     Retirer
                   </Button>
-                </div>
+                </>
+              )}
+            >
+              <div className="op-modal-body">
+                <p style={{ margin: 0, fontSize: '0.95rem' }}>
+                  Cette action supprimera le relevé <strong>n°{deleteConfirmRapport.id}</strong> (du {formatDate(deleteConfirmRapport.date_debut)} au {formatDate(deleteConfirmRapport.date_fin)}).
+                </p>
               </div>
-            </div>
+            </Modal>
           )}
 
         </main>

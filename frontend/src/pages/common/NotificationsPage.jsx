@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, Inbox, MailPlus, Send, X } from 'lucide-react'
+import { ArrowLeft, Inbox, MailPlus, Send } from 'lucide-react'
 import Topbar from '@/components/Topbar.jsx'
 import PageEnter from '@/components/PageEnter.jsx'
 import PageLoader from '@/components/PageLoader.jsx'
@@ -7,8 +7,10 @@ import SectionWorkspace from '@/components/SectionWorkspace.jsx'
 import WelcomeBanner from '@/components/WelcomeBanner.jsx'
 import Button from '@/components/ui/button.jsx'
 import { EmptyState } from '@/components/ui/empty-state.jsx'
+import Modal from '@/components/ui/modal.jsx'
 import { useAuth } from '@/context/AuthContext.jsx'
 import { requestBadgesRefresh } from '@/utils/badges.js'
+import { pathForView, isModifiedNavigation } from '@/utils/views.js'
 import {
   listMessagingAdmins,
   listNotifications,
@@ -90,30 +92,21 @@ function ComposeMessageModal({ onClose, onSent, toAdminsOnly = false }) {
   }
 
   return (
-    <div className="rapport-modal-backdrop" role="presentation" onClick={onClose}>
-      <div
-        className="rapport-modal notif-compose-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="notif-compose-title"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="rapport-modal-head">
-          <div>
-            <p className="rapport-modal-kicker">Messagerie</p>
-            <h2 id="notif-compose-title">Nouveau message</h2>
-            <p className="notif-compose-helper">
-              {toAdminsOnly
-                ? 'En tant qu’opérateur ou lecteur, vous pouvez écrire uniquement à un responsable CarburFlow.'
-                : 'Envoyez un message à n’importe quel utilisateur via son e-mail.'}
-            </p>
-          </div>
-          <button type="button" className="rapport-modal-close" onClick={onClose} aria-label="Fermer">
-            <X size={18} aria-hidden="true" />
-          </button>
-        </div>
-
-        <form className="rapport-modal-form notif-compose" onSubmit={handleSend}>
+    <Modal
+      onClose={onClose}
+      kicker="Messagerie"
+      title="Nouveau message"
+      titleId="notif-compose-title"
+      cardClassName="notif-compose-modal"
+      subtitle={(
+        <span className="notif-compose-helper">
+          {toAdminsOnly
+            ? 'En tant qu’opérateur ou lecteur, vous pouvez écrire uniquement à un responsable CarburFlow.'
+            : 'Envoyez un message à n’importe quel utilisateur via son e-mail.'}
+        </span>
+      )}
+    >
+      <form className="rapport-modal-form notif-compose" onSubmit={handleSend}>
           {error && <div className="reports-error" role="alert">{error}</div>}
 
           {toAdminsOnly ? (
@@ -192,8 +185,7 @@ function ComposeMessageModal({ onClose, onSent, toAdminsOnly = false }) {
             </Button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -510,8 +502,9 @@ function NotificationsPage({ onNavigate }) {
             <strong>{toast.title}</strong>
             <p>{toast.body}</p>
             <a
-              href="#"
+              href={pathForView('notifications')}
               onClick={(e) => {
+                if (isModifiedNavigation(e)) return
                 e.preventDefault()
                 const target = items.find((n) => n.id === toast.notifId)
                 if (target) openMessage(target)

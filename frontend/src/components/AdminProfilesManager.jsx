@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { Search, ShieldCheck, UserRound, X } from 'lucide-react'
+import { Search, ShieldCheck, UserRound } from 'lucide-react'
 import PageLoader from './PageLoader.jsx'
 import { LoadingButton } from './reports/ReportsUi.jsx'
 import { listStaffUsers, searchUsersByEmail, setUserRole } from '@/auth.js'
 import { useAuth } from '@/context/AuthContext.jsx'
+import Modal from '@/components/ui/modal.jsx'
 
 const ROLE_OPTIONS = [
   { value: 'admin', label: 'Responsable' },
@@ -332,35 +333,15 @@ function AdminProfilesManager() {
       )}
 
       {confirmOpen && selected && !isSelf && (
-        <div
-          className="rapport-modal-backdrop"
-          role="presentation"
-          onClick={() => !saving && setConfirmOpen(false)}
+        <Modal
+          onClose={() => { if (!saving) setConfirmOpen(false) }}
+          closeDisabled={saving}
+          kicker="Comptes"
+          title="Confirmer le rôle"
+          titleId="users-role-confirm-title"
+          subtitle={selected.full_name || selected.username || selected.email}
+          cardClassName="users-role-confirm-modal"
         >
-          <div
-            className="rapport-modal users-role-confirm-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="users-role-confirm-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="rapport-modal-head">
-              <div>
-                <p className="rapport-modal-kicker">Comptes</p>
-                <h2 id="users-role-confirm-title">Confirmer le rôle</h2>
-                <p>{selected.full_name || selected.username || selected.email}</p>
-              </div>
-              <button
-                type="button"
-                className="rapport-modal-close"
-                onClick={() => setConfirmOpen(false)}
-                aria-label="Fermer"
-                disabled={saving}
-              >
-                <X size={18} aria-hidden="true" />
-              </button>
-            </div>
-
             <div className="users-role-confirm-body">
               <div className="users-role-confirm-flow">
                 <span className={`users-admin-role-chip users-admin-role-chip--${selected.role}`}>
@@ -395,8 +376,7 @@ function AdminProfilesManager() {
                 Confirmer
               </LoadingButton>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </section>
   )
