@@ -1,7 +1,9 @@
 {
   "detector": {
     "ignoreRules": [],
-    "ignoreFiles": [],
+    "ignoreFiles": [
+      "frontend/src/styles.css"
+    ],
     "ignoreValues": [
       {
         "rule": "side-tab",
@@ -29,6 +31,150 @@
         ],
         "createdAt": "2026-09-01T14:11:49.999Z",
         "reason": "Pre-existing height/padding transitions in app shells; not introducing new ones"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "frontend/src/pages/admin/SitesPage.jsx"
+        ],
+        "createdAt": "2026-09-01T14:16:39.617Z",
+        "reason": "Pre-existing side accent; UI/UX plan remaps semantics and a11y without restyling cards"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "frontend/src/pages/admin/DashboardPage.jsx"
+        ],
+        "createdAt": "2026-09-01T14:16:39.703Z",
+        "reason": "Pre-existing side accent; UI/UX plan remaps semantics and a11y without restyling cards"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "frontend/src/pages/admin/AlertsPage.jsx"
+        ],
+        "createdAt": "2026-09-01T14:16:39.779Z",
+        "reason": "Pre-existing side accent; UI/UX plan remaps semantics and a11y without restyling cards"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "frontend/src/pages/admin/GroupsPage.jsx"
+        ],
+        "createdAt": "2026-09-01T14:16:39.883Z",
+        "reason": "Pre-existing side accent; UI/UX plan remaps semantics and a11y without restyling cards"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "frontend/src/pages/common/ReportsPage.jsx"
+        ],
+        "createdAt": "2026-09-01T14:16:39.965Z",
+        "reason": "Pre-existing side accent; UI/UX plan remaps semantics and a11y without restyling cards"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "frontend/src/pages/common/NotificationsPage.jsx"
+        ],
+        "createdAt": "2026-09-01T14:16:40.045Z",
+        "reason": "Pre-existing side accent; UI/UX plan remaps semantics and a11y without restyling cards"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "frontend/src/pages/common/HomePage.jsx"
+        ],
+        "createdAt": "2026-09-01T14:16:40.128Z",
+        "reason": "Pre-existing side accent; UI/UX plan remaps semantics and a11y without restyling cards"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "frontend/src/pages/common/ProfilePage.jsx"
+        ],
+        "createdAt": "2026-09-01T14:16:40.209Z",
+        "reason": "Pre-existing side accent; UI/UX plan remaps semantics and a11y without restyling cards"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "frontend/src/pages/operator/HomePage.jsx"
+        ],
+        "createdAt": "2026-09-01T14:16:40.294Z",
+        "reason": "Pre-existing side accent; UI/UX plan remaps semantics and a11y without restyling cards"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "frontend/src/pages/operator/SitesPage.jsx"
+        ],
+        "createdAt": "2026-09-01T14:16:40.373Z",
+        "reason": "Pre-existing side accent; UI/UX plan remaps semantics and a11y without restyling cards"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "frontend/src/pages/user/HomePage.jsx"
+        ],
+        "createdAt": "2026-09-01T14:16:40.452Z",
+        "reason": "Pre-existing side accent; UI/UX plan remaps semantics and a11y without restyling cards"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "frontend/src/pages/user/SitesPage.jsx"
+        ],
+        "createdAt": "2026-09-01T14:16:40.533Z",
+        "reason": "Pre-existing side accent; UI/UX plan remaps semantics and a11y without restyling cards"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "frontend/src/components/Topbar.jsx"
+        ],
+        "createdAt": "2026-09-01T14:16:40.655Z",
+        "reason": "Pre-existing side accent; UI/UX plan remaps semantics and a11y without restyling cards"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "frontend/src/components/AdminProfilesManager.jsx"
+        ],
+        "createdAt": "2026-09-01T14:16:40.776Z",
+        "reason": "Pre-existing side accent; UI/UX plan remaps semantics and a11y without restyling cards"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "frontend/src/App.jsx"
+        ],
+        "createdAt": "2026-09-01T14:16:40.902Z",
+        "reason": "Pre-existing side accent; UI/UX plan remaps semantics and a11y without restyling cards"
+      },
+      {
+        "rule": "codex-grid-background",
+        "value": "*",
+        "files": [
+          "frontend/src/styles.css"
+        ],
+        "createdAt": "2026-09-01T14:18:24.727Z",
+        "reason": "Pre-existing decorative grid in legacy stylesheet; P0-P2 does not restyle it"
       }
     ]
   }

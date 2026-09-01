@@ -13,6 +13,7 @@ import { createChart, defaultPeriodIndices, MAX_CHART_WEEKS, seriesPointRadius, 
 import { formatAutonomyValue, getAutonomySeverity } from '@/utils/format.js'
 import { windowStats } from '@/utils/stats.js'
 import { aggregateSeries, aggregateHoursSeries } from '@/utils/chart-utils.js'
+import { deltaClass, ecartTitle, formatEcartPct } from '@/utils/ecart.js'
 
 function SitesPage({ onNavigate }) {
   const chartPalette = useChartPalette()
@@ -31,28 +32,32 @@ function SitesPage({ onNavigate }) {
   // comportement existant : vue détail sur ce site.
   const [mode, setMode] = useState(queryMode || (querySiteId ? 'details' : 'all'))
 
-  const renderDelta = (metric, suffix = '') => {
+  const renderDelta = (metric, suffix = '', invert = false) => {
     if (metric?.has_previous_period === false) {
-      return <small className="delta-neutral"></small>
+      return <small className="delta-neutral" title={ecartTitle(null)}></small>
     }
 
-    const deltaValue = typeof metric?.variation_pct === 'number'
-      ? `${metric.variation_pct >= 0 ? '+' : ''}${metric.variation_pct.toFixed(1)} %`
-      : '—'
-    const deltaClass = (metric?.variation_pct ?? 0) >= 0 ? 'delta-up' : 'delta-down'
-    return <small className={deltaClass}>{deltaValue}{suffix}</small>
+    const pct = typeof metric?.variation_pct === 'number' ? metric.variation_pct : null
+    const deltaValue = formatEcartPct(pct) || '—'
+    return (
+      <small className={deltaClass(pct, { invert })} title={ecartTitle(pct)}>
+        {deltaValue}{suffix}
+      </small>
+    )
   }
 
-  const renderMeanDelta = (metric, suffix = '') => {
+  const renderMeanDelta = (metric, suffix = '', invert = false) => {
     if (metric?.has_previous_period === false) {
-      return <small className="delta-neutral"></small>
+      return <small className="delta-neutral" title={ecartTitle(null)}></small>
     }
 
-    const deltaValue = typeof metric?.mean_variation_pct === 'number'
-      ? `${metric.mean_variation_pct >= 0 ? '+' : ''}${metric.mean_variation_pct.toFixed(1)} %`
-      : '—'
-    const deltaClass = (metric?.mean_variation_pct ?? 0) >= 0 ? 'delta-up' : 'delta-down'
-    return <small className={deltaClass}>{deltaValue}{suffix}</small>
+    const pct = typeof metric?.mean_variation_pct === 'number' ? metric.mean_variation_pct : null
+    const deltaValue = formatEcartPct(pct) || '—'
+    return (
+      <small className={deltaClass(pct, { invert })} title={ecartTitle(pct)}>
+        {deltaValue}{suffix}
+      </small>
+    )
   }
 
   useEffect(() => {
@@ -573,8 +578,8 @@ function SitesPage({ onNavigate }) {
                   <span className="metric-label">Stock</span>
                   <h3>{selectedSite ? 'Volume stock' : 'Volume stock cumulé'}</h3>
                   <div className="site-metric-stack">
-                    <div><span>Stock semaine N (dernière valeur)</span><strong>{siteVolumeStats.latest.toFixed(1)} L</strong>{renderDelta(siteVolumeStats)}</div>
-                    <div><span>Volume moyen</span><strong>{siteVolumeStats.mean.toFixed(1)} L</strong>{renderMeanDelta(siteVolumeStats)}</div>
+                    <div><span>Stock semaine N (dernière valeur)</span><strong>{siteVolumeStats.latest.toFixed(1)} L</strong>{renderDelta(siteVolumeStats, '', true)}</div>
+                    <div><span>Volume moyen</span><strong>{siteVolumeStats.mean.toFixed(1)} L</strong>{renderMeanDelta(siteVolumeStats, '', true)}</div>
                   </div>
                   <div className={`chart-box secondary-box${canScroll ? ' is-scrollable' : ''}`}><canvas id="chart-site-volume" /></div>
                 </article>

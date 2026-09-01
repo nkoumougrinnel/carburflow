@@ -7,6 +7,7 @@ import AutonomyBadge from '@/components/AutonomyBadge.jsx'
 import PageLoader from '@/components/PageLoader.jsx'
 import PageEnter from '@/components/PageEnter.jsx'
 import { getAutonomySeverity } from '@/utils/format.js'
+import { ecartArrow, ecartClass, ecartTitle } from '@/utils/ecart.js'
 import {
   countAlertsBySeverity,
   isIndeterminateAutonomyAlert,
@@ -30,51 +31,19 @@ function DashboardPage({ onNavigate }) {
     return numeric.reduce((sum, value) => sum + value, 0) / numeric.length
   }
 
-  const getDeviation = (value, reference) => {
-    if (value == null || reference == null || reference === 0) return null
-    return Number((((value - reference) / reference) * 100).toFixed(1))
-  }
-
-  const renderDeviation = (value, reference, fallback = '—') => {
-    const deviation = getDeviation(value, reference)
-    if (deviation == null) return fallback
-
-    // Si l'écart est négatif, valeur inférieure à la moyenne -> rouge
-    // Si positif, valeur supérieure à la moyenne -> vert
-    const isNegative = deviation < 0
-    return (
-      <span className={`deviation-cell ${isNegative ? 'negative' : 'positive'}`}>
-        {isNegative ? '▼' : '▲'} {Math.abs(deviation).toFixed(1)}%
-      </span>
-    )
-  }
-
-  const renderAutonomyDeviation = (value, reference, fallback = '—') => {
-    const deviation = getDeviation(value, reference)
-    if (deviation == null) return fallback
-
-    // Pour l'autonomie, une valeur négative = pire (moins d'autonomie)
-    const isNegative = deviation < 0
-    return (
-      <span className={`deviation-cell ${isNegative ? 'negative' : 'positive'}`}>
-        {isNegative ? '▼' : '▲'} {Math.abs(deviation).toFixed(1)}% {isNegative ? '(pire)' : '(mieux)'}
-      </span>
-    )
-  }
-
   // Écart (Semaine N vs Semaine N-1) / Semaine N-1
   // Hausse de consommation (N > N-1) = rouge (mauvais)
   // Baisse de consommation (N < N-1) = vert (bon)
-  const renderEcartVsN1 = (latest, previous, fallback = '—') => {
-    if (latest == null || previous == null || previous === 0) return fallback
-    const gapPct = Number((((latest - previous) / previous) * 100).toFixed(1))
-    if (gapPct === 0) {
-      return <span className="deviation-cell">0.0%</span>
+  const renderEcartVsN1 = (latest, previous, fallback = '—', invert = false) => {
+    if (latest == null || previous == null || previous === 0) {
+      return <span title={ecartTitle(null)}>{fallback}</span>
     }
-    const isIncrease = gapPct > 0
+    const gapPct = Number((((latest - previous) / previous) * 100).toFixed(1))
+    const tone = ecartClass(gapPct, { invert })
+    const arrow = ecartArrow(gapPct)
     return (
-      <span className={`deviation-cell ${isIncrease ? 'negative' : 'positive'}`}>
-        {isIncrease ? '▲' : '▼'} {Math.abs(gapPct).toFixed(1)}%
+      <span className={`deviation-cell ${tone}`.trim()} title={ecartTitle(gapPct)}>
+        {arrow ? `${arrow} ` : ''}{Math.abs(gapPct).toFixed(1)}%
       </span>
     )
   }
