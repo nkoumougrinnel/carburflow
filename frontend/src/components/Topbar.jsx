@@ -126,11 +126,6 @@ function Topbar({ activeView, onNavigate }) {
     }
   }, [refreshBadges, activeView])
 
-  const go = (view) => {
-    setMenuOpen(false)
-    onNavigate(view)
-  }
-
   const handleLogout = async () => {
     setMenuOpen(false)
     await logout()
@@ -189,7 +184,7 @@ function Topbar({ activeView, onNavigate }) {
     <header className={`topbar${scrolled ? ' is-scrolled' : ''}`}>
       <NavLink
         view={homeView}
-        onNavigate={go}
+        onClick={() => setMenuOpen(false)}
         className="brand-wrap brand-wrap--btn"
         aria-label="CarburFlow — accueil"
       >
@@ -205,7 +200,7 @@ function Topbar({ activeView, onNavigate }) {
           <NavLink
             key={id}
             view={id}
-            onNavigate={go}
+            onClick={() => setMenuOpen(false)}
             className={`nav-link ${activeView === id ? 'active' : ''}`}
             aria-current={activeView === id ? 'page' : undefined}
           >

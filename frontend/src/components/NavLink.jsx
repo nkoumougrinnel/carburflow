@@ -1,33 +1,32 @@
 import React from 'react'
+import { NavLink as RouterNavLink } from 'react-router-dom'
 import { pathForView, isModifiedNavigation } from '@/utils/views.js'
 
 function NavLink({
   view,
   href,
-  onNavigate,
   className,
   children,
+  onClick,
   'aria-current': ariaCurrent,
   ...props
 }) {
-  const resolvedHref = href || pathForView(view)
-
-  const handleClick = (event) => {
-    if (isModifiedNavigation(event)) return
-    event.preventDefault()
-    if (typeof onNavigate === 'function') onNavigate(view)
-  }
+  const to = href || pathForView(view)
 
   return (
-    <a
-      href={resolvedHref}
+    <RouterNavLink
+      to={to}
+      end
       className={className}
       aria-current={ariaCurrent}
-      onClick={handleClick}
+      onClick={(event) => {
+        if (isModifiedNavigation(event)) return
+        onClick?.(event)
+      }}
       {...props}
     >
       {children}
-    </a>
+    </RouterNavLink>
   )
 }
 
