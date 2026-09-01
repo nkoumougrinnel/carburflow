@@ -369,6 +369,8 @@ main.page-layout.reports-layout--saas {
   padding: 0;
   cursor: pointer;
   text-align: left;
+  text-decoration: none;
+  color: inherit;
 }
 
 .brand-wrap--btn:focus-visible {

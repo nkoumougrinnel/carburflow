@@ -16,6 +16,7 @@ import { AuthProvider, useAuth } from './context/AuthContext.jsx'
 import { ThemeProvider } from './context/ThemeContext.jsx'
 import InteractionShell from './components/InteractionShell.jsx'
 import PageLoader from './components/PageLoader.jsx'
+import { pathForView } from './utils/views.js'
 
 const ADMIN_VIEWS = new Set(['home', 'dashboard', 'sites', 'groups', 'reports', 'profile', 'alerts', 'notifications'])
 const OPERATOR_VIEWS = new Set(['operator', 'sites', 'reports', 'profile', 'notifications'])
@@ -51,24 +52,6 @@ function defaultView({ isAdmin, isOperator, isViewer }) {
   if (isOperator) return 'operator'
   if (isViewer) return 'viewer'
   return 'login'
-}
-
-function pathForView(view) {
-  return ({
-    home: '/',
-    operator: '/operateur/',
-    viewer: '/espace/',
-    profile: '/profil/',
-    dashboard: '/dashboard/',
-    sites: '/sites/',
-    cuves: '/cuves/', // deprecated
-    groups: '/groupes/',
-    reports: '/rapports/',
-    alerts: '/alertes/',
-    notifications: '/notifications/',
-    login: '/login/',
-    register: '/register/',
-  })[view] || '/'
 }
 
 function AppRoutes() {

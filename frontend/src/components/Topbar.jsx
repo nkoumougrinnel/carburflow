@@ -15,6 +15,7 @@ import {
   Bell,
 } from 'lucide-react'
 import BrandLogo from './BrandLogo.jsx'
+import NavLink from './NavLink.jsx'
 import { useAuth } from '@/context/AuthContext.jsx'
 import { useTheme } from '@/context/ThemeContext.jsx'
 import { listAlertes, notificationsUnreadCount } from '@/auth.js'
@@ -186,21 +187,27 @@ function Topbar({ activeView, onNavigate }) {
 
   return (
     <header className={`topbar${scrolled ? ' is-scrolled' : ''}`}>
-      <button type="button" className="brand-wrap brand-wrap--btn" onClick={() => go(homeView)} aria-label="CarburFlow — accueil">
+      <NavLink
+        view={homeView}
+        onNavigate={go}
+        className="brand-wrap brand-wrap--btn"
+        aria-label="CarburFlow — accueil"
+      >
         <BrandLogo variant="icon" className="brand-logo" />
         <div className="brand-text">
           <span className="brand-name">CarburFlow</span>
           <span className="brand-subtitle">{subtitle}</span>
         </div>
-      </button>
+      </NavLink>
 
       <nav className={`topbar-actions ${menuOpen ? 'is-open' : ''}`} aria-label="Navigation principale">
         {links.map(({ id, label, icon: Icon }) => (
-          <button
+          <NavLink
             key={id}
-            type="button"
+            view={id}
+            onNavigate={go}
             className={`nav-link ${activeView === id ? 'active' : ''}`}
-            onClick={() => go(id)}
+            aria-current={activeView === id ? 'page' : undefined}
           >
             <Icon size={16} aria-hidden="true" />
             <span>{label}</span>
@@ -209,7 +216,7 @@ function Topbar({ activeView, onNavigate }) {
                 {activeAlertsCount}
               </span>
             )}
-          </button>
+          </NavLink>
         ))}
         {unreadMessages > 0 && (
           <span className="nav-link-badge nav-link-badge--floater" aria-label={`${unreadMessages} messages non lus`}>
