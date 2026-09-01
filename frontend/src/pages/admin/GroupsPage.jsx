@@ -15,8 +15,8 @@ import {
   buildHourlyRateSeries,
   buildHourlyConsumptionStats,
 } from '@/utils/stats.js'
-import { useChartPalette } from '@/hooks/useChartPalette.js'
-import { createChart, defaultPeriodIndices, MAX_CHART_WEEKS, seriesPointRadius, toChartLabels, visibleChartRange, xAxisTicks } from '@/utils/chartAxis.js'
+import PeriodLineChart from '@/components/PeriodLineChart.jsx'
+import { defaultPeriodIndices, MAX_CHART_WEEKS, toChartLabels, visibleChartRange } from '@/utils/chartAxis.js'
 import {
   formatAutonomyValue,
   getAutonomyHint,
@@ -57,7 +57,6 @@ const renderHourlyMetric = (value, digits = 2) => {
 }
 
 function GroupsPage({ onNavigate }) {
-  const chartPalette = useChartPalette()
   const [groupsData, setGroupsData] = useState(null)
   const [groupAlerts, setGroupAlerts] = useState([])
   const [rapportDebut, setRapportDebut] = useState('')
@@ -117,6 +116,15 @@ function GroupsPage({ onNavigate }) {
     [startIndex, endIndex, chartPan],
   )
   const { viewStart, viewEnd, maxPan, canScroll } = chartWindow
+  const chartLabels = useMemo(
+    () => toChartLabels((groupsData?.labels || []).slice(viewStart, viewEnd + 1)),
+    [groupsData, viewStart, viewEnd],
+  )
+  const chartFullLabels = useMemo(
+    () => (groupsData?.labels || []).slice(viewStart, viewEnd + 1),
+    [groupsData, viewStart, viewEnd],
+  )
+  const sliceChart = (values = []) => (values || []).slice(viewStart, viewEnd + 1)
 
   useEffect(() => {
     // Afficher les 4 semaines les plus récentes de la période sélectionnée
@@ -197,157 +205,7 @@ function GroupsPage({ onNavigate }) {
   }
 
   useEffect(() => {
-    if (!window.Chart || !groupsData || mode === 'all') return undefined
-    const charts = []
-    const fullLabels = groupsData.labels || []
-    const labels = toChartLabels(fullLabels.slice(viewStart, viewEnd + 1))
-    const fullLabelsWindow = fullLabels.slice(viewStart, viewEnd + 1)
-    const sliceSeries = (values = []) => (values || []).slice(viewStart, viewEnd + 1)
-    const baseOptions = (unit, beginZero = false, suggestedMax = undefined) => ({
-      responsive: true,
-      maintainAspectRatio: false,
-      spanGaps: true,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            title: (items) => {
-              const idx = items?.[0]?.dataIndex
-              return fullLabelsWindow[idx] != null ? String(fullLabelsWindow[idx]) : ''
-            },
-            label: (context) => {
-              const y = context.parsed?.y
-              const kind = context.dataset?.pointKinds?.[context.dataIndex]
-              if (kind === 'infinite') return ' ∞ L/h (conso sans heures)'
-              if (y == null || !Number.isFinite(y)) return ' —'
-              return ` ${y.toLocaleString('fr-FR')} ${unit}`
-            },
-          },
-        },
-      },
-      scales: {
-        x: {
-          ticks: xAxisTicks(labels.length, chartPalette.text),
-          grid: { color: chartPalette.grid },
-        },
-        y: {
-          beginAtZero: beginZero,
-          suggestedMax,
-          ticks: {
-            color: chartPalette.text,
-            callback: (value) => `${value.toLocaleString('fr-FR')} ${unit}`,
-          },
-          grid: { color: chartPalette.grid },
-        },
-      },
-    })
-
-    const pointRadius = seriesPointRadius(labels.length)
-
-    groupsData.group_blocks?.forEach((block) => {
-      const makeChart = (elementId, data, fill, label, color, unit = 'h') => {
-        const target = document.getElementById(elementId)
-        if (!target) return
-        const chart = createChart(target, {
-          type: 'line',
-          data: {
-            labels,
-            datasets: [{
-              label,
-              data: sliceSeries(data),
-              borderColor: color,
-              backgroundColor: `${color}20`,
-              borderWidth: 2,
-              tension: 0.35,
-              fill,
-              pointRadius,
-              spanGaps: true,
-            }],
-          },
-          options: baseOptions(unit, true),
-        })
-        if (chart) charts.push(chart)
-      }
-
-      makeChart(`chart-group-${block.id}-hours`, block.hours_run || [], true, block.label, block.color || '#0b3d7a', 'h')
-      makeChart(`chart-group-${block.id}-consumption`, block.consumption || [], true, 'Consommation', block.color || '#0b3d7a', 'L')
-
-      const hourlyTarget = document.getElementById(`chart-group-${block.id}-hourly-consumption`)
-      if (hourlyTarget) {
-        const color = block.color || '#0b3d7a'
-        const hourlySeries = buildHourlyRateSeries(
-          sliceSeries(block.hours_run || []),
-          sliceSeries(block.consumption || []),
-        )
-        const slicedData = hourlySeries.data
-        const slicedKinds = hourlySeries.kinds
-        const pointBackgroundColor = slicedKinds.map((kind) => {
-          if (kind === 'infinite') return '#b91c1c'
-          if (kind === 'missing') return 'transparent'
-          return color
-        })
-        const pointBorderColor = slicedKinds.map((kind) => {
-          if (kind === 'infinite') return '#7f1d1d'
-          if (kind === 'missing') return 'transparent'
-          return color
-        })
-        const pointRadiusPts = slicedKinds.map((kind) => {
-          if (kind === 'missing') return 0
-          if (kind === 'infinite') return 7
-          return seriesPointRadius(labels.length)
-        })
-        const pointStyle = slicedKinds.map((kind) => (
-          kind === 'infinite' ? 'triangle' : 'circle'
-        ))
-
-        const hourlyOptions = baseOptions('L/h', true, hourlySeries.suggestedMax)
-        const chart = createChart(hourlyTarget, {
-          type: 'line',
-          data: {
-            labels,
-            datasets: [{
-              label: 'Consommation horaire',
-              data: slicedData,
-              borderColor: color,
-              backgroundColor: `${color}20`,
-              borderWidth: 2,
-              tension: 0.35,
-              fill: true,
-              spanGaps: true,
-              pointKinds: slicedKinds,
-              pointBackgroundColor,
-              pointBorderColor,
-              pointRadius: pointRadiusPts,
-              pointHoverRadius: pointRadiusPts.map((radius) => Math.max(radius, 4) + 2),
-              pointStyle,
-              pointBorderWidth: 2,
-            }],
-          },
-          options: hourlyOptions,
-          plugins: [{
-            id: `hourly-infinite-labels-${block.id}`,
-            afterDatasetsDraw(chartInstance) {
-              const { ctx } = chartInstance
-              const meta = chartInstance.getDatasetMeta(0)
-              if (!meta?.data) return
-              ctx.save()
-              ctx.font = 'bold 11px sans-serif'
-              ctx.fillStyle = '#b91c1c'
-              ctx.textAlign = 'center'
-              meta.data.forEach((point, index) => {
-                if (slicedKinds[index] !== 'infinite' || !point) return
-                const { x, y } = point.getProps(['x', 'y'], true)
-                if (!Number.isFinite(x) || !Number.isFinite(y)) return
-                ctx.fillText('∞', x, y - 12)
-              })
-              ctx.restore()
-            },
-          }],
-        })
-        if (chart) charts.push(chart)
-      }
-    })
-
+    if (mode === 'all') return undefined
     const onWheel = (event) => {
       if (!canScroll) return
       event.preventDefault()
@@ -356,12 +214,10 @@ function GroupsPage({ onNavigate }) {
     }
     const chartBoxes = document.querySelectorAll('.group-card .chart-box')
     chartBoxes.forEach((box) => box.addEventListener('wheel', onWheel, { passive: false }))
-
     return () => {
-      charts.forEach((chart) => chart.destroy())
       chartBoxes.forEach((box) => box.removeEventListener('wheel', onWheel))
     }
-  }, [chartPalette, groupsData, viewStart, viewEnd, mode, canScroll, maxPan])
+  }, [mode, canScroll, maxPan, viewStart, viewEnd])
 
   const selectedSite = groupsData?.sites?.find((site) => String(site.id) === String(siteId)) ?? groupsData?.sites?.[0]
 
@@ -765,20 +621,58 @@ function GroupsPage({ onNavigate }) {
                 })()}
               </div>
 
+              {(() => {
+                const color = group.color || '#0b3d7a'
+                const hourly = buildHourlyRateSeries(
+                  sliceChart(group.hours_run || []),
+                  sliceChart(group.consumption || []),
+                )
+                return (
               <div className="group-curve-grid">
                 <div className="chart-card">
                   <span className="curve-title">Courbe delta horaire</span>
-                  <div className={`chart-box small-box${canScroll ? ' is-scrollable' : ''}`}><canvas id={`chart-group-${group.id}-hours`} /></div>
+                  <div className={`chart-box small-box${canScroll ? ' is-scrollable' : ''}`}>
+                    <PeriodLineChart
+                      data={sliceChart(group.hours_run || [])}
+                      labels={chartLabels}
+                      fullLabels={chartFullLabels}
+                      color={color}
+                      unit="h"
+                      yBeginZero
+                    />
+                  </div>
                 </div>
                 <div className="chart-card">
                   <span className="curve-title">Courbe consommation</span>
-                  <div className={`chart-box small-box${canScroll ? ' is-scrollable' : ''}`}><canvas id={`chart-group-${group.id}-consumption`} /></div>
+                  <div className={`chart-box small-box${canScroll ? ' is-scrollable' : ''}`}>
+                    <PeriodLineChart
+                      data={sliceChart(group.consumption || [])}
+                      labels={chartLabels}
+                      fullLabels={chartFullLabels}
+                      color={color}
+                      unit="L"
+                      yBeginZero
+                    />
+                  </div>
                 </div>
                 <div className="chart-card">
                   <span className="curve-title">Courbe consommation horaire</span>
-                  <div className={`chart-box small-box${canScroll ? ' is-scrollable' : ''}`}><canvas id={`chart-group-${group.id}-hourly-consumption`} /></div>
+                  <div className={`chart-box small-box${canScroll ? ' is-scrollable' : ''}`}>
+                    <PeriodLineChart
+                      data={hourly.data}
+                      labels={chartLabels}
+                      fullLabels={chartFullLabels}
+                      color={color}
+                      unit="L/h"
+                      yBeginZero
+                      suggestedMax={hourly.suggestedMax}
+                      pointKinds={hourly.kinds}
+                    />
+                  </div>
                 </div>
               </div>
+                )
+              })()}
             </article>
             )))
           }

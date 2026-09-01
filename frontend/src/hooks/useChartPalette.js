@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useTheme } from '../context/ThemeContext.jsx'
 
-/** Couleurs Chart.js adaptées au thème clair / sombre. */
+/** Couleurs de courbe adaptées au thème clair / sombre. */
 export function useChartPalette() {
   const { isDark } = useTheme()
   return useMemo(() => (

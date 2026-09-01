@@ -16,31 +16,10 @@ export function toChartLabels(labels = []) {
   return (labels || []).map(shortChartLabel)
 }
 
-/**
- * Options d’axe X Chart.js — peu de points (≤ 4), labels horizontaux.
- */
-export function xAxisTicks(labelCount, textColor) {
-  return {
-    color: textColor,
-    autoSkip: false,
-    maxRotation: 0,
-    minRotation: 0,
-  }
-}
-
 /** Rayon des points. */
 export function seriesPointRadius(labelCount, base = 4, dense = 2) {
   const count = Math.max(0, Number(labelCount) || 0)
   return count > 4 ? dense : base
-}
-
-/** Crée un chart en détruisant d’abord toute instance liée au canvas. */
-export function createChart(target, config) {
-  const ChartCtor = typeof window !== 'undefined' ? window.Chart : null
-  if (!ChartCtor || !target) return null
-  const existing = typeof ChartCtor.getChart === 'function' ? ChartCtor.getChart(target) : null
-  if (existing) existing.destroy()
-  return new ChartCtor(target, config)
 }
 
 /** Indices visibles (max 4) dans [startIndex, endIndex], avec pan. */

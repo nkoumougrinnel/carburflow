@@ -8,15 +8,14 @@ import { apiFetch } from '@/auth.js'
 import AutonomyBadge from '@/components/AutonomyBadge.jsx'
 import PageLoader from '@/components/PageLoader.jsx'
 import PageEnter from '@/components/PageEnter.jsx'
-import { useChartPalette } from '@/hooks/useChartPalette.js'
-import { createChart, defaultPeriodIndices, MAX_CHART_WEEKS, seriesPointRadius, toChartLabels, visibleChartRange, xAxisTicks } from '@/utils/chartAxis.js'
+import PeriodLineChart from '@/components/PeriodLineChart.jsx'
+import { defaultPeriodIndices, MAX_CHART_WEEKS, toChartLabels, visibleChartRange } from '@/utils/chartAxis.js'
 import { formatAutonomyValue, getAutonomySeverity } from '@/utils/format.js'
 import { windowStats } from '@/utils/stats.js'
 import { aggregateSeries, aggregateHoursSeries } from '@/utils/chart-utils.js'
 import { deltaClass, ecartTitle, formatEcartPct } from '@/utils/ecart.js'
 
 function SitesPage({ onNavigate }) {
-  const chartPalette = useChartPalette()
   const [sitesDashboard, setsitesDashboard] = useState(null)
   const [loadError, setLoadError] = useState('')
   const [startIdx, setStartIdx] = useState(0)
@@ -128,6 +127,15 @@ function SitesPage({ onNavigate }) {
     [periodStart, periodEnd, chartPan],
   )
   const { viewStart, viewEnd, maxPan, canScroll } = chartWindow
+  const chartLabels = useMemo(
+    () => toChartLabels((sitesDashboard?.labels || []).slice(viewStart, viewEnd + 1)),
+    [sitesDashboard, viewStart, viewEnd],
+  )
+  const chartFullLabels = useMemo(
+    () => (sitesDashboard?.labels || []).slice(viewStart, viewEnd + 1),
+    [sitesDashboard, viewStart, viewEnd],
+  )
+  const sliceChart = (values = []) => values.slice(viewStart, viewEnd + 1)
 
   useEffect(() => {
     setChartPan(Math.max(0, periodEnd - periodStart + 1 - MAX_CHART_WEEKS))
@@ -268,66 +276,7 @@ function SitesPage({ onNavigate }) {
   }, [sitesDashboard, periodStart, periodEnd, siteId])
 
   useEffect(() => {
-    if (!window.Chart || !sitesDashboard || mode === 'all') return undefined
-    const charts = []
-    const fullLabels = sitesDashboard.labels || []
-    const labels = toChartLabels(fullLabels.slice(viewStart, viewEnd + 1))
-    const fullLabelsWindow = fullLabels.slice(viewStart, viewEnd + 1)
-    const sliceSeries = (values = []) => values.slice(viewStart, viewEnd + 1)
-    const pointRadius = seriesPointRadius(labels.length)
-    const createLineChart = (id, data, color, fill = false) => {
-      const ctx = document.getElementById(id)
-      if (!ctx) return
-      const chart = createChart(ctx, {
-        type: 'line',
-        data: {
-          labels,
-          datasets: [{
-            label: id,
-            data: sliceSeries(data),
-            borderColor: color,
-            backgroundColor: fill ? `${color}22` : 'transparent',
-            borderWidth: 3,
-            tension: 0.35,
-            fill,
-            pointRadius,
-            spanGaps: true,
-          }],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          spanGaps: true,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                title: (items) => {
-                  const idx = items?.[0]?.dataIndex
-                  return fullLabelsWindow[idx] != null ? String(fullLabelsWindow[idx]) : ''
-                },
-              },
-            },
-          },
-          scales: {
-            x: {
-              ticks: xAxisTicks(labels.length, chartPalette.text),
-              grid: { color: chartPalette.grid },
-            },
-            y: {
-              ticks: { color: chartPalette.text },
-              grid: { color: chartPalette.grid },
-            },
-          },
-        },
-      })
-      if (chart) charts.push(chart)
-    }
-
-    createLineChart('chart-site-volume', siteVolumeData, '#0b3d7a', true)
-    createLineChart('chart-site-hours', siteHoursData, '#3b82f6', true)
-    createLineChart('chart-site-consumption', siteConsumptionData, '#60a5fa', true)
-
+    if (mode === 'all') return undefined
     const onWheel = (event) => {
       if (!canScroll) return
       event.preventDefault()
@@ -336,12 +285,10 @@ function SitesPage({ onNavigate }) {
     }
     const chartBoxes = document.querySelectorAll('.chart-box')
     chartBoxes.forEach((box) => box.addEventListener('wheel', onWheel, { passive: false }))
-
     return () => {
-      charts.forEach((chart) => chart.destroy())
       chartBoxes.forEach((box) => box.removeEventListener('wheel', onWheel))
     }
-  }, [chartPalette, sitesDashboard, selectedSite, siteVolumeData, siteHoursData, siteConsumptionData, viewStart, viewEnd, mode, canScroll, maxPan])
+  }, [mode, canScroll, maxPan, viewStart, viewEnd])
 
   if (!sitesDashboard) {
     return (
@@ -559,7 +506,16 @@ function SitesPage({ onNavigate }) {
                     <div><span>Total sur la période de la courbe</span><strong>{siteHoursStats.total.toFixed(1)} h</strong>{renderDelta(siteHoursStats)}</div>
                     <div><span>Delta horaire moyen</span><strong>{siteHoursStats.mean.toFixed(1)} h</strong>{renderMeanDelta(siteHoursStats)}</div>
                   </div>
-                  <div className={`chart-box secondary-box${canScroll ? ' is-scrollable' : ''}`}><canvas id="chart-site-hours" /></div>
+                  <div className={`chart-box secondary-box${canScroll ? ' is-scrollable' : ''}`}>
+                    <PeriodLineChart
+                      data={sliceChart(siteHoursData)}
+                      labels={chartLabels}
+                      fullLabels={chartFullLabels}
+                      color="#3b82f6"
+                      unit="h"
+                      strokeWidth={3}
+                    />
+                  </div>
                 </article>
 
                 <article className="metric-panel site-metric-card">
@@ -569,7 +525,16 @@ function SitesPage({ onNavigate }) {
                     <div><span>Total sur la période de la courbe</span><strong>{siteConsumptionStats.total.toFixed(1)} L</strong>{renderDelta(siteConsumptionStats)}</div>
                     <div><span>Consommation moyenne</span><strong>{siteConsumptionStats.mean.toFixed(1)} L</strong>{renderMeanDelta(siteConsumptionStats)}</div>
                   </div>
-                  <div className={`chart-box secondary-box${canScroll ? ' is-scrollable' : ''}`}><canvas id="chart-site-consumption" /></div>
+                  <div className={`chart-box secondary-box${canScroll ? ' is-scrollable' : ''}`}>
+                    <PeriodLineChart
+                      data={sliceChart(siteConsumptionData)}
+                      labels={chartLabels}
+                      fullLabels={chartFullLabels}
+                      color="#60a5fa"
+                      unit="L"
+                      strokeWidth={3}
+                    />
+                  </div>
                 </article>
 
                 <article className="metric-panel site-metric-card">
@@ -579,7 +544,16 @@ function SitesPage({ onNavigate }) {
                     <div><span>Stock semaine N (dernière valeur)</span><strong>{siteVolumeStats.latest.toFixed(1)} L</strong>{renderDelta(siteVolumeStats, '', true)}</div>
                     <div><span>Volume moyen</span><strong>{siteVolumeStats.mean.toFixed(1)} L</strong>{renderMeanDelta(siteVolumeStats, '', true)}</div>
                   </div>
-                  <div className={`chart-box secondary-box${canScroll ? ' is-scrollable' : ''}`}><canvas id="chart-site-volume" /></div>
+                  <div className={`chart-box secondary-box${canScroll ? ' is-scrollable' : ''}`}>
+                    <PeriodLineChart
+                      data={sliceChart(siteVolumeData)}
+                      labels={chartLabels}
+                      fullLabels={chartFullLabels}
+                      color="#0b3d7a"
+                      unit="L"
+                      strokeWidth={3}
+                    />
+                  </div>
                 </article>
               </div>
             </section>
