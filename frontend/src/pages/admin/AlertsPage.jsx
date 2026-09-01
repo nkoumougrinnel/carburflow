@@ -18,7 +18,9 @@ import {
   splitAlertSubtitle,
 } from '@/utils/alerts.js'
 
-/* ————— Petits outils de formatage ————— */
+/* ——————————————————————————————————————————————————————————
+    Utilitaires
+   —————————————————————————————————————————————————————————— */
 
 function AlertSubtitle({ subtitle }) {
   const parts = splitAlertSubtitle(subtitle)
@@ -66,8 +68,13 @@ const REASON_PRESETS = [
 const MIN_JUSTIF = 20
 const MAX_JUSTIF = 280
 
-/* ————— Bandeau principal ————— */
+/* ——————————————————————————————————————————————————————————
+    Composants internes
+   —————————————————————————————————————————————————————————— */
 
+/**
+ * Bandeau d'en-tête factuel (pas de message marketing)
+ */
 function AlertsHero({ counts }) {
   const total = counts?.total || 0
   const critical = counts?.critique || 0
@@ -104,8 +111,9 @@ function AlertsHero({ counts }) {
   )
 }
 
-/* ————— Tuiles de filtre par sévérité ————— */
-
+/**
+ * Tuiles de filtre par sévérité (sans emoji, uniquement la couleur)
+ */
 const SEVERITY_OPTIONS = [
   { id: 'all', label: 'Toutes', key: 'total', tone: 'all' },
   { id: 'critique', label: 'Critiques', key: 'critique', tone: 'critical' },
@@ -133,8 +141,9 @@ function SeverityTiles({ counts, value, onChange }) {
   )
 }
 
-/* ————— Onglets À traiter / Historique ————— */
-
+/**
+ * Onglets « À traiter » / « Historique »
+ */
 function AlertsTabs({ items, value, onChange }) {
   return (
     <div className="alx-tabs" role="tablist" aria-label="Sections des alertes">
@@ -161,6 +170,9 @@ function AlertsTabs({ items, value, onChange }) {
   )
 }
 
+/**
+ * Filtres de période pour l'historique
+ */
 function PeriodChips({ value, onChange }) {
   const options = [
     { id: '7d', label: '7 jours' },
@@ -187,8 +199,9 @@ function PeriodChips({ value, onChange }) {
   )
 }
 
-/* ————— Carte d’alerte ————— */
-
+/**
+ * Carte d'alerte active ou historique
+ */
 function AlertCard({ alert, panel, isAdmin, isFocused, onOpen, onTreat, delay = 0 }) {
   const severity = alert.severity || 'medium'
   const label = alert.priority || PRIORITE_META[alert.priorite]?.label || 'Moyenne'
@@ -208,47 +221,46 @@ function AlertCard({ alert, panel, isAdmin, isFocused, onOpen, onTreat, delay = 
       <div className="alx-card-rail" aria-hidden="true" />
       <div className="alx-card-body">
         <header className="alx-card-head">
+          {/* Badge sans emoji, uniquement une classe CSS pour la couleur */}
           <span className={`alx-pill alx-pill--${severity}`}>{label}</span>
           <span className="alx-card-date">
-            {panel === 'history' 
-              ? `Détectée : ${when}` 
-              : when}
+            {panel === 'history' ? `Détectée : ${when}` : when}
             {panel === 'history' && author ? ` · ${author}` : ''}
           </span>
         </header>
 
-        {panel === 'history' && (
-          <span className="alx-card-status" aria-label="Traitée">✓ TRAITÉE</span>
-        )}
-
+        {/* Titre reformulé (factuel) */}
         <h3>{alert.title}</h3>
 
+        {/* Sous-titre détaillé avec éventuelles flèches */}
         {alert.subtitle ? (
           <p className="alx-card-text">
             <AlertSubtitle subtitle={alert.subtitle} />
           </p>
         ) : null}
 
+        {/* Contexte : Site et Groupe */}
         <div className="alx-card-context">
           Site : <strong>{siteName}</strong>
           {groupLabel ? ` | Groupe : ${groupLabel}` : ''}
         </div>
 
-        {panel === 'history' && alert.justification ? (
+        {/* Pour l'historique : note de traitement et date de traitement */}
+        {panel === 'history' && alert.justification && (
           <div className="alx-card-justif-block">
             <p className="alx-card-justif">
               <strong>Note de traitement</strong>
             </p>
             <p>{alert.justification}</p>
           </div>
-        ) : null}
+        )}
 
-        {panel === 'history' ? (
+        {panel === 'history' && (
           <p className="alx-card-treated-by">
             Traité le {formatWhen(alert.date_traitement || alert.detected_at)}
             {author ? ` · ${author}` : ''}
           </p>
-        ) : null}
+        )}
 
         <footer className="alx-card-actions">
           <Button variant="ghost" onClick={onOpen}>
@@ -267,9 +279,9 @@ function AlertCard({ alert, panel, isAdmin, isFocused, onOpen, onTreat, delay = 
   )
 }
 
-
-/* ————— Modal de traitement ————— */
-
+/**
+ * Modal de justification obligatoire
+ */
 function TreatAlertModal({ alert, onClose, onConfirm, title }) {
   const [justification, setJustification] = useState('')
   const [reasonId, setReasonId] = useState('')
@@ -370,7 +382,9 @@ function TreatAlertModal({ alert, onClose, onConfirm, title }) {
   )
 }
 
-/* ————— Page ————— */
+/* ——————————————————————————————————————————————————————————
+    Page principale
+   —————————————————————————————————————————————————————————— */
 
 function AlertsPage({ onNavigate }) {
   const { isAdmin } = useAuth()
@@ -554,10 +568,7 @@ function AlertsPage({ onNavigate }) {
               <strong>Problème</strong>
               <p>{loadError}</p>
             </div>
-            <Button
-              variant="primary"
-              onClick={() => window.location.reload()}
-            >
+            <Button variant="primary" onClick={() => window.location.reload()}>
               Réessayer
             </Button>
           </div>

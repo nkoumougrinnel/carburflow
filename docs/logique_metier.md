@@ -16,7 +16,8 @@
 8. [Indicateurs de Performance](#8-indicateurs-de-performance)
 9. [Graphiques et Visualisations](#9-graphiques-et-visualisations)
 10. [Sécurité et Accès](#10-sécurité-et-accès)
-11. [Annexes](#11-annexes)
+11. [Spécifications UI/UX et Reformulation des Alertes](#11-spécifications-uiux-et-reformulation-des-alertes)
+12. [Annexes](#12-annexes)
 
 ---
 
@@ -55,6 +56,8 @@ Groupe Électrogène (GE) ─────────┘
 - Chaque **Cuve Journalière** est rattachée à un **seul Groupe Électrogène**
 - La puissance d'un groupe est **toujours considérée comme non nulle**
 
+**Fichiers de référence :** `calculs.py` (fonctions `build_group_primary_site_ids`, `extraire_puissance`), `logique_metier.md`.
+
 ---
 
 ## 2. Calculs au Niveau du Site
@@ -80,6 +83,7 @@ def _site_volume_from_lines(lines) -> float:
     ]
     return max(cp_values) if cp_values else 0.0
 ```
+*Source : `calculs.py`*
 
 ### 2.2 Durée de Fonctionnement
 
@@ -109,18 +113,25 @@ $$\text{Conso}_{\text{site}} = (\text{Volume}_{\text{CP+CJ}, N-1}) - (\text{Volu
 
 **Code de référence :**
 ```python
-def _consommation_periode(previous_cp, previous_cj, current_cp, current_cj, depotage) -> float:
+def _consommation_periode(
+    previous_cp: float,
+    previous_cj: float,
+    current_cp: float,
+    current_cj: float,
+    depotage: float,
+) -> float:
     prev_total = float(previous_cp) + float(previous_cj)
     curr_total = float(current_cp) + float(current_cj)
     return prev_total - curr_total + float(depotage or 0.0)
 ```
+*Source : `calculs.py`*
 
 ### 2.4 Dépotage
 
-Le dépotage est une action unique sur la cuve principale. Toutes les lignes du site doivent avoir la **même valeur** de dépotage.
+Le dépotage est une action unique sur la cuve principale. Toutes les lignes du site **doivent** avoir la même valeur de dépotage.
 
 **Règle d'implémentation :**
-- Prendre la **valeur maximale** des dépotages des lignes du site
+- Prendre la **valeur maximale** des dépotages des lignes du site (pour éviter qu'une saisie erronée sur une ligne ne fausse le total)
 - Si aucune valeur → `0.0`
 
 **Code de référence :**
@@ -133,6 +144,7 @@ def _site_depotage_from_lines(lines) -> float:
     ]
     return max(values) if values else 0.0
 ```
+*Source : `calculs.py` (version corrigée)*
 
 ---
 
@@ -218,6 +230,9 @@ def build_group_primary_site_ids(groups, lignes_all):
     
     return primary_site_ids
 ```
+*Source : `calculs.py`*
+
+**Fichiers de référence :** `calculs.py` (fonctions `calculer_groupes`, `build_group_primary_site_ids`).
 
 ---
 
@@ -247,6 +262,7 @@ mean_hourly_consumption_deduite = (
     sum(per_period_rates) / len(per_period_rates) if per_period_rates else 0.0
 )
 ```
+*Source : `calculs.py`*
 
 ### 4.2 Typologie des Alertes
 
@@ -259,6 +275,8 @@ L'application génère **5 types d'alertes** pour le suivi opérationnel du parc
 | 3 | `ecart_conso` | Groupe | écart horaire > 15% | 🟡 Moyenne | Dérive par rapport à l'historique | Analyser / valider | 28% d'écart |
 | 4 | `autonomie_critique` | Groupe/Site | autonomie < 24h | 🔴 Critique | Risque de rupture | Action immédiate | 18 h restantes |
 | 5 | `autonomie_preventive` | Groupe/Site | autonomie < 36h | 🟡 Moyenne | Risque prochain | Planifier réapprovisionnement | 32 h restantes |
+
+**Fichiers de référence :** `logique_metier.md` (section 4.2), `AlertsPage.jsx`.
 
 ### 4.3 Détection d'Écart de Consommation Horaire
 
@@ -275,6 +293,7 @@ def should_emit_hourly_variance_alert(mean_hourly_consumption, observed_hourly_c
     ecart = abs((observed_value - mean_value) / mean_value) * 100
     return ecart > threshold_pct
 ```
+*Source : `calculs.py`*
 
 ### 4.4 Détection des Situations "Sans Fonctionnement"
 
@@ -314,17 +333,7 @@ def should_mark_sans_fonctionnement(latest_hours_n, latest_cons_n, hours_run, co
     )
     return not has_previous_activity
 ```
-
-### 4.5 Format des Notifications
-
-Pour garantir une lecture rapide et homogène, les notifications suivent un format standard :
-
-**Format :** `{Type d'alerte} · {Nom du Site} · {ID du Groupe} · {Valeur mesurée}`
-
-**Exemples :**
-- `"Consommation sans fonctionnement · Site Douala Nord · GE-04 · 12.5 L"`
-- `"Autonomie critique · Site Yaoundé · G23-PERKINS · 17.9 h restantes"`
-- `"Écart de consommation · Site Bonanjo · G1-SDMO · +65.6 %"`
+*Source : `calculs.py`*
 
 ---
 
@@ -332,22 +341,19 @@ Pour garantir une lecture rapide et homogène, les notifications suivent un form
 
 ### 5.1 Autonomie du Groupe
 
-L'autonomie est basée sur la **moyenne des consommations horaires finies et non nulles** sur toutes les périodes disponibles.
+L'autonomie est basée sur la **moyenne des consommations horaires finies et non nulles** sur **toutes les périodes disponibles** (pas seulement la dernière).
 
 **Formule :**
 $$\text{Autonomie}_{\text{groupe}} = \frac{(\text{Volume}_{\text{CP}} \times \text{RatioPuissance}) + \text{Volume}_{\text{CJ}}}{\text{ConsoHoraire}_{\text{moyenne}}}$$
 
 **Où :**
-- $\text{Volume}_{\text{CP}}$ : Dernier volume connu de la cuve principale
-- $\text{RatioPuissance}$ : Puissance du groupe / Somme des puissances des groupes du site
-- $\text{Volume}_{\text{CJ}}$ : Dernier volume connu de la cuve journalière
-- $\text{ConsoHoraire}_{\text{moyenne}}$ : Moyenne des consommations horaires finies et non nulles
+- $\text{ConsoHoraire}_{\text{moyenne}}$ est la moyenne des ratios $\frac{\text{Conso}_{\text{groupe}}}{\text{DeltaH}_{\text{groupe}}}$ calculés sur l'ensemble des périodes où le groupe a fonctionné (delta horaire > 0 et consommation > 0).
 
 **Cas Particuliers :**
 
 | Condition | Résultat |
 |-----------|----------|
-| Aucune donnée de conso horaire finie | Autonomie indéterminée |
+| Aucune donnée de conso horaire positive | Autonomie indéterminée |
 | Aucun fonctionnement historique | Autonomie indéterminée |
 | Volume CP ou CJ indisponible | Autonomie indéterminée |
 
@@ -367,6 +373,7 @@ else:
     autonomy_hours = None
     formatted_autonomy = "∞"
 ```
+*Source : `calculs.py` (version corrigée)*
 
 ### 5.2 Autonomie du Site
 
@@ -431,6 +438,7 @@ def resolve_site_autonomy_from_groups(site_groups):
         'is_sans_fonctionnement': False,
     }
 ```
+*Source : `calculs.py`*
 
 ### 5.3 Formatage de l'Autonomie
 
@@ -456,6 +464,9 @@ def formater_autonomie(heures):
     rem_h = t_hrs % 24
     return f"{days}j{rem_h}h" if days > 0 else f"{rem_h}h"
 ```
+*Source : `calculs.py`*
+
+**Fichiers de référence :** `calculs.py` (fonctions `formater_autonomie`, `resolve_site_autonomy_from_groups`), `GroupsPage.jsx`, `SitesPage.jsx`, `DashboardPage.jsx`.
 
 ---
 
@@ -490,6 +501,8 @@ $$\text{Écart}_{\text{consoHoraire}} = \frac{\text{ConsoHoraire}_{N} - \text{Co
 - Si l'écart est **positif** → tendance à la hausse (⚠️ attention)
 - Si l'écart est **négatif** → tendance à la baisse (👍 favorable pour la consommation, 👎 défavorable pour l'autonomie)
 
+**Fichiers de référence :** `DashboardPage.jsx` (fonctions `renderEcartVsN1`, `renderDeviation`).
+
 ---
 
 ## 7. Gestion des Données et Intégrité
@@ -522,6 +535,8 @@ $$\text{TauxDispo} = \frac{\text{Lignes complètes}}{\text{Lignes totales}} \tim
 
 **Ligne complète** = CP + CJ + Compteur horaire renseignés
 
+**Fichiers de référence :** `ReportsPage.jsx` (processus d'import), `carburflow_fiche_hebdo_4.xlsx`.
+
 ---
 
 ## 8. Indicateurs de Performance
@@ -535,6 +550,8 @@ $$\text{TauxDispo} = \frac{\text{Lignes complètes}}{\text{Lignes totales}} \tim
 | **Consommation totale** | Somme des consommations de tous les sites | `Σ(Conso_site)` | Litres |
 | **Delta horaire total** | Somme des deltas horaires de tous les groupes | `Σ(DureeFonctionnement_groupe)` | Heures |
 | **Taux de disponibilité** | Pourcentage de relevés complets | `(Lignes complètes / Lignes totales) × 100` | Pourcentage |
+
+**Fichiers de référence :** `DashboardPage.jsx` (section `summaryCards`).
 
 ### 8.2 Statistiques de Base
 
@@ -558,6 +575,7 @@ def ecart_type(values):
     variance = sum((v - mean) ** 2 for v in nums) / len(nums)
     return variance ** 0.5
 ```
+*Source : `calculs.py`*
 
 ---
 
@@ -600,6 +618,8 @@ def ecart_type(values):
 | Donnée `0` | Affichée normalement (0) |
 | Période par défaut | 4 dernières semaines |
 
+**Fichiers de référence :** `GroupsPage.jsx` (fonctions `buildHourlyRateSeries`, `buildHourlyConsumptionStats`), `SitesPage.jsx`.
+
 ---
 
 ## 10. Sécurité et Accès
@@ -608,9 +628,9 @@ def ecart_type(values):
 
 | Rôle | Pages Accessibles | Actions |
 |------|-------------------|---------|
-| **Admin** | Dashboard, Alertes, Sites, Groupes, Relevés, Comptes, Profil | Lecture + Écriture (toutes) |
-| **Opérateur** | Sites (détail), Relevés (import + historique), Profil | Lecture + Écriture (restreinte) |
-| **Consultation** | Sites (lecture), Profil | Lecture uniquement |
+| **Admin** | Dashboard, Alertes, Sites, Groupes, Relevés, Comptes, Profil, Messagerie | Lecture + Écriture (toutes) |
+| **Opérateur** | Sites (détail), Relevés (import + historique), Profil, Messagerie | Lecture + Écriture (restreinte) |
+| **Consultation** | Sites (lecture), Profil, Messagerie | Lecture uniquement |
 
 ### 10.2 Validation des Actions
 
@@ -621,11 +641,224 @@ def ecart_type(values):
 | Importer un rapport | Rôle Admin ou Opérateur | ✅ |
 | Modifier un profil | Utilisateur lui-même | ✅ |
 
+**Fichiers de référence :** `ProfilePage.jsx`, `AlertsPage.jsx` (fonction `confirmTreat`).
+
 ---
 
-## 11. Annexes
+Parfait, j'intègre ces précisions dans le cahier des spécifications.
 
-### 11.1 Glossaire
+---
+
+## 11. Spécifications UI/UX – Présentation des Alertes
+
+### 11.1 Principes de Présentation
+
+Toute alerte est présentée selon une hiérarchie d'information cohérente :
+
+1. **Badge de priorité** : indique le niveau d'urgence (CRITIQUE, HAUTE, MOYENNE, BASSE) — **sans emoji ni icône**, uniquement un badge coloré avec le libellé texte.
+2. **Titre court** : synthèse de la situation (ex: "Autonomie inférieure à 24 h").
+3. **Contexte** : site et/ou groupe concernés (ex: "Groupe G1-SDMO-830 · Bepanda International").
+4. **Détail quantifié** : valeur mesurée (ex: "17,9 h restantes", "272 L/h vs 164 L/h").
+5. **Actions** : lien vers la ressource ou bouton de traitement.
+
+### 11.2 Layout du Dashboard – Aperçu Alertes
+
+**Section : "À TRAITER EN PRIORITÉ"**
+
+Affiche les 3 alertes les plus critiques. Chaque alerte est présentée en ligne :
+
+```
+[Badge Priorité]  Titre Alerte
+Groupe/Site · Localisation
+─────────────────────────────────────────────────────
+```
+
+**Champs affichés :**
+- Badge : priorité (couleur + libellé texte).
+- Ligne 1 : titre synthétique (ex: "Autonomie inférieure à 24 h").
+- Ligne 2 : contexte (ex: "Groupe G1-SDMO-830 · Bepanda International").
+
+**Tri et limitations :**
+- Ordre : par priorité critique → haute → moyenne → basse.
+- Affichage : max 3 alertes.
+- Alertes clicables.
+- CTA : "Voir les alertes →" en haut à droite pour accéder à la page complète.
+
+**Fichiers de référence :** `DashboardPage.jsx` (section `previewAlerts`).
+
+---
+
+### 11.3 Layout du Centre d'Alertes – Page `/alertes`
+
+#### 11.3.1 Alerte Active (non traitée)
+
+```
+┌───────────────────────────────────────────────────────┐
+│ [Badge Priorité]              Date · Auteur Détection │
+│                                                       │
+│ Titre Alerte                                          │
+│                                                       │
+│ Sous-titre Détaillé avec chiffres et contexte…        │
+│                                                       │
+│ Site : Nom  |  Groupe : Label                       │
+│                                                       │
+│                 [ Ouvrir le site/groupe → ]           │
+│                                        [ Marquer traitée ] │
+└───────────────────────────────────────────────────────┘
+```
+
+**Champs affichés :**
+- Badge priorité + date de détection + système auteur.
+- Titre complet (ex: "Autonomie inférieure à 24 h").
+- Sous-titre détaillé (ex: "17,9 h restantes · Stock actuel : 2 400 L").
+- Bloc de contexte : "Site : [nom] | Groupe : [label]".
+- Bouton "Ouvrir" : redirige vers la page détail du site/groupe.
+- Bouton "Marquer traitée" : visible si l'utilisateur est admin.
+
+#### 11.3.2 Alerte Traitée (Historique)
+
+```
+┌───────────────────────────────────────────────────────┐
+│ [Badge Priorité]               [✓ TRAITÉE]            │
+│ Détectée : Date Détection                             │
+│                                                       │
+│ Titre Alerte Complet                                  │
+│                                                       │
+│ Sous-titre Détaillé…                                  │
+│                                                       │
+│ Site : Nom | Groupe : Label                           │
+│                                                       │
+│ ┌─────────────────────────────────────────────────┐   │
+│ │ Note de traitement                              │   │
+│ │ Réapprovisionné 2500 L — autonomie ramenée      │   │
+│ │ à 72 h.                                         │   │
+│ └─────────────────────────────────────────────────┘   │
+│                                                       │
+│ Traité le 31/08/2026 à 15:20 · admin                  │
+└───────────────────────────────────────────────────────┘
+```
+
+**Champs affichés :**
+- Badge priorité + badge "[✓ TRAITÉE]".
+- Date de détection.
+- Titre et sous-titre (même que version active).
+- Contexte : "Site : [nom] | Groupe : [label]".
+- Bloc note de traitement (justification fournie par l'admin).
+- Ligne de traitement : "Traité le [date] · [auteur]".
+
+**Fichiers de référence :** `AlertsPage.jsx` (composants `AlertCard`, `TreatAlertModal`).
+
+---
+
+### 11.4 Layout des Pages Détail (Site / Groupe)
+
+**Section : "ALERTES LIÉES"**
+
+Affiche un historique compact des 5-10 dernières alertes associées au site ou groupe :
+
+```
+┌─────────────────────────────────────────────────────┐
+│ ALERTES LIÉES                                       │
+├─────────────────────────────────────────────────────┤
+│ 31/08/2026 09:15   🟠 Écart de consommation  Voir → │
+│ 24/08/2026 08:47   🟠 Écart de consommation  Voir → │
+│ 17/08/2026 09:02   🟡 Écart de consommation  Voir → │
+│ 31/08/2026 09:16   🔴 Autonomie < 24 h       Voir → │
+└─────────────────────────────────────────────────────┘
+```
+
+**Champs affichés :**
+- Date de détection.
+- Badge de priorité (couleur uniquement, pas d'icône).
+- Titre court de l'alerte.
+- Lien "Voir →" : accès direct à l'alerte dans la page d'alertes.
+
+**Tri et limitations :**
+- Ordre : plus récent en premier.
+- Affichage : max 10 alertes.
+- Filtrage : alertes du groupe/site seulement.
+
+**Fichiers de référence :** `GroupsPage.jsx` (section `relatedAlerts`), `SitesPage.jsx` (section `siteAttachedGroups`).
+
+---
+
+### 11.5 Correspondance des Champs Frontend / Backend
+
+| Élément UI | Champ Backend | Origine |
+|---|---|---|
+| Badge priorité | `priorite` (critique, haute, moyenne, basse) | Alerte persisted DB |
+| Titre court | `title` | Normalisation backend |
+| Sous-titre détaillé | `subtitle` | Normalisation backend |
+| Contexte Site | `site_id`, `site_name` | Alerte DB |
+| Contexte Groupe | `group_id`, `group_label` | Alerte DB |
+| Date détection | `detected_at` | Alerte DB |
+| Date traitement | `date_traitement` | Traitement DB |
+| Auteur traitement | `traite_par_username` | Traitement DB |
+| Note traitement | `justification` | Traitement DB |
+
+**Fichiers de référence :** `utils/alerts.js` (fonction `normalizePersistedAlert`).
+
+---
+
+### 11.6 Règles de Normalisation des Champs
+
+**Titre (`title`) :**
+- Format : `{Type d'alerte}` (court, sans contexte).
+- Longueur max : 80 caractères.
+- Exemples :
+  - `"Autonomie inférieure à 24 h"`
+  - `"Consommation sans fonctionnement"`
+  - `"Écart de consommation"`
+
+**Sous-titre (`subtitle`) :**
+- Contient le détail quantifié et le contexte.
+- Utilise des unités cohérentes (L, h, L/h, %).
+- Peut inclure des flèches d'écart (▲, ▼) si pertinent.
+- Exemples :
+  - `"17,9 h restantes · Stock actuel : 2 400 L"`
+  - `"272 L/h vs 164 L/h · Écart : +65,6 %"`
+  - `"1 500 L sans delta horaire"`
+
+**Contexte (`site_name`, `group_label`) :**
+- Libellés simples, sans guillemets.
+- Format : `"Groupe [label] · [Site]"` (ex: `"Groupe G1-SDMO-830 · Bepanda International"`).
+
+**Fichiers de référence :** `utils/alerts.js` (fonction `splitAlertSubtitle`).
+
+---
+
+### 11.7 Couleurs des Badges de Priorité
+
+| Priorité | Couleur (CSS) | Usage |
+|----------|---------------|-------|
+| **Critique** | 🔴 Rouge (`#dc2626`) | Autonomie < 24h |
+| **Haute** | 🟠 Orange (`#f59e0b`) | Conso sans fonctionnement / Fonctionnement sans conso |
+| **Moyenne** | 🟡 Jaune (`#ca8a04`) | Écart > 15% / Autonomie < 36h |
+| **Basse** | ⚪ Gris (`#6b7280`) | Autonomie préventive (si utilisée) |
+
+**Règle :** Aucun emoji ni icône n'est utilisé. Le badge est uniquement textuel avec une couleur de fond.
+
+**Fichiers de référence :** `AlertsPage.jsx` (classes `alx-pill--critical`, `alx-pill--high`, `alx-pill--medium`, `alx-pill--low`).
+
+---
+
+### 11.8 Synthèse : Types d'Alertes en Production
+
+| Type | Contexte | Priorité | Badge | Titre Standard |
+|---|---|---|---|---|
+| `autonomie_critique` | groupe/site | CRITIQUE | 🔴 Critique | "Autonomie inférieure à 24 h" |
+| `conso_sans_fonctionnement` | groupe | HAUTE | 🟠 Haute | "Consommation sans fonctionnement" |
+| `fonctionnement_sans_consommation` | groupe | HAUTE | 🟠 Haute | "Fonctionnement sans consommation" |
+| `ecart_conso` | groupe | MOYENNE | 🟡 Moyenne | "Écart de consommation" |
+| `autonomie_preventive` | groupe/site | MOYENNE | 🟡 Moyenne | "Autonomie inférieure à 36 h" |
+
+**Fichiers de référence :** `logique_metier.md` (section 4.2), `utils/alerts.js` (fonction `resolvePrioriteKey`).
+
+---
+
+## 12. Annexes
+
+### 12.1 Glossaire
 
 | Terme | Définition |
 |-------|------------|
@@ -638,7 +871,7 @@ def ecart_type(values):
 | **Semaine N** | Période du rapport en cours |
 | **Semaine N-1** | Période précédente (référence) |
 
-### 11.2 Liste des Alertes
+### 12.2 Liste des Alertes
 
 | Type | Priorité | Description |
 |------|----------|-------------|
@@ -648,7 +881,7 @@ def ecart_type(values):
 | `autonomie_critique` | 🔴 Critique | Risque de rupture (< 24h) |
 | `autonomie_preventive` | 🟡 Moyenne | Risque prochain (< 36h) |
 
-### 11.3 Récapitulatif des Formules
+### 12.3 Récapitulatif des Formules
 
 | Indicateur | Formule |
 |------------|---------|
@@ -663,6 +896,21 @@ def ecart_type(values):
 | **Écart conso** | `(Conso_N - Conso_N-1) / Conso_N-1 × 100` |
 | **Écart horaire** | `(Delta_N - Delta_N-1) / Delta_N-1 × 100` |
 
+### 12.4 Fichiers de Référence
+
+| Fichier | Contenu |
+|---------|---------|
+| `calculs.py` | Algorithmes métier (volume, conso, autonomie, distribution) |
+| `logique_metier.md` | Spécifications métier originales |
+| `DashboardPage.jsx` | Page Dashboard (KPI, tables, alertes) |
+| `SitesPage.jsx` | Page Sites (vue liste, vue détail) |
+| `GroupsPage.jsx` | Page Groupes (vue liste, vue détail, graphiques) |
+| `AlertsPage.jsx` | Page Alertes (filtres, cartes, traitement) |
+| `ReportsPage.jsx` | Page Relevés (import, historique) |
+| `ProfilePage.jsx` | Page Profil (compte, sécurité, équipe) |
+| `HomePage.jsx` | Page d'accueil (landing) |
+| `carburflow_fiche_hebdo_4.xlsx` | Modèle de relevé Excel |
+
 ---
 
-**Fin du Cahier de Spécifications Métier**
+**Fin du Cahier de Spécifications Métier - Version 1.0**
