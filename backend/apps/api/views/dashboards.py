@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 from apps.services import calculs as calc, alerts as alert_service
 from apps.services.alerts import serialize_dashboard_alerts
 from apps.services.analytics import GROUPE_COLORS
+from apps.alerts.models import Alerte
 from apps.equipment.models import CuvePrincipale, GroupeElectrogene
 from apps.reports.models import LigneRapport
 
@@ -227,10 +228,33 @@ class GroupesAPIView(APIView):
             group_primary_site_ids=group_primary_site_ids,
         )
 
+        site_id_param = request.query_params.get('site_id')
+        selected_site_id = None
+        if site_id_param:
+            try:
+                selected_site_id = int(site_id_param)
+                group_blocks = [gb for gb in group_blocks if gb.get('site_id') == selected_site_id]
+            except (ValueError, TypeError):
+                pass
+
+        rapport_choices = [
+            {'id': report.id, 'label': calc.format_rapport_label(report)}
+            for report in reports
+        ]
+        sites_payload = [
+            {'id': site.id, 'nom_site': _site_label_from_cuve(site)}
+            for site in sites
+        ]
+
         return Response({
             'labels': [calc.format_rapport_label(report) for report in reports],
+            'rapport_choices': rapport_choices,
+            'report_choices': rapport_choices,
+            'sites': sites_payload,
             'groups': group_blocks,
+            'group_blocks': group_blocks,
             'defaultSiteId': sites[0].id if sites else None,
+            'selected_site_id': selected_site_id,
             'siteColors': GROUPE_COLORS,
         })
 

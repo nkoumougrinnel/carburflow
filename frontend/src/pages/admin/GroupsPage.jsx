@@ -90,7 +90,14 @@ function GroupsPage({ onNavigate }) {
     return map
   }, [groupAlerts])
 
-  const reportChoices = useMemo(() => (groupsData?.rapport_choices || groupsData?.report_choices || []), [groupsData])
+  const reportChoices = useMemo(() => {
+    if (groupsData?.rapport_choices?.length) return groupsData.rapport_choices
+    if (groupsData?.report_choices?.length) return groupsData.report_choices
+    if (groupsData?.labels?.length) {
+      return groupsData.labels.map((label, idx) => ({ id: idx + 1, label }))
+    }
+    return []
+  }, [groupsData])
   const rapportDebutIndex = useMemo(() => {
     if (!reportChoices.length) return 0
     const selectedId = rapportDebut ? String(rapportDebut) : ''
@@ -123,7 +130,8 @@ function GroupsPage({ onNavigate }) {
       const data = await apiFetch(`/api/dashboard/groupes${queryParams ? `?${queryParams}` : ''}`)
       if (seq !== filterSeq.current) return
       const choices = data.rapport_choices || data.report_choices || []
-      const normalizedBlocks = (data.group_blocks || []).map((block) => ({
+      const rawBlocks = data.group_blocks || data.groups || []
+      const normalizedBlocks = rawBlocks.map((block) => ({
         ...block,
         hours: buildDerivedMetric(block.hours_run || []),
         consumption_stats: buildDerivedMetric(block.consumption || []),
@@ -134,6 +142,7 @@ function GroupsPage({ onNavigate }) {
       setGroupsData({
         ...data,
         group_blocks: normalizedBlocks,
+        groups: normalizedBlocks,
       })
       // L’API Groupes ignore rapport_debut/fin : période client = 4 dernières semaines par défaut
       if (!options.preservePeriod) {
