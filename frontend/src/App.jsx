@@ -17,6 +17,7 @@ import { AuthProvider, useAuth } from './context/AuthContext.jsx'
 import { ThemeProvider } from './context/ThemeContext.jsx'
 import InteractionShell from './components/InteractionShell.jsx'
 import PageLoader from './components/PageLoader.jsx'
+import { Toaster } from './components/ui/sonner.jsx'
 import { useAppNavigate } from './hooks/useAppNavigate.js'
 import { allowedViews, defaultView, pathForView, resolveViewFromPath } from './utils/views.js'
 
@@ -88,6 +89,7 @@ function App() {
       <AuthProvider>
         <InteractionShell>
           <AppRoutes />
+          <Toaster />
         </InteractionShell>
       </AuthProvider>
     </ThemeProvider>

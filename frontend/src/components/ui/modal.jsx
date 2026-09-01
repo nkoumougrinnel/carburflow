@@ -1,7 +1,7 @@
-import React, { useEffect, useId, useRef } from 'react'
+import React, { useId } from 'react'
 import { X } from 'lucide-react'
-
-const FOCUSABLE = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import { cn } from '@/lib/utils'
 
 function Modal({
   open = true,
@@ -18,73 +18,58 @@ function Modal({
   closeLabel = 'Fermer',
   labelledBy,
 }) {
-  const cardRef = useRef(null)
   const generatedId = useId()
   const headingId = titleId || labelledBy || generatedId
-  const trapFocus = variant === 'rapport' || variant === 'op'
-
-  useEffect(() => {
-    if (!open) return undefined
-    const onKey = (event) => {
-      if (event.key === 'Escape' && !closeDisabled) onClose?.()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose, closeDisabled])
-
-  useEffect(() => {
-    if (!open || !trapFocus) return undefined
-    const root = cardRef.current
-    if (!root) return undefined
-    const nodes = Array.from(root.querySelectorAll(FOCUSABLE))
-    nodes[0]?.focus()
-    const onKey = (event) => {
-      if (event.key !== 'Tab' || !nodes.length) return
-      const first = nodes[0]
-      const last = nodes[nodes.length - 1]
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault()
-        last.focus()
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault()
-        first.focus()
-      }
-    }
-    root.addEventListener('keydown', onKey)
-    return () => root.removeEventListener('keydown', onKey)
-  }, [open, trapFocus])
-
-  if (!open) return null
-
   const backdropClass = variant === 'op' ? 'op-modal-backdrop' : 'rapport-modal-backdrop'
   const cardClass = variant === 'op' ? 'op-modal-card' : 'rapport-modal'
   const headClass = variant === 'op' ? 'op-modal-head' : 'rapport-modal-head'
   const closeClass = variant === 'op' ? 'op-modal-close' : 'rapport-modal-close'
-  const kickerClass = variant === 'op' ? 'rapport-modal-kicker' : 'rapport-modal-kicker'
+  const kickerClass = 'rapport-modal-kicker'
+  const hasHead = Boolean(title || kicker || subtitle)
 
   return (
-    <div
-      className={backdropClass}
-      role="presentation"
-      onClick={() => { if (!closeDisabled) onClose?.() }}
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next && !closeDisabled) onClose?.()
+      }}
     >
-      <div
-        ref={cardRef}
-        className={`${cardClass} ${cardClassName}`.trim()}
-        role="dialog"
-        aria-modal="true"
+      <DialogContent
+        showCloseButton={false}
+        overlayClassName={backdropClass}
         aria-labelledby={headingId}
-        onClick={(event) => event.stopPropagation()}
+        className={cn(
+          'max-w-none sm:max-w-none w-auto p-0 gap-0 border-0 bg-transparent shadow-none',
+          cardClass,
+          cardClassName,
+        )}
+        onPointerDownOutside={(event) => {
+          if (closeDisabled) event.preventDefault()
+        }}
+        onEscapeKeyDown={(event) => {
+          if (closeDisabled) event.preventDefault()
+        }}
+        onInteractOutside={(event) => {
+          if (closeDisabled) event.preventDefault()
+        }}
       >
-        {(title || kicker || subtitle) && (
+        {hasHead ? (
           <div className={headClass}>
             <div>
               {kicker ? <p className={kickerClass}>{kicker}</p> : null}
-              {title
-                ? (variant === 'op'
-                  ? <h3 id={headingId}>{title}</h3>
-                  : <h2 id={headingId}>{title}</h2>)
-                : <span id={headingId} className="sr-only">Dialogue</span>}
+              {title ? (
+                variant === 'op' ? (
+                  <DialogTitle asChild>
+                    <h3 id={headingId}>{title}</h3>
+                  </DialogTitle>
+                ) : (
+                  <DialogTitle asChild>
+                    <h2 id={headingId}>{title}</h2>
+                  </DialogTitle>
+                )
+              ) : (
+                <DialogTitle id={headingId} className="sr-only">Dialogue</DialogTitle>
+              )}
               {subtitle ? (variant === 'op' ? subtitle : <p>{subtitle}</p>) : null}
             </div>
             <button
@@ -97,6 +82,8 @@ function Modal({
               <X size={18} aria-hidden="true" />
             </button>
           </div>
+        ) : (
+          <DialogTitle id={headingId} className="sr-only">Dialogue</DialogTitle>
         )}
         {children}
         {footer ? (
@@ -104,8 +91,8 @@ function Modal({
             {footer}
           </div>
         ) : null}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 

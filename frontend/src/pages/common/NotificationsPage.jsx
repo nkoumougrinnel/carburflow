@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, Inbox, MailPlus, Send } from 'lucide-react'
+import { toast } from 'sonner'
 import Topbar from '@/components/Topbar.jsx'
 import PageEnter from '@/components/PageEnter.jsx'
 import PageLoader from '@/components/PageLoader.jsx'
@@ -10,7 +11,6 @@ import { EmptyState } from '@/components/ui/empty-state.jsx'
 import Modal from '@/components/ui/modal.jsx'
 import { useAuth } from '@/context/AuthContext.jsx'
 import { requestBadgesRefresh } from '@/utils/badges.js'
-import { pathForView, isModifiedNavigation } from '@/utils/views.js'
 import {
   listMessagingAdmins,
   listNotifications,
@@ -200,17 +200,19 @@ function NotificationsPage({ onNavigate }) {
   const [message, setMessage] = useState('')
   const [composeOpen, setComposeOpen] = useState(false)
   const [inboxUnread, setInboxUnread] = useState(0)
-  const [toast, setToast] = useState(null)
   const prevItemsRef = useRef([])
-  const toastTimerRef = useRef(null)
 
   const isSent = box === 'sent'
 
   const showToast = useCallback((payload) => {
-    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current)
-    setToast(payload)
-    toastTimerRef.current = window.setTimeout(() => setToast(null), 5000)
-  }, [])
+    toast(payload.title, {
+      description: payload.body,
+      action: {
+        label: 'Ouvrir',
+        onClick: () => onNavigate?.('notifications'),
+      },
+    })
+  }, [onNavigate])
 
   const refresh = useCallback(async ({ silent = false, mailbox = box } = {}) => {
     if (!silent) setLoading(true)
@@ -266,10 +268,6 @@ function NotificationsPage({ onNavigate }) {
     }, 20000)
     return () => window.clearInterval(id)
   }, [refresh, box])
-
-  useEffect(() => () => {
-    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current)
-  }, [])
 
   const navItems = useMemo(() => ([
     {
@@ -494,26 +492,6 @@ function NotificationsPage({ onNavigate }) {
             }
           }}
         />
-      )}
-
-      {toast && toast.kind === 'live' && (
-        <div className="cf-toast-live" role="status" aria-live="polite">
-          <div>
-            <strong>{toast.title}</strong>
-            <p>{toast.body}</p>
-            <a
-              href={pathForView('notifications')}
-              onClick={(e) => {
-                if (isModifiedNavigation(e)) return
-                e.preventDefault()
-                const target = items.find((n) => n.id === toast.notifId)
-                if (target) openMessage(target)
-              }}
-            >
-              Ouvrir le message →
-            </a>
-          </div>
-        </div>
       )}
     </div>
   )
