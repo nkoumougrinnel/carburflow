@@ -1,0 +1,35 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "frontend/src/styles.css"
+        ],
+        "createdAt": "2026-09-01T14:11:49.806Z",
+        "reason": "Legacy 10k-line stylesheet; P0 is token remap only, existing side accents stay"
+      },
+      {
+        "rule": "bounce-easing",
+        "value": "*",
+        "files": [
+          "frontend/src/styles.css"
+        ],
+        "createdAt": "2026-09-01T14:11:49.907Z",
+        "reason": "Existing motion in styles.css is out of scope for token/layout bugfix pass"
+      },
+      {
+        "rule": "layout-transition",
+        "value": "*",
+        "files": [
+          "frontend/src/styles.css"
+        ],
+        "createdAt": "2026-09-01T14:11:49.999Z",
+        "reason": "Pre-existing height/padding transitions in app shells; not introducing new ones"
+      }
+    ]
+  }
+}

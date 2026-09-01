@@ -7986,7 +7986,7 @@ body {
   max-width: 360px;
   padding: 14px 16px;
   border-radius: 14px;
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border: 1px solid color-mix(in srgb, var(--success, #16a34a) 40%, transparent);
@@ -7995,7 +7995,7 @@ body {
   animation: cfToastIn 240ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
 }
 .cf-toast-live--neutral {
-  border-color: color-mix(in srgb, var(--accent, #0d4a63) 40%, transparent);
+  border-color: color-mix(in srgb, var(--primary) 40%, transparent);
 }
 .cf-toast-live strong { display: block; font-size: 0.95rem; margin-bottom: 2px; }
 .cf-toast-live p { margin: 0; color: var(--muted); font-size: 0.85rem; }
@@ -8004,7 +8004,7 @@ body {
   margin-top: 6px;
   font-size: 0.85rem;
   font-weight: 600;
-  color: var(--accent, #0d4a63);
+  color: var(--primary);
   text-decoration: none;
 }
 .cf-toast-live a:hover { text-decoration: underline; }
@@ -8026,7 +8026,7 @@ body {
   gap: 14px;
   padding: 14px 16px;
   border-radius: 14px;
-  background: color-mix(in srgb, var(--surface) 95%, transparent);
+  background: color-mix(in srgb, var(--panel) 95%, transparent);
   border: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
   border-left-width: 4px;
   transition: transform 160ms ease, border-color 160ms ease;
@@ -8064,7 +8064,7 @@ body {
 .cf-reason-chip {
   padding: 6px 12px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--surface) 95%, transparent);
+  background: color-mix(in srgb, var(--panel) 95%, transparent);
   border: 1px solid color-mix(in srgb, var(--text) 14%, transparent);
   font-size: 0.85rem;
   font-weight: 600;
@@ -8073,13 +8073,13 @@ body {
   transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 .cf-reason-chip:hover {
-  border-color: color-mix(in srgb, var(--accent, #0d4a63) 50%, transparent);
-  color: var(--accent, #0d4a63);
+  border-color: color-mix(in srgb, var(--primary) 50%, transparent);
+  color: var(--primary);
 }
 .cf-reason-chip.is-active {
-  background: color-mix(in srgb, var(--accent, #0d4a63) 14%, transparent);
-  border-color: var(--accent, #0d4a63);
-  color: var(--accent, #0d4a63);
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  border-color: var(--primary);
+  color: var(--primary);
 }
 .cf-reason-counter {
   display: flex;
@@ -8099,7 +8099,7 @@ body {
   gap: 12px;
   padding: 48px 20px;
   border-radius: 18px;
-  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  background: color-mix(in srgb, var(--panel) 70%, transparent);
   border: 1px dashed color-mix(in srgb, var(--text) 14%, transparent);
   text-align: center;
 }
@@ -8131,7 +8131,7 @@ body {
   gap: 10px;
   padding: 12px 14px;
   border-radius: 14px;
-  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  background: color-mix(in srgb, var(--panel) 96%, transparent);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
@@ -8156,7 +8156,7 @@ body {
   padding: 6px 10px;
   margin-bottom: 8px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
   border: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
   color: var(--text);
   font-size: 0.85rem;
@@ -8196,7 +8196,7 @@ body {
   gap: 6px;
   padding: 6px 12px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  background: color-mix(in srgb, var(--panel) 96%, transparent);
   border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
   font-size: 0.78rem;
   font-weight: 600;
@@ -8230,7 +8230,7 @@ body {
   padding: 6px 12px;
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--text) 14%, transparent);
-  background: color-mix(in srgb, var(--surface) 95%, transparent);
+  background: color-mix(in srgb, var(--panel) 95%, transparent);
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--text);
@@ -8238,13 +8238,13 @@ body {
   transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 .cf-period-chip:hover {
-  border-color: color-mix(in srgb, var(--accent, #0d4a63) 50%, transparent);
-  color: var(--accent, #0d4a63);
+  border-color: color-mix(in srgb, var(--primary) 50%, transparent);
+  color: var(--primary);
 }
 .cf-period-chip.is-active {
-  background: color-mix(in srgb, var(--accent, #0d4a63) 14%, transparent);
-  border-color: var(--accent, #0d4a63);
-  color: var(--accent, #0d4a63);
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 /* Volume / poids dans la card History */
@@ -8269,14 +8269,14 @@ body {
   padding: 10px 14px;
   margin: 4px 0 14px;
   border-radius: 12px;
-  background: color-mix(in srgb, var(--accent, #0d4a63) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent, #0d4a63) 35%, transparent);
-  color: var(--accent, #0d4a63);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
+  color: var(--primary);
   font-weight: 600;
 }
 .cf-bulk-bar button {
   border: 0;
-  background: var(--accent, #0d4a63);
+  background: var(--primary);
   color: #fff;
   padding: 8px 14px;
   border-radius: 10px;
@@ -8294,15 +8294,15 @@ body {
   height: 22px;
   border-radius: 6px;
   border: 1.5px solid color-mix(in srgb, var(--text) 25%, transparent);
-  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  background: color-mix(in srgb, var(--panel) 90%, transparent);
   display: grid;
   place-items: center;
   cursor: pointer;
   z-index: 2;
 }
 .alert-select-flag.is-checked {
-  border-color: var(--accent, #0d4a63);
-  background: color-mix(in srgb, var(--accent, #0d4a63) 18%, transparent);
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
 }
 .alert-item {
   position: relative;
@@ -8354,16 +8354,16 @@ body {
   gap: 8px;
   padding: 6px 12px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
   border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--muted);
 }
 .reports-progress-step.is-active {
-  background: color-mix(in srgb, var(--accent, #0d4a63) 14%, transparent);
-  border-color: var(--accent, #0d4a63);
-  color: var(--accent, #0d4a63);
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  border-color: var(--primary);
+  color: var(--primary);
 }
 .reports-progress-step.is-done {
   border-color: #16a34a;
