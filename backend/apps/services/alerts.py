@@ -502,6 +502,7 @@ def detecter_et_persister_alertes(*, auto_ignorer_levees: bool = True):
         'detected_at': timezone.now().isoformat(),
     }
 
+
 def serialize_dashboard_alerts(alerts):
     """
     Transforme une liste d'alertes en payloads simplifiés pour le frontend.

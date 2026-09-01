@@ -1,1 +1,1 @@
-from .dashboards import serialize_dashboard_alerts
+from apps.services.alerts import serialize_dashboard_alerts

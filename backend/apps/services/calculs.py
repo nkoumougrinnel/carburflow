@@ -2,6 +2,9 @@
 
 import re
 
+# ─────────────────────────────────────────────────────────────
+# 1. FONCTIONS UTILITAIRES
+# ─────────────────────────────────────────────────────────────
 
 def format_rapport_label(report) -> str:
     """Libellé période pour filtres / axes : date de début (jj/mm/aaaa)."""
@@ -11,7 +14,6 @@ def format_rapport_label(report) -> str:
 def ordered_rapports(queryset=None):
     """Liste des rapports en ordre chronologique strict."""
     from apps.reports.models import Rapport
-
     qs = queryset if queryset is not None else Rapport.objects.all()
     return list(qs.order_by('date_debut', 'date_fin', 'id'))
 
@@ -23,60 +25,6 @@ def extraire_puissance(value):
     text = str(value).strip().replace(',', '.')
     match = re.search(r'(\d+(?:\.\d+)?)', text)
     return float(match.group(1)) if match else 0.0
-
-
-def _line_belongs_to_site(line, site_id):
-    """Vrai si une ligne relève bien le site demandé, y compris via une CJ liée."""
-    if site_id is None:
-        return True
-    if getattr(line, 'cuve_principale_id', None) == site_id:
-        return True
-    cj = getattr(line, 'cuve_journaliere', None)
-    return getattr(cj, 'cuve_principale_id', None) == site_id
-
-
-def build_group_primary_site_ids(groups, lignes_all):
-    """Détermine le site principal d’un groupe à partir des liaisons CJ et des lignes de rapport."""
-    primary_site_ids = {}
-    for groupe in groups or []:
-        cj = getattr(groupe, 'cuve_journaliere', None)
-        cp_id = getattr(cj, 'cuve_principale_id', None)
-        if cp_id is not None:
-            primary_site_ids[groupe.id] = cp_id
-
-    counts_by_group_site = {}
-    for line in lignes_all or []:
-        gid = getattr(line, 'groupe_electrogene_id', None)
-        if gid is None:
-            continue
-        site_ids = set()
-        if getattr(line, 'cuve_principale_id', None) is not None:
-            site_ids.add(line.cuve_principale_id)
-        cj = getattr(line, 'cuve_journaliere', None)
-        cp_id = getattr(cj, 'cuve_principale_id', None)
-        if cp_id is not None:
-            site_ids.add(cp_id)
-        for sid in site_ids:
-            counts = counts_by_group_site.setdefault(gid, {})
-            counts[sid] = counts.get(sid, 0) + 1
-
-    for gid, counts in counts_by_group_site.items():
-        if gid in primary_site_ids:
-            continue
-        if counts:
-            primary_site_ids[gid] = max(counts.items(), key=lambda item: item[1])[0]
-
-    return primary_site_ids
-
-
-def should_emit_hourly_variance_alert(mean_hourly_consumption, observed_hourly_consumption, threshold_pct=15.0):
-    """Vrai si un écart de consommation horaire dépasse le seuil de façon significative."""
-    mean_value = float(mean_hourly_consumption or 0.0)
-    observed_value = float(observed_hourly_consumption or 0.0)
-    if mean_value <= 0.0 or observed_value <= 0.0:
-        return False
-    ecart = abs((observed_value - mean_value) / mean_value) * 100
-    return ecart > threshold_pct
 
 
 def formater_autonomie(heures):
@@ -94,15 +42,197 @@ def formater_autonomie(heures):
 
 def moyenne(values):
     """Calcule la moyenne d'une liste de valeurs (ignore None)."""
-    nums = [v for v in values if v is not None]
+    nums = [float(v) for v in values if v is not None]
     return sum(nums) / len(nums) if nums else 0.0
 
 
-def should_mark_sans_fonctionnement(latest_hours_n, latest_cons_n, hours_run, consumed_deltas, is_infinite_consumption):
-    """Vrai seulement si le groupe est réellement au repos sur la période courante.
+def moyenne_positive(values):
+    """Calcule la moyenne des valeurs positives uniquement."""
+    nums = [float(v) for v in values if v is not None and float(v) > 0]
+    return sum(nums) / len(nums) if nums else 0.0
 
-    Un delta horaire à 0 sur la semaine N n’est pas suffisant si l’historique du groupe
-    montre déjà une activité réelle (heure ou consommation positive) sur des périodes antérieures.
+
+def ecart_type(values):
+    """Calcule l'écart type d'une liste de valeurs (ignore None)."""
+    nums = [v for v in values if v is not None]
+    if not nums:
+        return 0.0
+    mean = moyenne(nums)
+    variance = sum((v - mean) ** 2 for v in nums) / len(nums)
+    return variance ** 0.5
+
+
+def last_finite(values):
+    """Dernière valeur non-null d'une série."""
+    for value in reversed(values or []):
+        if value is not None:
+            return value
+    return None
+
+
+def last_numeric(values, default=0.0):
+    """Dernière valeur numérique d'une série."""
+    for value in reversed(values or []):
+        if value is not None:
+            return round(float(value), 1)
+    return round(float(default), 1)
+
+
+def previous_numeric(values, default=0.0):
+    """Avant-dernière valeur numérique d'une série."""
+    if not values:
+        return default
+    last_idx = None
+    for i in range(len(values) - 1, -1, -1):
+        if values[i] is not None:
+            last_idx = i
+            break
+    if last_idx is None:
+        return default
+    for i in range(last_idx - 1, -1, -1):
+        if values[i] is not None:
+            return round(float(values[i]), 1)
+    return default
+
+
+def numeric_values(values, positive_only=False):
+    """Filtre et convertit une série en nombres."""
+    out = []
+    for v in values or []:
+        if v is None:
+            continue
+        num = float(v)
+        if positive_only and num <= 0:
+            continue
+        out.append(num)
+    return out
+
+
+# ─────────────────────────────────────────────────────────────
+# 2. VOLUME, CONSOMMATION, DÉPOTAGE (NIVEAU SITE)
+# ─────────────────────────────────────────────────────────────
+
+def _line_belongs_to_site(line, site_id):
+    """Vrai si une ligne relève bien le site demandé, y compris via une CJ liée."""
+    if site_id is None:
+        return True
+    if getattr(line, 'cuve_principale_id', None) == site_id:
+        return True
+    cj = getattr(line, 'cuve_journaliere', None)
+    return getattr(cj, 'cuve_principale_id', None) == site_id
+
+
+def _site_volume_from_lines(lines) -> float:
+    """
+    Volume du site = stock réel de la cuve principale (une seule lecture).
+    Chaque ligne répète le même volume CP : on prend le max.
+    """
+    cp_values = [
+        float(l.quantite_gasoil_cuve_principale)
+        for l in lines
+        if l.quantite_gasoil_cuve_principale is not None
+    ]
+    return max(cp_values) if cp_values else 0.0
+
+
+def _site_cj_volume_from_lines(lines) -> float:
+    """Somme des stocks des cuves journalières présentes sur les lignes du site."""
+    return sum(float(getattr(l, 'quantite_gasoil_cuve_journaliere', None) or 0.0) for l in lines)
+
+
+def _site_depotage_from_lines(lines) -> float:
+    """
+    Dépotage site : valeur unique pour tout le site.
+    🔧 CORRECTION : on prend la valeur maximale (pas la somme).
+    """
+    values = [
+        float(l.depotage or 0.0)
+        for l in lines
+        if l.depotage is not None and l.depotage != 0.0
+    ]
+    return max(values) if values else 0.0
+
+
+def _consommation_periode(
+    previous_cp: float,
+    previous_cj: float,
+    current_cp: float,
+    current_cj: float,
+    depotage: float,
+) -> float:
+    """
+    Consommation réelle sur la période.
+    Stock global = CP + Σ CJ → annule l'effet des prélèvements internes CP→CJ.
+    """
+    prev_total = float(previous_cp) + float(previous_cj)
+    curr_total = float(current_cp) + float(current_cj)
+    return prev_total - curr_total + float(depotage or 0.0)
+
+
+# ─────────────────────────────────────────────────────────────
+# 3. SITE PRINCIPAL D'UN GROUPE
+# ─────────────────────────────────────────────────────────────
+
+def build_group_primary_site_ids(groups, lignes_all):
+    """
+    Détermine le site principal d'un groupe :
+      1. Rattachement via Cuve Journalière (priorité 1)
+      2. Rattachement via les lignes de rapport (priorité 2)
+    """
+    primary_site_ids = {}
+
+    # 1. Rattachement CJ
+    for groupe in groups or []:
+        cj = getattr(groupe, 'cuve_journaliere', None)
+        cp_id = getattr(cj, 'cuve_principale_id', None)
+        if cp_id is not None:
+            primary_site_ids[groupe.id] = cp_id
+
+    # 2. Rattachement par lignes
+    counts_by_group_site = {}
+    for line in lignes_all or []:
+        gid = getattr(line, 'groupe_electrogene_id', None)
+        if gid is None:
+            continue
+        site_ids = set()
+        if getattr(line, 'cuve_principale_id', None) is not None:
+            site_ids.add(line.cuve_principale_id)
+        cj = getattr(line, 'cuve_journaliere', None)
+        cp_id = getattr(cj, 'cuve_principale_id', None)
+        if cp_id is not None:
+            site_ids.add(cp_id)
+        for sid in site_ids:
+            counts = counts_by_group_site.setdefault(gid, {})
+            counts[sid] = counts.get(sid, 0) + 1
+
+    # 3. Pour les groupes sans CJ, prendre le site le plus fréquent
+    for gid, counts in counts_by_group_site.items():
+        if gid in primary_site_ids:
+            continue
+        if counts:
+            primary_site_ids[gid] = max(counts.items(), key=lambda item: item[1])[0]
+
+    return primary_site_ids
+
+
+# ─────────────────────────────────────────────────────────────
+# 4. DÉTECTION DES ANOMALIES
+# ─────────────────────────────────────────────────────────────
+
+def should_emit_hourly_variance_alert(mean_hourly_consumption, observed_hourly_consumption, threshold_pct=15.0):
+    """Vrai si un écart de consommation horaire dépasse le seuil."""
+    mean_value = float(mean_hourly_consumption or 0.0)
+    observed_value = float(observed_hourly_consumption or 0.0)
+    if mean_value <= 0.0 or observed_value <= 0.0:
+        return False
+    ecart = abs((observed_value - mean_value) / mean_value) * 100
+    return ecart > threshold_pct
+
+
+def should_mark_sans_fonctionnement(latest_hours_n, latest_cons_n, hours_run, consumed_deltas, is_infinite_consumption):
+    """
+    Vrai si le groupe est réellement au repos sur la période courante.
+    Un delta horaire à 0 sur la semaine N n'est pas suffisant s'il y a eu une activité antérieure.
     """
     if is_infinite_consumption:
         return False
@@ -128,13 +258,14 @@ def should_mark_sans_fonctionnement(latest_hours_n, latest_cons_n, hours_run, co
     return not has_previous_activity
 
 
-def resolve_site_autonomy_from_groups(site_groups):
-    """Résout l’autonomie d’un site à partir des groupes rattachés.
+# ─────────────────────────────────────────────────────────────
+# 5. AUTONOMIE
+# ─────────────────────────────────────────────────────────────
 
-    Règle métier : on prend le minimum des autonomies chiffrées des groupes valides.
-    Si un groupe est sans fonctionnement ou indéterminé, il n’est pas pris en compte
-    pour le minimum, sauf si tous les groupes sont dans ce cas, où le site devient
-    indéterminé/sans fonctionnement selon le contexte.
+def resolve_site_autonomy_from_groups(site_groups):
+    """
+    Résout l'autonomie d'un site à partir des groupes rattachés.
+    Règle : on prend le minimum des autonomies chiffrées des groupes valides.
     """
     site_groups = site_groups or []
 
@@ -184,144 +315,14 @@ def resolve_site_autonomy_from_groups(site_groups):
     }
 
 
-def ecart_type(values):
-    """Calcule l'écart type d'une liste de valeurs (ignore None)."""
-    nums = [v for v in values if v is not None]
-    if not nums:
-        return 0.0
-    mean = moyenne(nums)
-    variance = sum((v - mean) ** 2 for v in nums) / len(nums)
-    return variance ** 0.5
-
-
-def last_finite(values):
-    """Dernière valeur non-null d’une série."""
-    for value in reversed(values or []):
-        if value is not None:
-            return value
-    return None
-
-
-def _site_volume_from_lines(lines) -> float:
-    """
-    Volume du site = stock réel de la cuve principale (une seule lecture).
-
-    Chaque ligne groupe répète le même volume CP : on ne somme PAS les CP,
-    ni les cuves journalières rattachées.
-    """
-    cp_values = [
-        float(l.quantite_gasoil_cuve_principale)
-        for l in lines
-        if l.quantite_gasoil_cuve_principale is not None
-    ]
-    if not cp_values:
-        return 0.0
-    return max(cp_values)
-
-
-def _site_cj_volume_from_lines(lines) -> float:
-    """Somme des stocks des cuves journalières présentes sur les lignes du site."""
-    return sum(float(getattr(l, 'quantite_gasoil_cuve_journaliere', None) or 0.0) for l in lines)
-
-
-def _site_depotage_from_lines(lines) -> float:
-    """
-    Dépotage site : si la même valeur est répétée sur chaque ligne groupe,
-    on ne la compte qu’une fois ; sinon on somme les apports distincts.
-    """
-    values = [float(l.depotage or 0.0) for l in lines]
-    nonzero = [v for v in values if v > 0]
-    if not nonzero:
-        return 0.0
-    rounded = {round(v, 3) for v in nonzero}
-    if len(rounded) == 1:
-        return nonzero[0]
-    return sum(nonzero)
-
-
-def _consommation_periode(
-    previous_cp: float,
-    previous_cj: float,
-    current_cp: float,
-    current_cj: float,
-    depotage: float,
-) -> float:
-    """
-    Consommation réelle sur la période.
-
-    Stock global = CP + Σ CJ. Un prélèvement CP→CJ ne change pas ce total,
-    donc n’est plus compté à tort comme conso des groupes.
-    """
-    prev_total = float(previous_cp) + float(previous_cj)
-    curr_total = float(current_cp) + float(current_cj)
-    return prev_total - curr_total + float(depotage or 0.0)
-
-
-def somme_conso_groupes(group_blocks: list, n_periods: int) -> list:
-    """
-    Conso site = somme des consos des groupes agrégés (par période).
-    None si aucun groupe n’a de valeur sur la période.
-    """
-    series = []
-    for idx in range(n_periods):
-        vals = []
-        for block in group_blocks or []:
-            consos = block.get('consumption') or []
-            if idx < len(consos) and consos[idx] is not None:
-                vals.append(float(consos[idx]))
-        series.append(round(sum(vals), 1) if vals else None)
-    return series
-
-
-def calculer_site_series(reports, lines_by_site_report, site_id):
-    """
-    Calcule les séries de volume (CP) et consommation (stock global CP+CJ) pour un site.
-    Retourne (volume_data, consumption_data) — null si pas de relevé sur le rapport.
-
-    Note : pour l’affichage dashboard, préférer somme_conso_groupes après calculer_groupes
-    (conso site = agrégation des groupes). Cette série reste alignée sur la même formule
-    de stock global.
-    """
-    volume_data = []
-    consumption_data = []
-    previous_cp = None
-    previous_cj = None
-
-    for report in reports:
-        lines = lines_by_site_report.get((site_id, report.id), [])
-        if not lines:
-            volume_data.append(None)
-            consumption_data.append(None)
-            continue
-
-        current_cp = _site_volume_from_lines(lines)
-        current_cj = _site_cj_volume_from_lines(lines)
-        depotage_total = _site_depotage_from_lines(lines)
-        volume_data.append(round(current_cp, 1))
-
-        if previous_cp is None:
-            consumption_data.append(0.0)
-        else:
-            consumption_data.append(
-                round(
-                    _consommation_periode(
-                        previous_cp, previous_cj, current_cp, current_cj, depotage_total
-                    ),
-                    1,
-                )
-            )
-        previous_cp = current_cp
-        previous_cj = current_cj
-
-    return volume_data, consumption_data
-
+# ─────────────────────────────────────────────────────────────
+# 6. CALCUL DES SÉRIES SITE
+# ─────────────────────────────────────────────────────────────
 
 def build_site_report_state(reports, sites, lines_by_site_report):
     """
     Prépare l'état volume/delta par (site, rapport) pour le calcul des groupes.
-    present=False si le site n’a aucune ligne sur ce rapport.
-
-    delta = conso réelle (CP+CJ, prélèvements annulés) — base de la proportionnalité.
+    delta = conso réelle (CP+CJ, prélèvements annulés).
     """
     site_report_state = {}
     for site in sites:
@@ -360,6 +361,65 @@ def build_site_report_state(reports, sites, lines_by_site_report):
     return site_report_state
 
 
+def calculer_site_series(reports, lines_by_site_report, site_id):
+    """
+    Calcule les séries de volume (CP) et consommation (stock global CP+CJ) pour un site.
+    Retourne (volume_data, consumption_data).
+    """
+    volume_data = []
+    consumption_data = []
+    previous_cp = None
+    previous_cj = None
+
+    for report in reports:
+        lines = lines_by_site_report.get((site_id, report.id), [])
+        if not lines:
+            volume_data.append(None)
+            consumption_data.append(None)
+            continue
+
+        current_cp = _site_volume_from_lines(lines)
+        current_cj = _site_cj_volume_from_lines(lines)
+        depotage_total = _site_depotage_from_lines(lines)
+        volume_data.append(round(current_cp, 1))
+
+        if previous_cp is None:
+            consumption_data.append(0.0)
+        else:
+            consumption_data.append(
+                round(
+                    _consommation_periode(
+                        previous_cp, previous_cj, current_cp, current_cj, depotage_total
+                    ),
+                    1,
+                )
+            )
+        previous_cp = current_cp
+        previous_cj = current_cj
+
+    return volume_data, consumption_data
+
+
+def somme_conso_groupes(group_blocks: list, n_periods: int) -> list:
+    """
+    Conso site = somme des consos des groupes agrégés (par période).
+    None si aucun groupe n'a de valeur sur la période.
+    """
+    series = []
+    for idx in range(n_periods):
+        vals = []
+        for block in group_blocks or []:
+            consos = block.get('consumption') or []
+            if idx < len(consos) and consos[idx] is not None:
+                vals.append(float(consos[idx]))
+        series.append(round(sum(vals), 1) if vals else None)
+    return series
+
+
+# ─────────────────────────────────────────────────────────────
+# 7. CALCUL DES GROUPES (CŒUR MÉTIER)
+# ─────────────────────────────────────────────────────────────
+
 def calculer_groupes(
     reports,
     groupes,
@@ -376,14 +436,10 @@ def calculer_groupes(
     Calcule les données complètes pour chaque groupe avec partage de la
     consommation au prorata de la puissance.
 
-    Autonomie (à l’instant T) :
-      1. proportion = P_groupe / Σ P_groupes liés à la même cuve principale
-      2. volume_proportionnel = (volume_CP × proportion) + volume_CJ_du_groupe
-      3. autonomie_h = volume_proportionnel / conso_horaire_moyenne
-         (moyenne des L/h significatifs, hors 0 et ∞)
+    🔧 CORRECTION AUTONOMIE : utilisation de mean_hourly_consumption_deduite
+    (moyenne sur toutes les périodes) au lieu de latest_hourly_consumption.
     """
-    # Groupes durablement rattachés à chaque site (via cuves journalières),
-    # pour la proportion d’autonomie — pas seulement ceux présents sur un rapport.
+    # Groupes durablement rattachés à chaque site (via CJ)
     if groups_linked_by_site is None:
         from apps.equipment.models import CuveJournaliere
         groups_linked_by_site = {}
@@ -397,7 +453,7 @@ def calculer_groupes(
                 if g not in groups_linked_by_site[cj.cuve_principale_id]:
                     groups_linked_by_site[cj.cuve_principale_id].append(g)
 
-        # Fallback : sites sans CJ → groupes déjà connus via primary_site
+        # Fallback : sites sans CJ
         for groupe in groupes:
             site_id = group_primary_site_ids.get(groupe.id)
             if site_id is not None:
@@ -405,9 +461,7 @@ def calculer_groupes(
                 if groupe not in bucket:
                     bucket.append(groupe)
 
-    # Correction robuste : un groupe qui est rattaché à un site via ses lignes du
-    # rapport reste pris dans le prorata de puissance de ce site même si le site
-    # n’a pas de cuve journalière stable déclarée.
+    # Correction robuste pour les groupes rattachés via leurs lignes
     for groupe in groupes:
         primary_site_id = group_primary_site_ids.get(groupe.id)
         if primary_site_id is None:
@@ -416,7 +470,7 @@ def calculer_groupes(
         if groupe not in bucket:
             bucket.append(groupe)
 
-    # Pré-calcul des deltas horaires de tous les groupes sur chaque rapport
+    # Pré-calcul des deltas horaires
     group_hour_deltas = {}
     for g in groupes:
         p_site_id = group_primary_site_ids.get(g.id)
@@ -448,6 +502,7 @@ def calculer_groupes(
 
             group_hour_deltas[(g.id, r.id)] = h_delta
 
+    # Construction des blocs groupes
     group_blocks = []
     for groupe in groupes:
         primary_site_id = group_primary_site_ids.get(groupe.id)
@@ -484,7 +539,6 @@ def calculer_groupes(
             )
             site_present = bool(site_state.get('present')) and bool(lines)
 
-            # Pas de relevé pour ce groupe sur ce rapport → null (pas de faux 0)
             if not site_present:
                 hours_run.append(None)
                 volume.append(None)
@@ -511,11 +565,8 @@ def calculer_groupes(
             hours_run.append(round(hour_delta, 1) if hour_delta is not None else None)
 
             site_current_volume = float(site_state.get('current_volume') or 0.0)
-            # delta = conso réelle (CP+CJ, prélèvements exclus) avant prorata puissance
             site_delta = float(site_state.get('delta') or 0.0)
 
-            # Conso période : si au moins un groupe du site a un delta horaire > 0,
-            # la consommation du site est affectée uniquement aux groupes ayant fonctionné.
             active_group_ids = (
                 groups_by_site_report.get((primary_site_id, report.id), set())
                 if primary_site_id is not None
@@ -549,7 +600,6 @@ def calculer_groupes(
                 else:
                     period_share = 1.0
 
-            # Volume courbe / autonomie : proportion stable × volume CP réel
             weighted_report_volume = round(site_current_volume * power_share, 1)
             weighted_report_delta = round(site_delta * period_share, 1)
 
@@ -612,21 +662,23 @@ def calculer_groupes(
                 latest_daily_volume = round(sum(cj_vals), 1) if cj_vals else None
                 break
 
-        # Autonomie = (volume_CP × proportion + CJ groupe) / conso_horaire_moyenne
+        # ──────────────────────────────────────────────────────────
+        # AUTONOMIE — CORRECTION : utilisation de mean_hourly_consumption_deduite
+        # ──────────────────────────────────────────────────────────
         volume_proportionnel = None
         if latest_main_volume is not None:
             cj_part = float(latest_daily_volume or 0.0)
             volume_proportionnel = round(latest_main_volume * power_share + cj_part, 1)
+
         autonomy_hours = None
         formatted_autonomy = None
-
-        # Anomalie « conso sans delta horaire » : indépendante du calcul d’autonomie
         is_infinite_consumption = bool(has_infinite_cons)
 
         latest_hours_n = hours_run[-1] if hours_run else None
         previous_hours_n = hours_run[-2] if len(hours_run) >= 2 else None
         latest_cons_n = consumed_deltas[-1] if consumed_deltas else None
         previous_cons_n = consumed_deltas[-2] if len(consumed_deltas) >= 2 else None
+
         is_sans_fonctionnement = should_mark_sans_fonctionnement(
             latest_hours_n,
             latest_cons_n,
@@ -637,7 +689,6 @@ def calculer_groupes(
 
         indet_reason = None
         if is_sans_fonctionnement:
-            # Zéro relevé ≠ indéterminée : le groupe n’a pas fonctionné
             is_infinite_autonomy = False
             autonomy_hours = None
             formatted_autonomy = None
@@ -650,25 +701,24 @@ def calculer_groupes(
                 )
                 + ' → sans fonctionnement.'
             )
-        elif latest_hourly_consumption is not None and volume_proportionnel is not None:
-            # Utiliser la dernière période valide (N ou N-1) pour estimer l'autonomie.
+        # 🔧 CORRECTION ICI : on utilise mean_hourly_consumption_deduite
+        elif mean_hourly_consumption_deduite > 0 and volume_proportionnel is not None:
             is_infinite_autonomy = False
-            autonomy_hours = volume_proportionnel / latest_hourly_consumption
+            autonomy_hours = volume_proportionnel / mean_hourly_consumption_deduite
             formatted_autonomy = formater_autonomie(autonomy_hours)
         else:
-            # Pas de conso horaire valide ni de référence période N/N-1 : indéterminé
             is_infinite_autonomy = True
             autonomy_hours = None
             formatted_autonomy = "∞"
             reasons = []
             if volume_proportionnel is None:
                 reasons.append('volume cuve indisponible')
-            if latest_hourly_consumption is None:
+            if mean_hourly_consumption_deduite == 0:
                 reasons.append('aucune période avec consommation et delta horaire')
             if latest_hours_n is None and latest_cons_n is None:
                 reasons.append('pas de relevé sur la semaine N')
             indet_reason = (
-                'Sans fonctionnement : ' + (' · '.join(reasons) if reasons else 'données insuffisantes')
+                'Données insuffisantes : ' + (' · '.join(reasons) if reasons else '')
             )
 
         group_blocks.append({

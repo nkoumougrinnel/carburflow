@@ -43,11 +43,10 @@ from apps.api.views.reports import (
     RapportViewSet,
     LigneRapportViewSet,
 )
-from apps.api.views.dashboards import (
-    SitesDashboardAPIView,
-    CuvesDashboardAPIView,
-    DashboardOverviewAPIView,
-    GroupesAPIView,
+from apps.api.views.analytics import (
+    SiteAnalyticsAPIView as SitesDashboardAPIView,
+    SystemOverviewAPIView as DashboardOverviewAPIView,
+    EquipmentAnalyticsAPIView as GroupesAPIView,
 )
 from apps.api.views.base import HealthAPIView
 
@@ -90,7 +89,7 @@ urlpatterns = [
     path('dashboard/sites', SitesDashboardAPIView.as_view(), name='dashboard-sites'),
     path('dashboard/overview', DashboardOverviewAPIView.as_view(), name='dashboard-overview'),
     path('dashboard/groupes', GroupesAPIView.as_view(), name='dashboard-groupes'),
-    path('dashboard/cuves', CuvesDashboardAPIView.as_view(), name='dashboard-cuves'),
+    path('dashboard/cuves', SitesDashboardAPIView.as_view(), name='dashboard-cuves'),
     path('alertes/', AlerteListAPIView.as_view(), name='alertes-list'),
     path('alertes/traitements', AlertTreatmentsAPIView.as_view(), name='alertes-traitements'),
     path('alertes/traiter', AlertTreatAPIView.as_view(), name='alertes-traiter'),
