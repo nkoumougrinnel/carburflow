@@ -385,8 +385,7 @@ def calculer_groupes(
     # Groupes durablement rattachés à chaque site (via cuves journalières),
     # pour la proportion d’autonomie — pas seulement ceux présents sur un rapport.
     if groups_linked_by_site is None:
-        from apps.sites.models import CuveJournaliere
-
+        from apps.equipment.models import CuveJournaliere
         groups_linked_by_site = {}
         for cj in CuveJournaliere.objects.filter(
             cuve_principale_id__isnull=False,

@@ -4,7 +4,7 @@ import {
   getAutonomyHint,
   getAutonomySeverity,
   getAutonomySeverityLabel,
-} from '../utils/format.js'
+} from '@/utils/format.js'
 
 /**
  * Pastille d’autonomie lisible (jamais ∞).

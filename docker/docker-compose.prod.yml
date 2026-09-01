@@ -1,0 +1,80 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-carburflow}
+      POSTGRES_USER: ${DB_USER:-carburflow}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-carburflow} -d ${DB_NAME:-carburflow}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  backend:
+    image: ${CARBURFLOW_BACKEND_IMAGE:-ghcr.io/carburflow/carburflow-backend:latest}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DJANGO_SETTINGS_MODULE: core.settings.prod
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
+      DB_NAME: ${DB_NAME:-carburflow}
+      DB_USER: ${DB_USER:-carburflow}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      DB_HOST: db
+      DB_PORT: "5432"
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5174}
+      SECURE_SSL_REDIRECT: ${SECURE_SSL_REDIRECT:-false}
+      TRUST_NGROK_ORIGINS: ${TRUST_NGROK_ORIGINS:-false}
+      USE_X_FORWARDED_HOST: ${USE_X_FORWARDED_HOST:-true}
+      SECURE_PROXY_SSL_HEADER: ${SECURE_PROXY_SSL_HEADER:-true}
+      RUN_SEED: ${RUN_SEED:-1}
+      RUN_IMPORT_FORCE: ${RUN_IMPORT_FORCE:-0}
+    ports:
+      - "127.0.0.1:8001:8001"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import socket; s=socket.create_connection(('127.0.0.1', 8001), 2); s.close()",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 180s
+
+  frontend:
+    image: ${CARBURFLOW_FRONTEND_IMAGE:-ghcr.io/carburflow/carburflow-frontend:latest}
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+    ports:
+      - "127.0.0.1:5174:5174"
+
+  nginx:
+    image: nginx:1.27-alpine
+    profiles: ["with-nginx"]
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - frontend
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+
+volumes:
+  postgres_data:

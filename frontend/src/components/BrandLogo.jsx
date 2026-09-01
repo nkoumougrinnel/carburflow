@@ -1,5 +1,5 @@
 import React from 'react'
-import { useTheme } from '../context/ThemeContext.jsx'
+import { useTheme } from '@/context/ThemeContext.jsx'
 
 /** Icône goutte — deux versions selon le thème (assets présents dans public/assets/images/) */
 const logoIconLight = '/assets/images/logo-navbar-light.jpg'

@@ -12,7 +12,7 @@ make docker-up
 docker compose up --build
 ```
 
-Prod / staging (images GHCR) : `docker-compose.prod.yml` — voir `docs/deployment/staging.md` et `production.md`.
+Prod (images GHCR) : `docker-compose.prod.yml` — voir `docs/deployment/staging.md` et `production.md`.
 
 ## CI/CD (GitHub Actions)
 

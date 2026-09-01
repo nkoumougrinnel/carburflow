@@ -2,7 +2,7 @@
 
 ## Stack
 
-Compose prod : `docker/docker-compose.prod.yml` (images GHCR + Postgres).  
+Compose prod : [docker/docker-compose.prod.yml](docker/docker-compose.prod.yml) (images GHCR + Postgres).  
 Nginx optionnel : `docker compose --profile with-nginx up -d`.
 
 ## Pipeline
@@ -21,6 +21,28 @@ Nginx optionnel : `docker compose --profile with-nginx up -d`.
 ## Secrets (environnement `production`)
 
 Mêmes noms que le [staging](staging.md). Utiliser des valeurs distinctes et activer les **required reviewers** sur l’environnement GitHub `production`.
+
+## Exemple de configuration locale de production
+
+```bash
+cp .env.production.example .env.production
+# remplir les valeurs réelles
+
+docker compose --env-file .env.production -f docker/docker-compose.prod.yml config
+```
+
+## Checklist avant mise en service
+
+- [ ] `SECRET_KEY` unique et forte
+- [ ] `ALLOWED_HOSTS` aligné avec le domaine réel
+- [ ] `CORS_ALLOWED_ORIGINS` exact et sans wildcard
+- [ ] `DB_PASSWORD` fort et distinct
+- [ ] `SECURE_SSL_REDIRECT=true` si HTTPS public
+- [ ] `GHCR` login validé sur la machine cible
+- [ ] backup PostgreSQL planifié
+- [ ] healthcheck `/api/v1/health/` OK
+- [ ] test manuel de connexion utilisateur
+- [ ] test de restauration sur copie de données
 
 ## Build local des images
 

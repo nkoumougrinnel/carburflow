@@ -5,7 +5,7 @@ from unittest import TestCase
 import pytest
 
 from apps.alerts.models import Alerte
-from apps.alerts.services.detection import _upsert_active
+from apps.services.alerts import _upsert_active
 from apps.api.views import serialize_dashboard_alerts
 
 
@@ -97,7 +97,7 @@ class DashboardAlertsTests(TestCase):
         self.assertEqual(conso, -1158.0)
 
     def test_ecart_conso_uses_previous_week_as_reference(self):
-        from apps.alerts.services.detection import _candidates_from_block
+        from apps.services.alerts import _candidates_from_block
         from apps.reports.models import Rapport
 
         reports = [
@@ -125,7 +125,7 @@ class DashboardAlertsTests(TestCase):
     def test_consumption_assigned_only_to_group_with_running_hours_variation(self):
         from apps.services.calculs import calculer_groupes
         from apps.reports.models import Rapport, LigneRapport
-        from apps.sites.models import GroupeElectrogene, CuvePrincipale
+        from apps.equipment.models import GroupeElectrogene, CuvePrincipale
 
         reports = [
             Rapport(id=1, date_debut=date(2026, 7, 1), date_fin=date(2026, 7, 7)),

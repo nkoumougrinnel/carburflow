@@ -3,6 +3,7 @@ import { ArrowRight, Bell, CheckCircle2, History } from 'lucide-react'
 import Topbar from '../components/Topbar.jsx'
 import PageEnter from '../components/PageEnter.jsx'
 import PageLoader from '../components/PageLoader.jsx'
+import WelcomeBanner from '../components/WelcomeBanner.jsx'
 import { Button } from '../components/ui/button.jsx'
 import { EmptyState } from '../components/ui/empty-state.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -195,6 +196,8 @@ function AlertCard({ alert, panel, isAdmin, isFocused, onOpen, onTreat, delay = 
     ? formatWhen(alert.date_traitement || alert.detected_at)
     : formatWhen(alert.detected_at)
   const author = alert.traite_par_username || alert.traite_par || null
+  const siteName = alert.site_name || '—'
+  const groupLabel = alert.group_label || (alert.group_id ? `G-${alert.group_id}` : null)
 
   return (
     <article
@@ -207,10 +210,16 @@ function AlertCard({ alert, panel, isAdmin, isFocused, onOpen, onTreat, delay = 
         <header className="alx-card-head">
           <span className={`alx-pill alx-pill--${severity}`}>{label}</span>
           <span className="alx-card-date">
-            {panel === 'history' ? `Traité le ${when}` : when}
+            {panel === 'history' 
+              ? `Détectée : ${when}` 
+              : when}
             {panel === 'history' && author ? ` · ${author}` : ''}
           </span>
         </header>
+
+        {panel === 'history' && (
+          <span className="alx-card-status" aria-label="Traitée">✓ TRAITÉE</span>
+        )}
 
         <h3>{alert.title}</h3>
 
@@ -220,9 +229,24 @@ function AlertCard({ alert, panel, isAdmin, isFocused, onOpen, onTreat, delay = 
           </p>
         ) : null}
 
+        <div className="alx-card-context">
+          Site : <strong>{siteName}</strong>
+          {groupLabel ? ` | Groupe : ${groupLabel}` : ''}
+        </div>
+
         {panel === 'history' && alert.justification ? (
-          <p className="alx-card-justif">
-            <strong>Note de traitement :</strong> {alert.justification}
+          <div className="alx-card-justif-block">
+            <p className="alx-card-justif">
+              <strong>Note de traitement</strong>
+            </p>
+            <p>{alert.justification}</p>
+          </div>
+        ) : null}
+
+        {panel === 'history' ? (
+          <p className="alx-card-treated-by">
+            Traité le {formatWhen(alert.date_traitement || alert.detected_at)}
+            {author ? ` · ${author}` : ''}
           </p>
         ) : null}
 
@@ -546,8 +570,46 @@ function AlertsPage({ onNavigate }) {
     <div className="app-shell dashboard-shell">
       <Topbar activeView="alerts" onNavigate={onNavigate} />
       <PageEnter className="alerts-page-enter">
-        <main className="page-layout">
-          <AlertsHero counts={counts} />
+        <main className="page-layout profile-layout--saas">
+          <WelcomeBanner
+            kicker="Supervision"
+            title="Alertes et anomalies"
+            subtitle="Suivez l'état des sites et des groupes électrogènes."
+          />
+
+          <div className="saas-profile-tabs" role="tablist" aria-label="Sections des alertes">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={panel === 'active'}
+              className={`saas-profile-tab${panel === 'active' ? ' is-active' : ''}`}
+              onClick={() => {
+                setMessage('')
+                setFocusAlertId('')
+                setPanel('active')
+              }}
+            >
+              <Bell size={16} aria-hidden="true" />
+              À traiter
+              {activeAlerts.length > 0 ? (
+                <span className="saas-profile-tab-badge">{activeAlerts.length}</span>
+              ) : null}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={panel === 'history'}
+              className={`saas-profile-tab${panel === 'history' ? ' is-active' : ''}`}
+              onClick={() => {
+                setMessage('')
+                setFocusAlertId('')
+                setPanel('history')
+              }}
+            >
+              <History size={16} aria-hidden="true" />
+              Historique
+            </button>
+          </div>
 
           {message && <div className="reports-success" role="status">{message}</div>}
 
@@ -559,16 +621,6 @@ function AlertsPage({ onNavigate }) {
               </div>
             </div>
           )}
-
-          <AlertsTabs
-            items={navItems}
-            value={panel}
-            onChange={(next) => {
-              setMessage('')
-              setFocusAlertId('')
-              setPanel(next)
-            }}
-          />
 
           <SeverityTiles
             counts={panel === 'history' ? historyCounts : counts}

@@ -1,8 +1,8 @@
 import React, { useMemo, useRef } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
-import { useAuth } from '../context/AuthContext.jsx'
-import { getDisplayFirstName } from '../utils/userDisplay.js'
+import { useAuth } from '@/context/AuthContext.jsx'
+import { getDisplayFirstName } from '@/utils/userDisplay.js'
 
 gsap.registerPlugin(useGSAP)
 

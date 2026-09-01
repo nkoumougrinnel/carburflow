@@ -15,12 +15,12 @@ import {
   Bell,
 } from 'lucide-react'
 import BrandLogo from './BrandLogo.jsx'
-import { useAuth } from '../context/AuthContext.jsx'
-import { useTheme } from '../context/ThemeContext.jsx'
-import { listAlertes, notificationsUnreadCount } from '../auth.js'
-import { BADGES_REFRESH_EVENT } from '../utils/badges.js'
-import { isIndeterminateAutonomyAlert, normalizePersistedAlert } from '../utils/alerts.js'
-import { getDisplayFullName } from '../utils/userDisplay.js'
+import { useAuth } from '@/context/AuthContext.jsx'
+import { useTheme } from '@/context/ThemeContext.jsx'
+import { listAlertes, notificationsUnreadCount } from '@/auth.js'
+import { BADGES_REFRESH_EVENT } from '@/utils/badges.js'
+import { isIndeterminateAutonomyAlert, normalizePersistedAlert } from '@/utils/alerts.js'
+import { getDisplayFullName } from '@/utils/userDisplay.js'
 
 const BADGES_POLL_MS = 10000
 const ACTIVE_ALERT_ETATS = new Set(['nouvelle', 'en_cours'])

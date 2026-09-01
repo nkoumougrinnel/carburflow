@@ -19,7 +19,7 @@ from pathlib import Path
 
 from django.db import transaction
 
-from apps.imports.utils import synchronize_sequence
+from apps.services.import_utils import synchronize_sequence
 from apps.alerts.models import Alerte
 from apps.reports.models import LigneRapport, Rapport
 from apps.reports.norme import (
@@ -34,7 +34,8 @@ from apps.reports.norme import (
     rows_from_csv,
     rows_from_xlsx,
 )
-from apps.sites.models import CuveJournaliere, CuvePrincipale, GroupeElectrogene, Site
+from apps.sites.models import Site
+from apps.equipment.models import CuveJournaliere, CuvePrincipale, GroupeElectrogene
 
 
 @dataclass
@@ -191,7 +192,7 @@ def _get_or_create_cp_for_site_name(name: str, capacite: float) -> CuvePrincipal
     site_name = name.strip()
     site, _ = Site.objects.get_or_create(
         nom=site_name,
-        defaults={'localisation': '', 'statut': Site.STATUT_ACTIF},
+        defaults={'ville': ''},
     )
     existing = site.cuves_principales.order_by('id').first()
     if existing:
@@ -1349,7 +1350,7 @@ def import_rapport_lignes(
 
     # Détection / persistance des alertes métier après dépôt de fiche
     try:
-        from apps.alerts.services import detecter_et_persister_alertes
+        from apps.services.alerts import detecter_et_persister_alertes
 
         detecter_et_persister_alertes()
     except Exception:

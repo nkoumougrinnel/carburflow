@@ -1,24 +1,23 @@
 import React, { useEffect, useState } from 'react'
-import HomePage from './pages/HomePage.jsx'
-import DashboardPage from './pages/DashboardPage.jsx'
-import SitesPage from './pages/SitesPage.jsx'
-import CuvesPage from './pages/CuvesPage.jsx'
-import GroupsPage from './pages/GroupsPage.jsx'
-import AuthPage from './pages/AuthPage.jsx'
-import ReportsPage from './pages/ReportsPage.jsx'
-import OperatorHomePage from './pages/OperatorHomePage.jsx'
-import OperatorSitesPage from './pages/OperatorSitesPage.jsx'
-import UserHomePage from './pages/UserHomePage.jsx'
-import UserSitesPage from './pages/UserSitesPage.jsx'
-import ProfilePage from './pages/ProfilePage.jsx'
-import AlertsPage from './pages/AlertsPage.jsx'
-import NotificationsPage from './pages/NotificationsPage.jsx'
+import HomePage from './pages/common/HomePage.jsx'
+import DashboardPage from './pages/admin/DashboardPage.jsx'
+import SitesPage from './pages/admin/SitesPage.jsx'
+import GroupsPage from './pages/admin/GroupsPage.jsx'
+import AuthPage from './pages/auth/AuthPage.jsx'
+import ReportsPage from './pages/common/ReportsPage.jsx'
+import OperatorHomePage from './pages/operator/HomePage.jsx'
+import OperatorSitesPage from './pages/operator/SitesPage.jsx'
+import UserHomePage from './pages/user/HomePage.jsx'
+import UserSitesPage from './pages/user/SitesPage.jsx'
+import ProfilePage from './pages/common/ProfilePage.jsx'
+import AlertsPage from './pages/admin/AlertsPage.jsx'
+import NotificationsPage from './pages/common/NotificationsPage.jsx'
 import { AuthProvider, useAuth } from './context/AuthContext.jsx'
 import { ThemeProvider } from './context/ThemeContext.jsx'
 import InteractionShell from './components/InteractionShell.jsx'
 import PageLoader from './components/PageLoader.jsx'
 
-const ADMIN_VIEWS = new Set(['home', 'dashboard', 'sites', 'cuves', 'groups', 'reports', 'profile', 'alerts', 'notifications'])
+const ADMIN_VIEWS = new Set(['home', 'dashboard', 'sites', 'groups', 'reports', 'profile', 'alerts', 'notifications'])
 const OPERATOR_VIEWS = new Set(['operator', 'sites', 'reports', 'profile', 'notifications'])
 const VIEWER_VIEWS = new Set(['viewer', 'sites', 'profile', 'notifications'])
 const PUBLIC_VIEWS = new Set(['home', 'login', 'register'])
@@ -62,7 +61,7 @@ function pathForView(view) {
     profile: '/profil/',
     dashboard: '/dashboard/',
     sites: '/sites/',
-    cuves: '/cuves/',
+    cuves: '/cuves/', // deprecated
     groups: '/groupes/',
     reports: '/rapports/',
     alerts: '/alertes/',

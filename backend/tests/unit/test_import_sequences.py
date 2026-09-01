@@ -3,7 +3,7 @@ from datetime import date
 import pytest
 from django.db import connection
 
-from apps.imports.utils import synchronize_sequence
+from apps.services.import_utils import synchronize_sequence
 from apps.alerts.models import Alerte
 from apps.reports.pipeline import delete_rapport_and_orphans
 from apps.reports.models import Rapport

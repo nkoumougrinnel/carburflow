@@ -1,6 +1,6 @@
 import React from 'react'
 import ClickSpark from './reactbits/ClickSpark.jsx'
-import { useTheme } from '../context/ThemeContext.jsx'
+import { useTheme } from '@/context/ThemeContext.jsx'
 
 /**
  * Enveloppe globale : étincelles au clic (React Bits ClickSpark).

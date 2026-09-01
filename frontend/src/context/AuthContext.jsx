@@ -10,7 +10,7 @@ import {
   registerRequest,
   updateProfileRequest,
   changePasswordRequest,
-} from '../auth.js'
+} from '@/auth.js'
 
 const AuthContext = createContext(null)
 

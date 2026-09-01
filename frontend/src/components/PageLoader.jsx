@@ -2,7 +2,7 @@ import React from 'react'
 import MetaBalls from './reactbits/MetaBalls.jsx'
 import ShinyText from './reactbits/ShinyText.jsx'
 import BrandLogo from './BrandLogo.jsx'
-import { useTheme } from '../context/ThemeContext.jsx'
+import { useTheme } from '@/context/ThemeContext.jsx'
 
 /**
  * Loader plein écran — MetaBalls (liquide carburant) + ShinyText.

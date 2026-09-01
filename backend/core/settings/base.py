@@ -27,7 +27,6 @@ INSTALLED_APPS = [
     'apps.reports.apps.ReportsConfig',
     'apps.alerts.apps.AlertsConfig',
     'apps.notifications.apps.NotificationsConfig',
-    'apps.imports.apps.ImportConfig',
     'apps.services.apps.ServicesConfig',
     'apps.equipment.apps.EquipmentConfig',
 ]

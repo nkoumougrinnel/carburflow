@@ -1,4 +1,4 @@
-from apps.imports.validators import validate_lignes_rapport
+from apps.services.import_validators import validate_lignes_rapport
 
 
 def test_validate_lignes_rapport_accepts_id_rapport_instead_of_dates():

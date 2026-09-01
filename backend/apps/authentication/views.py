@@ -8,8 +8,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.api.permissions import IsAdminRole, get_user_role
-
+from apps.api.permissions import IsAdminRole
+from apps.services import auth as auth_service
 from .models import ProfilUtilisateur
 from .serializers import (
     AdminSetRoleSerializer,
@@ -21,73 +21,7 @@ from .serializers import (
 )
 
 
-def ensure_profil(user):
-    profil = getattr(user, 'profil', None)
-    if profil:
-        return profil
-    role = (
-        ProfilUtilisateur.ROLE_ADMIN
-        if (user.is_superuser or user.is_staff)
-        else ProfilUtilisateur.ROLE_USER
-    )
-    return ProfilUtilisateur.objects.create(user=user, role=role)
-
-
-def build_auth_payload(user):
-    ensure_profil(user)
-    user.refresh_from_db()
-    token, _ = Token.objects.get_or_create(user=user)
-    return {
-        'token': token.key,
-        'user': UserSerializer(user).data,
-    }
-
-
-def serialize_me(user):
-    ensure_profil(user)
-    user.refresh_from_db()
-    data = UserSerializer(user).data
-    data['role'] = get_user_role(user)
-    return data
-
-
-def serialize_managed_user(user):
-    ensure_profil(user)
-    user.refresh_from_db()
-    profil = user.profil
-    return {
-        **UserSerializer(user).data,
-        'role': get_user_role(user),
-        'role_db': profil.role,
-        'role_label': profil.get_role_display(),
-        'is_active': user.is_active,
-    }
-
-
-def apply_api_role(user, api_role):
-    """Applique un rôle API (admin/operateur/user) sur le profil + flags Django."""
-    profil = ensure_profil(user)
-    if profil.role == ProfilUtilisateur.ROLE_SUPER_ADMIN and api_role != 'admin':
-        raise ValueError(
-            'Impossible de modifier un super administrateur via cette interface.'
-        )
-
-    if api_role == 'admin':
-        profil.role = ProfilUtilisateur.ROLE_ADMIN
-        user.is_staff = True
-    elif api_role == 'operateur':
-        profil.role = ProfilUtilisateur.ROLE_AGENT
-        user.is_staff = False
-        user.is_superuser = False
-    else:
-        profil.role = ProfilUtilisateur.ROLE_USER
-        user.is_staff = False
-        user.is_superuser = False
-
-    profil.save(update_fields=['role'])
-    user.save(update_fields=['is_staff', 'is_superuser'])
-    return profil
-
+# (No logic functions here, they are now in apps.services.auth)
 
 class RegisterAPIView(APIView):
     permission_classes = [AllowAny]
@@ -98,7 +32,7 @@ class RegisterAPIView(APIView):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-        return Response(build_auth_payload(user), status=status.HTTP_201_CREATED)
+        return Response(auth_service.build_auth_payload(user), status=status.HTTP_201_CREATED)
 
 
 class LoginAPIView(APIView):
@@ -109,7 +43,7 @@ class LoginAPIView(APIView):
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        return Response(build_auth_payload(serializer.validated_data['user']))
+        return Response(auth_service.build_auth_payload(serializer.validated_data['user']))
 
 
 class LogoutAPIView(APIView):
@@ -126,7 +60,7 @@ class MeAPIView(APIView):
 
     @extend_schema(responses={200: UserSerializer}, tags=['Auth'], summary='Profil courant')
     def get(self, request):
-        return Response(serialize_me(request.user))
+        return Response(auth_service.serialize_me(request.user))
 
     @extend_schema(
         request=ProfileUpdateSerializer,
@@ -142,7 +76,7 @@ class MeAPIView(APIView):
         )
         serializer.is_valid(raise_exception=True)
         serializer.update(request.user, serializer.validated_data)
-        return Response(serialize_me(request.user))
+        return Response(auth_service.serialize_me(request.user))
 
 
 class PasswordChangeAPIView(APIView):
@@ -161,7 +95,7 @@ class PasswordChangeAPIView(APIView):
         return Response({
             'detail': 'Mot de passe mis à jour.',
             'token': token.key,
-            'user': serialize_me(request.user),
+            'user': auth_service.serialize_me(request.user),
         })
 
 
@@ -177,28 +111,6 @@ class CsrfAPIView(APIView):
 # PublicSitesAPIView removed — authentication no longer exposes public sites
 
 
-def staff_users_queryset():
-    """Admins et agents uniquement (pas les utilisateurs simples)."""
-    from django.db.models import Q
-
-    return (
-        User.objects.filter(
-            Q(is_superuser=True)
-            | Q(is_staff=True)
-            | Q(
-                profil__role__in=[
-                    ProfilUtilisateur.ROLE_SUPER_ADMIN,
-                    ProfilUtilisateur.ROLE_ADMIN,
-                    ProfilUtilisateur.ROLE_AGENT,
-                ]
-            )
-        )
-        .select_related('profil')
-        .distinct()
-        .order_by('email', 'username')
-    )
-
-
 class AdminStaffUsersAPIView(APIView):
     """Liste des profils privilégiés (admin / agent)."""
 
@@ -206,8 +118,8 @@ class AdminStaffUsersAPIView(APIView):
 
     @extend_schema(tags=['Auth'], summary='Lister admins et agents')
     def get(self, request):
-        qs = staff_users_queryset()[:100]
-        return Response([serialize_managed_user(user) for user in qs])
+        qs = auth_service.get_staff_users_queryset()[:100]
+        return Response([auth_service.serialize_managed_user(user) for user in qs])
 
 
 class AdminUserSearchAPIView(APIView):
@@ -245,7 +157,7 @@ class AdminUserSearchAPIView(APIView):
             .select_related('profil')
             .order_by('email', 'username')[:20]
         )
-        return Response([serialize_managed_user(user) for user in qs])
+        return Response([auth_service.serialize_managed_user(user) for user in qs])
 
 
 class AdminSetRoleAPIView(APIView):
@@ -282,7 +194,7 @@ class AdminSetRoleAPIView(APIView):
             )
 
         try:
-            apply_api_role(user, api_role)
+            auth_service.apply_api_role(user, api_role)
         except ValueError as exc:
             return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -293,5 +205,5 @@ class AdminSetRoleAPIView(APIView):
         }
         return Response({
             'detail': f'Rôle mis à jour : {labels.get(api_role, api_role)}.',
-            'user': serialize_managed_user(user),
+            'user': auth_service.serialize_managed_user(user),
         })

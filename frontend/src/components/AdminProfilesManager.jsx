@@ -2,8 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Search, ShieldCheck, UserRound, X } from 'lucide-react'
 import PageLoader from './PageLoader.jsx'
 import { LoadingButton } from './reports/ReportsUi.jsx'
-import { listStaffUsers, searchUsersByEmail, setUserRole } from '../auth.js'
-import { useAuth } from '../context/AuthContext.jsx'
+import { listStaffUsers, searchUsersByEmail, setUserRole } from '@/auth.js'
+import { useAuth } from '@/context/AuthContext.jsx'
 
 const ROLE_OPTIONS = [
   { value: 'admin', label: 'Responsable' },

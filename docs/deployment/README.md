@@ -6,7 +6,6 @@ Ce dossier regroupe la documentation liée au déploiement et à la mise en prod
 - local-dev.md: instructions pour le développement local
 - ngrok.md: accès public via ngrok (Docker ou Vite)
 - production.md: procédure de déploiement en production
-- staging.md: environnement de préproduction
 
 ## À savoir
 - Vérifier les variables d’environnement avant chaque déploiement.

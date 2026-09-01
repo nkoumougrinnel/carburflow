@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 
 from .models import Notification
 from .serializers import NotificationSerializer, SendMessageSerializer
-from .services import (
+from apps.services.notifications import (
     admin_recipients,
     is_admin_recipient,
     send_message,

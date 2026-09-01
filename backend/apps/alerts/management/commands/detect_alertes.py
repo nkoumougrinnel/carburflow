@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from apps.alerts.services import detecter_et_persister_alertes
+from apps.services.alerts import detecter_et_persister_alertes
 
 
 class Command(BaseCommand):
