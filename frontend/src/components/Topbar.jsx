@@ -56,10 +56,18 @@ function Topbar({ activeView, onNavigate }) {
   const { isAuthenticated, isAdmin, isOperator, logout, user } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
   const [activeAlertsCount, setActiveAlertsCount] = useState(0)
   const [unreadMessages, setUnreadMessages] = useState(0)
 
   useEffect(() => { setMenuOpen(false) }, [activeView])
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
 
   const refreshBadges = useCallback(async ({ preferUnread } = {}) => {
     if (!isAuthenticated) {
@@ -177,7 +185,7 @@ function Topbar({ activeView, onNavigate }) {
         : 'Espace consultation'
 
   return (
-    <header className="topbar">
+    <header className={`topbar${scrolled ? ' is-scrolled' : ''}`}>
       <button type="button" className="brand-wrap brand-wrap--btn" onClick={() => go(homeView)} aria-label="CarburFlow — accueil">
         <BrandLogo variant="icon" className="brand-logo" />
         <div className="brand-text">
@@ -186,46 +194,46 @@ function Topbar({ activeView, onNavigate }) {
         </div>
       </button>
 
-      <div className="topbar-right">
-        <nav className={`topbar-actions ${menuOpen ? 'is-open' : ''}`} aria-label="Navigation principale">
-          {links.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              type="button"
-              className={`nav-link ${activeView === id ? 'active' : ''}`}
-              onClick={() => go(id)}
-            >
-              <Icon size={16} aria-hidden="true" />
-              <span>{label}</span>
-              {id === 'alerts' && activeAlertsCount > 0 && (
-                <span className="nav-link-badge" aria-label={`${activeAlertsCount} alertes non traitées`}>
-                  {activeAlertsCount}
-                </span>
-              )}
-            </button>
-          ))}
-          {unreadMessages > 0 && (
-            <span className="nav-link-badge nav-link-badge--floater" aria-label={`${unreadMessages} messages non lus`}>
-              {unreadMessages}
-            </span>
-          )}
+      <nav className={`topbar-actions ${menuOpen ? 'is-open' : ''}`} aria-label="Navigation principale">
+        {links.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            className={`nav-link ${activeView === id ? 'active' : ''}`}
+            onClick={() => go(id)}
+          >
+            <Icon size={16} aria-hidden="true" />
+            <span>{label}</span>
+            {id === 'alerts' && activeAlertsCount > 0 && (
+              <span className="nav-link-badge" aria-label={`${activeAlertsCount} alertes non traitées`}>
+                {activeAlertsCount}
+              </span>
+            )}
+          </button>
+        ))}
+        {unreadMessages > 0 && (
+          <span className="nav-link-badge nav-link-badge--floater" aria-label={`${unreadMessages} messages non lus`}>
+            {unreadMessages}
+          </span>
+        )}
 
-          {isAuthenticated && (
-            <div className="topbar-user">
-              <div className="topbar-user-meta">
-                <span className="topbar-user-name">{getDisplayFullName(user)}</span>
-                <span className={`role-chip ${roleChipClass(isAdmin, isOperator)}`}>
-                  {roleLabel(isAdmin, isOperator)}
-                </span>
-              </div>
-              <button type="button" className="nav-link nav-link-logout" onClick={handleLogout}>
-                <LogOut size={16} aria-hidden="true" />
-                <span>Déconnexion</span>
-              </button>
+        {isAuthenticated && (
+          <div className="topbar-user">
+            <div className="topbar-user-meta">
+              <span className="topbar-user-name">{getDisplayFullName(user)}</span>
+              <span className={`role-chip ${roleChipClass(isAdmin, isOperator)}`}>
+                {roleLabel(isAdmin, isOperator)}
+              </span>
             </div>
-          )}
-        </nav>
+            <button type="button" className="nav-link nav-link-logout" onClick={handleLogout}>
+              <LogOut size={16} aria-hidden="true" />
+              <span>Déconnexion</span>
+            </button>
+          </div>
+        )}
+      </nav>
 
+      <div className="topbar-right">
         <button
           type="button"
           className="theme-toggle"
@@ -243,6 +251,11 @@ function Topbar({ activeView, onNavigate }) {
           onClick={() => setMenuOpen((v) => !v)}
         >
           {menuOpen ? <X size={22} /> : <Menu size={22} />}
+          {!menuOpen && isAdmin && activeAlertsCount > 0 && (
+            <span className="nav-link-badge topbar-burger-badge" aria-label={`${activeAlertsCount} alertes non traitées`}>
+              {activeAlertsCount}
+            </span>
+          )}
         </button>
       </div>
     </header>
