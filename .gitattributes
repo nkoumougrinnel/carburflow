@@ -5,3 +5,6 @@
 # Bytecode / cache Python : ne pas compter comme code source
 **/__pycache__/** linguist-generated
 *.pyc linguist-generated
+
+# Les scripts exécutés directement par Linux doivent rester en LF.
+*.sh text eol=lf
