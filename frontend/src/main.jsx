@@ -5,6 +5,8 @@ import App from './App.jsx'
 import './index.css'
 import './styles.css'
 import './styles/navigation.css'
+import './styles/datatable.css'
+import './styles/animations.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

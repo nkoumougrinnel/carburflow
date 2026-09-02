@@ -3,6 +3,7 @@ import { CircleAlert } from 'lucide-react'
 import Topbar from '@/components/Topbar.jsx'
 import WelcomeBanner from '@/components/WelcomeBanner.jsx'
 import Button from '@/components/ui/button.jsx'
+import DataTable from '@/components/ui/DataTable.jsx'
 import { EmptyState } from '@/components/ui/empty-state.jsx'
 import { apiFetch } from '@/auth.js'
 import AutonomyBadge from '@/components/AutonomyBadge.jsx'
@@ -425,62 +426,28 @@ function DashboardPage({ onNavigate }) {
             </div>
             <span className="dashboard-section-link" aria-hidden="true">Ouvrir →</span>
           </button>
-          <div className="dashboard-table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: 'left' }}>Site</th>
-                  <th style={{ textAlign: 'right' }}>Dernier stock</th>
-                  <th style={{ textAlign: 'right' }}>Conso. semaine N</th>
-                  <th style={{ textAlign: 'right' }}>Conso. semaine N-1</th>
-                  <th style={{ textAlign: 'right' }}>Écart-type</th>
-                  <th style={{ textAlign: 'center' }}>Temps restant</th>
-                </tr>
-              </thead>
-              <tbody>
-                {lowAutonomySiteRows.map((row) => {
-                  const severity = getAutonomySeverity(row)
-                  const level = severity === 'critical' ? 'critical' : severity === 'medium' ? 'medium' : severity === 'idle' ? 'idle' : 'low'
-                  return (
-                    <tr
-                      key={row.id}
-                      className={`autonomy-row autonomy-row--${level} dashboard-row-link`}
-                      onClick={() => goSites(row)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault()
-                          goSites(row)
-                        }
-                      }}
-                      tabIndex={0}
-                      role="link"
-                      aria-label={`Ouvrir le site ${row.site_name || row.label}`}
-                    >
-                      <td style={{ textAlign: 'left' }}>{row.site_name || row.label}</td>
-                      <td style={{ textAlign: 'right' }}>{formatValue(row.latest_volume, ' L')}</td>
-                      <td style={{ textAlign: 'right' }}>{formatValue(row.latest_consumption, ' L')}</td>
-                      <td style={{ textAlign: 'right' }}>
-                        {row.previous_consumption == null ? '—' : formatValue(row.previous_consumption, ' L')}
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        {row.consumption_stddev == null ? '—' : formatValue(row.consumption_stddev, ' L')}
-                      </td>
-                      <td style={{ textAlign: 'center' }}>
-                        <AutonomyBadge entity={row} size="sm" showLabel={false} />
-                      </td>
-                    </tr>
-                  )
-                })}
-                {lowAutonomySiteRows.length === 0 && (
-                  <tr>
-                    <td colSpan="6" className="empty-state-cell">
-                      Aucun site en tension pour le moment
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            data={lowAutonomySiteRows}
+            rowKey="id"
+            rowClassName={(row) => {
+              const severity = getAutonomySeverity(row)
+              const level = severity === 'critical' ? 'critical' : severity === 'medium' ? 'medium' : severity === 'idle' ? 'idle' : 'low'
+              return `autonomy-row autonomy-row--${level}`
+            }}
+            onRowClick={goSites}
+            searchPlaceholder="Rechercher un site…"
+            pageSize={6}
+            exportFilename="autonomie-des-sites"
+            columns={[
+              { key: 'site_name', label: 'Site', render: (row) => row.site_name || row.label || '—' },
+              { key: 'latest_volume', label: 'Dernier stock', align: 'right', render: (row) => formatValue(row.latest_volume, ' L') },
+              { key: 'latest_consumption', label: 'Conso. semaine N', align: 'right', render: (row) => formatValue(row.latest_consumption, ' L') },
+              { key: 'previous_consumption', label: 'Conso. semaine N-1', align: 'right', render: (row) => row.previous_consumption == null ? '—' : formatValue(row.previous_consumption, ' L') },
+              { key: 'consumption_stddev', label: 'Écart-type', align: 'right', sortable: false, render: (row) => row.consumption_stddev == null ? '—' : formatValue(row.consumption_stddev, ' L') },
+              { key: 'autonomie', label: 'Temps restant', align: 'center', sortable: false, render: (row) => <AutonomyBadge entity={row} size="sm" showLabel={false} /> },
+            ]}
+            emptyState={<p>Aucun site en tension pour le moment</p>}
+          />
         </section>
 
         {/* 2. Groupes à consommation anormale */}
@@ -496,62 +463,23 @@ function DashboardPage({ onNavigate }) {
             </div>
             <span className="dashboard-section-link" aria-hidden="true">Ouvrir →</span>
           </button>
-          <div className="dashboard-table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: 'left' }}>Groupe</th>
-                  <th style={{ textAlign: 'left' }}>Site</th>
-                  <th style={{ textAlign: 'right' }}>Consommation horaire moyenne</th>
-                  <th style={{ textAlign: 'right' }}>Consommation horaire semaine N</th>
-                  <th style={{ textAlign: 'right' }}>Consommation horaire semaine N-1</th>
-                  <th style={{ textAlign: 'center' }}>Écart</th>
-                </tr>
-              </thead>
-              <tbody>
-                {abnormalGroupRows.map((row) => (
-                  <tr
-                    key={row.id}
-                    className="dashboard-row-link"
-                    onClick={() => goGroups(row)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault()
-                        goGroups(row)
-                      }
-                    }}
-                    tabIndex={0}
-                    role="link"
-                    aria-label={`Ouvrir le groupe ${row.label}`}
-                  >
-                    <td style={{ textAlign: 'left' }}>{row.label}</td>
-                    <td style={{ textAlign: 'left' }}>{row.site_name || '—'}</td>
-                    <td style={{ textAlign: 'right' }}>
-                      <strong className="text-danger">
-                        {formatValue(row.mean_hourly_consumption_deduite)}
-                      </strong>
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      {formatValue(row.latest_hourly_consumption)}
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      {formatValue(row.previous_hourly_consumption)}
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      {renderEcartVsN1(row.latest_hourly_consumption, row.previous_hourly_consumption, '—')}
-                    </td>
-                  </tr>
-                ))}
-                {abnormalGroupRows.length === 0 && (
-                  <tr>
-                    <td colSpan="6" className="empty-state-cell">
-                      Aucun écart horaire au-dessus du seuil
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            data={abnormalGroupRows}
+            rowKey="id"
+            onRowClick={goGroups}
+            searchPlaceholder="Rechercher un groupe…"
+            pageSize={6}
+            exportFilename="ecarts-consommation-horaire"
+            columns={[
+              { key: 'label', label: 'Groupe', render: (row) => row.label },
+              { key: 'site_name', label: 'Site', render: (row) => row.site_name || '—' },
+              { key: 'mean_hourly_consumption_deduite', label: 'Conso. horaire moyenne', align: 'right', render: (row) => <strong className="text-danger">{formatValue(row.mean_hourly_consumption_deduite)}</strong> },
+              { key: 'latest_hourly_consumption', label: 'Conso. horaire semaine N', align: 'right', render: (row) => formatValue(row.latest_hourly_consumption) },
+              { key: 'previous_hourly_consumption', label: 'Conso. horaire semaine N-1', align: 'right', render: (row) => formatValue(row.previous_hourly_consumption) },
+              { key: 'ecart', label: 'Écart', align: 'center', sortable: false, render: (row) => renderEcartVsN1(row.latest_hourly_consumption, row.previous_hourly_consumption, '—') },
+            ]}
+            emptyState={<p>Aucun écart horaire au-dessus du seuil</p>}
+          />
         </section>
 
         {/* 3. Groupes les plus gourmands */}
@@ -567,52 +495,23 @@ function DashboardPage({ onNavigate }) {
             </div>
             <span className="dashboard-section-link" aria-hidden="true">Ouvrir →</span>
           </button>
-          <div className="dashboard-table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: 'left' }}>Groupe</th>
-                  <th style={{ textAlign: 'left' }}>Site</th>
-                  <th style={{ textAlign: 'right' }}>Consommation moyenne</th>
-                  <th style={{ textAlign: 'right' }}>Consommation semaine N-1</th>
-                  <th style={{ textAlign: 'right' }}>Consommation semaine N</th>
-                  <th style={{ textAlign: 'center' }}>Écart</th>
-                </tr>
-              </thead>
-              <tbody>
-                {topConsumerGroupRows.map((row) => (
-                  <tr
-                    key={row.id}
-                    className="dashboard-row-link"
-                    onClick={() => goGroups(row)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault()
-                        goGroups(row)
-                      }
-                    }}
-                    tabIndex={0}
-                    role="link"
-                    aria-label={`Ouvrir le groupe ${row.label}`}
-                  >
-                    <td style={{ textAlign: 'left' }}>{row.label}</td>
-                    <td style={{ textAlign: 'left' }}>{row.site_name || '—'}</td>
-                    <td style={{ textAlign: 'right' }}><strong>{formatValue(row.avg_consumption, ' L')}</strong></td>
-                    <td style={{ textAlign: 'right' }}>{row.previous_consumption == null ? '—' : formatValue(row.previous_consumption, ' L')}</td>
-                    <td style={{ textAlign: 'right' }}>{formatValue(row.latest_consumption, ' L')}</td>
-                    <td style={{ textAlign: 'center' }}>{renderEcartVsN1(row.latest_consumption, row.previous_consumption, '—')}</td>
-                  </tr>
-                ))}
-                {topConsumerGroupRows.length === 0 && (
-                  <tr>
-                    <td colSpan="6" className="empty-state-cell">
-                      Aucun groupe disponible
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            data={topConsumerGroupRows}
+            rowKey="id"
+            onRowClick={goGroups}
+            searchPlaceholder="Rechercher un groupe…"
+            pageSize={6}
+            exportFilename="groupes-plus-gourmands"
+            columns={[
+              { key: 'label', label: 'Groupe', render: (row) => row.label },
+              { key: 'site_name', label: 'Site', render: (row) => row.site_name || '—' },
+              { key: 'avg_consumption', label: 'Conso. moyenne', align: 'right', render: (row) => <strong>{formatValue(row.avg_consumption, ' L')}</strong> },
+              { key: 'previous_consumption', label: 'Conso. semaine N-1', align: 'right', render: (row) => row.previous_consumption == null ? '—' : formatValue(row.previous_consumption, ' L') },
+              { key: 'latest_consumption', label: 'Conso. semaine N', align: 'right', render: (row) => formatValue(row.latest_consumption, ' L') },
+              { key: 'ecart', label: 'Écart', align: 'center', sortable: false, render: (row) => renderEcartVsN1(row.latest_consumption, row.previous_consumption, '—') },
+            ]}
+            emptyState={<p>Aucun groupe disponible</p>}
+          />
         </section>
 
         {/* 4. Sites les plus gourmands */}
@@ -628,50 +527,22 @@ function DashboardPage({ onNavigate }) {
             </div>
             <span className="dashboard-section-link" aria-hidden="true">Ouvrir →</span>
           </button>
-          <div className="dashboard-table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: 'left' }}>Site</th>
-                  <th style={{ textAlign: 'right' }}>Consommation moyenne</th>
-                  <th style={{ textAlign: 'right' }}>Consommation semaine N-1</th>
-                  <th style={{ textAlign: 'right' }}>Consommation semaine N</th>
-                  <th style={{ textAlign: 'center' }}>Écart</th>
-                </tr>
-              </thead>
-              <tbody>
-                {topConsumerSiteRows.map((row) => (
-                  <tr
-                    key={row.id}
-                    className="dashboard-row-link"
-                    onClick={() => goSites(row)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault()
-                        goSites(row)
-                      }
-                    }}
-                    tabIndex={0}
-                    role="link"
-                    aria-label={`Ouvrir le site ${row.site_name || row.label}`}
-                  >
-                    <td style={{ textAlign: 'left' }}>{row.site_name || row.label}</td>
-                    <td style={{ textAlign: 'right' }}><strong>{formatValue(row.avg_consumption, ' L')}</strong></td>
-                    <td style={{ textAlign: 'right' }}>{row.previous_consumption == null ? '—' : formatValue(row.previous_consumption, ' L')}</td>
-                    <td style={{ textAlign: 'right' }}>{formatValue(row.latest_consumption, ' L')}</td>
-                    <td style={{ textAlign: 'center' }}>{renderEcartVsN1(row.latest_consumption, row.previous_consumption, '—')}</td>
-                  </tr>
-                ))}
-                {topConsumerSiteRows.length === 0 && (
-                  <tr>
-                    <td colSpan="5" className="empty-state-cell">
-                      Aucun site disponible
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            data={topConsumerSiteRows}
+            rowKey="id"
+            onRowClick={goSites}
+            searchPlaceholder="Rechercher un site…"
+            pageSize={6}
+            exportFilename="sites-plus-forte-consommation"
+            columns={[
+              { key: 'site_name', label: 'Site', render: (row) => row.site_name || row.label },
+              { key: 'avg_consumption', label: 'Conso. moyenne', align: 'right', render: (row) => <strong>{formatValue(row.avg_consumption, ' L')}</strong> },
+              { key: 'previous_consumption', label: 'Conso. semaine N-1', align: 'right', render: (row) => row.previous_consumption == null ? '—' : formatValue(row.previous_consumption, ' L') },
+              { key: 'latest_consumption', label: 'Conso. semaine N', align: 'right', render: (row) => formatValue(row.latest_consumption, ' L') },
+              { key: 'ecart', label: 'Écart', align: 'center', sortable: false, render: (row) => renderEcartVsN1(row.latest_consumption, row.previous_consumption, '—') },
+            ]}
+            emptyState={<p>Aucun site disponible</p>}
+          />
         </section>
 
       </main>

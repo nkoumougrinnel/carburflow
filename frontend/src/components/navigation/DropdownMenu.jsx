@@ -99,12 +99,12 @@ function DropdownItem({ icon, label, badge, onClick, onHover, isDivider = false 
 
   const handleClick = (e) => {
     e.preventDefault()
-    handleItemClick()
-    onClick?.()
+    e.stopPropagation()
+    onClick?.(e)
   }
 
   if (isDivider) {
-    return <div className="dropdown-divider" />
+    return <div className="dropdown-divider" role="separator" />
   }
 
   return (

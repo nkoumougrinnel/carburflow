@@ -1,15 +1,14 @@
-﻿import React, { useCallback, useEffect, useState, useRef } from 'react'
-import { LayoutDashboard, MapPinned, Zap, Upload, Home, LogOut, LogIn, Bell, AlertCircle } from 'lucide-react'
+import React, { useCallback, useEffect, useState, useRef } from 'react'
+import { LayoutDashboard, MapPinned, Zap, LogOut, Bell, AlertCircle, Menu, X } from 'lucide-react'
 import BrandLogo from './BrandLogo.jsx'
 import NavLink from './NavLink.jsx'
 import AnimatedBadge from './navigation/AnimatedBadge.jsx'
 import MobileMenu from './navigation/MobileMenu.jsx'
-import { DropdownMenu, DropdownItem, UserMenu, ThemeToggle } from './navigation/DropdownMenu.jsx'
+import { ThemeToggle } from './navigation/DropdownMenu.jsx'
 import NotificationPanel from './navigation/NotificationPanel.jsx'
 import { useAuth } from '@/context/AuthContext.jsx'
 import { useTheme } from '@/context/ThemeContext.jsx'
 import { listAlertes, notificationsUnreadCount } from '@/auth.js'
-import { BADGES_REFRESH_EVENT } from '@/utils/badges.js'
 import { isIndeterminateAutonomyAlert, normalizePersistedAlert } from '@/utils/alerts.js'
 import { getDisplayFullName } from '@/utils/userDisplay.js'
 
@@ -48,7 +47,7 @@ function roleChipClass(isAdmin, isOperator) {
 
 function Topbar({ activeView, onNavigate }) {
   const { isAuthenticated, isAdmin, isOperator, logout, user } = useAuth()
-  const { theme, toggleTheme } = useTheme()
+  useTheme()
   const [menuOpen, setMenuOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
@@ -143,6 +142,13 @@ function Topbar({ activeView, onNavigate }) {
 
         <div className="topbar-right">
           <ThemeToggle />
+          <div className="topbar-notification-wrap" ref={notificationTriggerRef}>
+            <button type="button" className="topbar-burger" aria-label="Notifications" aria-expanded={notificationPanelTriggerOpen} onClick={() => setNotificationPanelTriggerOpen((v) => !v)}>
+              <Bell size={22} aria-hidden="true" />
+              {unreadMessages > 0 && <AnimatedBadge count={unreadMessages} variant="primary" animationType="pulse" />}
+            </button>
+            <NotificationPanel isOpen={notificationPanelTriggerOpen} onClose={() => setNotificationPanelTriggerOpen(false)} unreadCount={unreadMessages} />
+          </div>
           <button type="button" className="topbar-burger" aria-label={mobileMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'} aria-expanded={mobileMenuOpen} onClick={() => setMobileMenuOpen((v) => !v)}>
             {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
             {!mobileMenuOpen && isAdmin && activeAlertsCount > 0 && <AnimatedBadge count={activeAlertsCount} variant="danger" animationType="bounce" />}
@@ -150,16 +156,7 @@ function Topbar({ activeView, onNavigate }) {
         </div>
       </header>
 
-      <MobileMenu isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} activeView={activeView} />
-
-      <div ref={notificationTriggerRef}>
-        <button type="button" className="topbar-burger" style={{ position: 'relative' }} onClick={() => setNotificationPanelTriggerOpen((v) => !v)} aria-label="Notifications" aria-expanded={notificationPanelTriggerOpen}>
-          <Bell size={22} aria-hidden="true" />
-          {unreadMessages > 0 && <AnimatedBadge count={unreadMessages} variant="primary" animationType="pulse" />}
-        </button>
-      </div>
-
-      <NotificationPanel isOpen={notificationPanelTriggerOpen} onClose={() => setNotificationPanelTriggerOpen(false)} unreadCount={unreadMessages} />
+      <MobileMenu isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} activeView={activeView} activeAlertsCount={activeAlertsCount} />
     </>
   )
 }

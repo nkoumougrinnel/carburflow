@@ -1,4 +1,4 @@
-﻿/* ============================================
+/* ============================================
    CarburFlow Navigation Styles
    Enhanced Navigation Component Styles
    ============================================ */
@@ -343,6 +343,13 @@
   gap: 0.5rem;
 }
 
+/* --- Notification Trigger Wrapper --- */
+.topbar-notification-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
 /* --- Mobile Navigation Menu --- */
 .topbar-mobile-menu {
   position: fixed;
@@ -410,6 +417,12 @@
   background: var(--primary-3);
   color: var(--primary);
 }
+.mobile-menu-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0.5rem 0;
+}
+
 
 .mobile-menu-item-icon {
   width: 20px;
@@ -597,6 +610,120 @@
   border: 2px solid var(--panel);
 }
 
+.notification-panel-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.notification-panel-action-btn:hover {
+  background: var(--panel);
+  color: var(--danger);
+}
+
+.notification-panel-filter {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.notification-filter-btn {
+  flex: 1;
+  padding: 0.4rem 0.5rem;
+  border-radius: var(--radius-md);
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.notification-filter-btn:hover {
+  background: var(--panel-soft);
+  color: var(--primary);
+}
+
+.notification-filter-btn.active {
+  background: var(--primary-3);
+  color: var(--primary);
+}
+
+.notification-panel-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 2rem;
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+}
+
+.notification-panel-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--primary-3);
+  border-top-color: var(--primary);
+  border-radius: var(--radius-full);
+  animation: notificationSpin 0.8s linear infinite;
+}
+
+@keyframes notificationSpin {
+  to { transform: rotate(360deg); }
+}
+
+.notification-panel-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 2.5rem 1rem;
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+}
+
+.notification-panel-empty-icon {
+  opacity: 0.35;
+}
+
+.notification-panel-footer {
+  padding: 0.75rem;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+.notification-panel-footer-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.notification-panel-footer-btn:hover {
+  background: var(--primary-3);
+  border-color: var(--primary);
+}
 /* --- Responsive Breakpoints --- */
 @media (max-width: 768px) {
   .topbar {

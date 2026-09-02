@@ -1,0 +1,216 @@
+/* ============================================
+   CarburFlow Fluid Animations
+   ============================================ */
+
+/* --- Card Hover Lift --- */
+.cf-hover-lift {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+  will-change: transform;
+}
+
+.cf-hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 32px rgba(13, 74, 99, 0.14);
+}
+
+.cf-hover-glow {
+  transition: box-shadow 0.35s ease, border-color 0.35s ease;
+}
+
+.cf-hover-glow:hover {
+  box-shadow: 0 0 0 4px var(--primary-3), 0 12px 28px rgba(13, 74, 99, 0.12);
+  border-color: var(--primary-2);
+}
+
+/* --- Stagger Reveal --- */
+.cf-stagger > * {
+  opacity: 0;
+  transform: translateY(16px);
+  animation: cfStaggerIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes cfStaggerIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.cf-stagger > *:nth-child(1) { animation-delay: 0.05s; }
+.cf-stagger > *:nth-child(2) { animation-delay: 0.12s; }
+.cf-stagger > *:nth-child(3) { animation-delay: 0.19s; }
+.cf-stagger > *:nth-child(4) { animation-delay: 0.26s; }
+.cf-stagger > *:nth-child(5) { animation-delay: 0.33s; }
+.cf-stagger > *:nth-child(6) { animation-delay: 0.40s; }
+.cf-stagger > *:nth-child(7) { animation-delay: 0.47s; }
+.cf-stagger > *:nth-child(8) { animation-delay: 0.54s; }
+
+/* --- Page Transition --- */
+.cf-page-enter {
+  animation: cfPageIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes cfPageIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* --- Skeleton Loader --- */
+.cf-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--panel-soft);
+  border-radius: var(--radius-md);
+}
+
+.cf-skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+  animation: cfSkeletonShimmer 1.6s infinite;
+}
+
+@keyframes cfSkeletonShimmer {
+  100% { transform: translateX(100%); }
+}
+
+/* --- Animated Value / Counter --- */
+.cf-value-pop {
+  animation: cfValuePop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes cfValuePop {
+  0% { transform: scale(0.9); opacity: 0.4; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* --- Button Micro-interactions --- */
+.cf-btn-press {
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.cf-btn-press:active {
+  transform: scale(0.96);
+}
+
+/* --- Animated Gradient Header --- */
+.cf-animated-gradient {
+  background: linear-gradient(120deg, var(--primary), var(--primary-2), var(--primary));
+  background-size: 200% 200%;
+  animation: cfGradientShift 8s ease-in-out infinite;
+}
+
+@keyframes cfGradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* --- Pulse Dot (live indicator) --- */
+.cf-pulse-dot {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+}
+
+.cf-pulse-dot::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid var(--success);
+  animation: cfPulseDot 1.6s ease-out infinite;
+}
+
+@keyframes cfPulseDot {
+  0% { transform: scale(0.4); opacity: 1; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+
+/* --- Row Hover Slide --- */
+.cf-row-hover {
+  position: relative;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.cf-row-hover::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--primary);
+  transform: scaleY(0);
+  transition: transform 0.25s ease;
+}
+
+.cf-row-hover:hover::before {
+  transform: scaleY(1);
+}
+
+/* --- Fade In Up Leaf --- */
+.cf-fade-up {
+  opacity: 0;
+  transform: translateY(24px);
+  animation: cfFadeUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes cfFadeUp {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* --- Number Count-up pulse --- */
+.cf-count-up {
+  display: inline-block;
+  transition: color 0.3s ease;
+}
+
+/* --- Refresh Spin --- */
+.cf-spin-slow {
+  animation: cfSpin 2s linear infinite;
+}
+
+@keyframes cfSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* --- Smooth theme transition --- */
+body, .topbar, .metric-panel, .metric-card, .card, .dashboard-table {
+  transition: background-color 0.35s ease, color 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
+}
+
+/* --- Respect reduced motion --- */
+@media (prefers-reduced-motion: reduce) {
+  .cf-hover-lift:hover,
+  .cf-hover-glow:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .cf-stagger > *,
+  .cf-fade-up,
+  .cf-page-enter {
+    animation-duration: 0.01s;
+    animation-delay: 0s !important;
+    opacity: 1;
+    transform: none;
+  }
+
+  .cf-skeleton::after,
+  .cf-pulse-dot::after {
+    animation: none;
+  }
+}
