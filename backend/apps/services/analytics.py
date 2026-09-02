@@ -261,6 +261,19 @@ class AnalyticsService:
         }
 
     @staticmethod
+    def _build_rapport_choices(reports) -> list[dict[str, Any]]:
+        """Construit la liste des choix de rapports avec dates réelles."""
+        choices = []
+        for r in reports:
+            choice = {'id': r.id, 'label': calc.format_rapport_label(r)}
+            if hasattr(r, 'date_debut') and r.date_debut:
+                choice['date_debut'] = r.date_debut.isoformat()
+            if hasattr(r, 'date_fin') and r.date_fin:
+                choice['date_fin'] = r.date_fin.isoformat()
+            choices.append(choice)
+        return choices
+
+    @staticmethod
     def get_site_analytics(site_id: int | None = None) -> dict[str, Any]:
         """
         Génère les séries de données pour un ou plusieurs sites.
@@ -278,11 +291,13 @@ class AnalyticsService:
 
         # On détermine la liste des sites à traiter
         target_sites = sites
+        rapport_choices = AnalyticsService._build_rapport_choices(reports)
         if site_id is not None:
             target_sites = [s for s in sites if s.id == site_id]
             if not target_sites:
                 return {
                     'labels': [calc.format_rapport_label(r) for r in reports],
+                    'rapport_choices': rapport_choices,
                     'volumeSeries': [],
                     'hoursSeries': [],
                     'consumptionSeries': [],
@@ -367,6 +382,7 @@ class AnalyticsService:
 
         return {
             'labels': [calc.format_rapport_label(r) for r in reports],
+            'rapport_choices': rapport_choices,
             'volumeSeries': volume_series,
             'hoursSeries': hours_series,
             'consumptionSeries': consumption_series,
@@ -393,4 +409,53 @@ class AnalyticsService:
         return {
             'labels': [calc.format_rapport_label(r) for r in reports],
             'groups': group_blocks,
+            'rapport_choices': AnalyticsService._build_rapport_choices(reports),
         }
+
+    @staticmethod
+    def get_date_range(site_id: int | None = None) -> dict[str, Any]:
+        """
+        Calcule dynamiquement les bornes temporelles min/max des relevés.
+        Si site_id est fourni, les bornes sont restreintes à ce site uniquement.
+        Renvoie explicitement None si aucun relevé n'existe.
+        """
+        from apps.reports.models import Rapport, LigneRapport
+        from django.db.models import Min, Max, Count
+
+        qs = Rapport.objects.all()
+        if site_id is not None:
+            # Filtrer via les lignes de rapport appartenant au site (CP ou CJ)
+            rapport_ids = LigneRapport.objects.filter(
+                cuve_principale_id=site_id
+            ).values_list('rapport_id', flat=True).distinct()
+            qs = qs.filter(id__in=list(rapport_ids))
+
+        aggregate = qs.aggregate(
+            min_date=Min('date_debut'),
+            max_date=Max('date_fin'),
+            count=Count('id'),
+        )
+
+        return {
+            'min_date': aggregate['min_date'].isoformat() if aggregate['min_date'] else None,
+            'max_date': aggregate['max_date'].isoformat() if aggregate['max_date'] else None,
+            'reports_count': aggregate['count'] or 0,
+        }
+
+    @staticmethod
+    def list_sites() -> list[dict[str, Any]]:
+        """
+        Liste tous les sites avec leurs identifiants et noms depuis la base.
+        """
+        from apps.equipment.models import CuvePrincipale
+        rows = []
+        for cp in CuvePrincipale.objects.select_related('site').order_by('id'):
+            site_obj = getattr(cp, 'site', None)
+            site_name = site_obj.nom if site_obj else cp.identifiant
+            rows.append({
+                'id': cp.id,
+                'nom_site': site_name,
+                'identifiant': cp.identifiant,
+                'capacite': cp.capacite,
+            })
+        return rows

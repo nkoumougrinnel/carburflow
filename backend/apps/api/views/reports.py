@@ -21,5 +21,7 @@ class RapportViewSet(viewsets.ModelViewSet):
 
 
 class LigneRapportViewSet(viewsets.ModelViewSet):
-    queryset = LigneRapport.objects.all()
+    queryset = LigneRapport.objects.select_related(
+        'rapport', 'cuve_principale', 'cuve_journaliere', 'groupe_electrogene'
+    ).order_by('rapport_id', 'id')
     serializer_class = LigneRapportSerializer

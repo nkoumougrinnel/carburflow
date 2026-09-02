@@ -1912,7 +1912,7 @@ button.alert-item--link {
 
 .groups-filter-bar {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 12px;
   align-items: end;
   background: var(--panel);
@@ -1920,12 +1920,78 @@ button.alert-item--link {
   border-radius: 20px;
   box-shadow: var(--shadow);
   padding: 16px;
+  width: 100%;
 }
 
 .groups-filter-bar .filter-field {
   flex: 1 1 150px;
   min-width: 140px;
   max-width: 260px;
+}
+
+/* Forcer une seule ligne pour les filtres de la page Sites */
+main.page-layout.groups-grid > form.groups-filter-bar {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: end;
+  width: 100%;
+}
+
+main.page-layout.groups-grid > form.groups-filter-bar > * {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* Harmoniser le style du <Select> (Site, Affichage) avec le DateRangeFilter (Période)
+   pour qu'ils soient identiques en couleur, police, dimension, timbre */
+main.page-layout.groups-grid > form.groups-filter-bar .ui-input-group {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+main.page-layout.groups-grid > form.groups-filter-bar .ui-input-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.1;
+  margin-bottom: 0;
+}
+
+main.page-layout.groups-grid > form.groups-filter-bar .ui-input {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  border: 1px solid var(--border);
+  background: var(--panel-soft);
+  border-radius: 12px;
+  padding: 10px 36px 10px 14px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+  font-family: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.85rem center;
+  background-size: 1rem;
+  min-height: 42px;
+}
+
+main.page-layout.groups-grid > form.groups-filter-bar .ui-input:hover {
+  border-color: var(--primary-2);
+}
+
+main.page-layout.groups-grid > form.groups-filter-bar .ui-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-alpha-10);
 }
 
 .groups-filter-bar .filter-actions {
@@ -1935,6 +2001,114 @@ button.alert-item--link {
   align-items: end;
   flex: 0 0 auto;
   margin-left: auto;
+}
+
+/* ───────────────────────────────────────────────────────────
+   Filtre de dates — basé sur les données réelles
+   ─────────────────────────────────────────────────────────── */
+
+.date-filter-field {
+  flex: 1 1 180px;
+  min-width: 160px;
+  max-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.date-filter-field label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.date-select-wrap,
+.date-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.date-select-wrap select,
+.date-input-wrap input {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  border: 1px solid var(--border);
+  background: var(--panel-soft);
+  border-radius: 12px;
+  padding: 10px 36px 10px 14px;
+  font-size: 0.95rem;
+  color: var(--text);
+  font-family: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
+  cursor: pointer;
+}
+
+.date-input-wrap input {
+  padding-right: 14px;
+}
+
+.date-select-wrap select:hover,
+.date-input-wrap input:hover {
+  border-color: var(--primary-2);
+}
+
+.date-select-wrap select:focus,
+.date-input-wrap input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(13, 74, 99, 0.15);
+  background: var(--panel);
+}
+
+.date-select-wrap select:disabled,
+.date-input-wrap input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.date-select-icon {
+  position: absolute;
+  right: 12px;
+  pointer-events: none;
+  color: var(--muted);
+}
+
+.date-filter-empty {
+  flex: 1 1 100%;
+  text-align: center;
+  padding: 12px;
+  font-size: 0.92rem;
+}
+
+.date-filter-empty .muted {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.date-filter-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--primary-3);
+  color: var(--primary);
+  font-size: 0.78rem;
+  font-weight: 600;
+  margin-left: 8px;
+}
+
+.date-filter-info::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary);
 }
 
 .group-block-note {
@@ -10908,6 +11082,17 @@ body {
   gap: 1rem;
   flex-wrap: wrap;
   flex: 1 1 320px;
+}
+
+/* Styles pour le filtre de dates dans la barre de filtres des relevés */
+.op-envois-filter-group .date-filter-field {
+  flex: 1 1 180px;
+  min-width: 160px;
+  max-width: 240px;
+}
+
+.op-envois-filter-group .date-filter-field label {
+  font-size: 0.75rem;
 }
 
 .op-envois-filter-actions {

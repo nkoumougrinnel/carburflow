@@ -26,8 +26,12 @@ RUN chmod +x /app/backend/entrypoint.sh \
 
 WORKDIR /app/backend
 
-# Collecte des statics (pas besoin de DB)
-RUN python manage.py collectstatic --noinput
+# Collecte des statics (pas besoin de DB).
+# SECRET_KEY n'existe qu'au runtime (compose) ; collectstatic importe les
+# settings prod -> on fournit une clé jetable réservée à cette étape de build
+# (valable uniquement pour ce RUN, jamais persistée dans l'image).
+RUN SECRET_KEY=build-time-collectstatic \
+    python manage.py collectstatic --noinput
 
 EXPOSE 8001
 

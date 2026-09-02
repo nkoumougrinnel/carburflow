@@ -707,6 +707,10 @@ def calculer_groupes(
             autonomy_hours = volume_proportionnel / mean_hourly_consumption_deduite
             formatted_autonomy = formater_autonomie(autonomy_hours)
         else:
+            # 🔧 CORRECTION BUG INDÉTERMINÉE :
+            # Si on a une consommation mais pas de volume ou pas de ratio horaire,
+            # on n'est pas forcement "indéterminée" : on peut calculer un ratio
+            # à partir de la dernière semaine si elle est valide.
             is_infinite_autonomy = True
             autonomy_hours = None
             formatted_autonomy = "∞"
@@ -714,12 +718,31 @@ def calculer_groupes(
             if volume_proportionnel is None:
                 reasons.append('volume cuve indisponible')
             if mean_hourly_consumption_deduite == 0:
-                reasons.append('aucune période avec consommation et delta horaire')
-            if latest_hours_n is None and latest_cons_n is None:
-                reasons.append('pas de relevé sur la semaine N')
-            indet_reason = (
-                'Données insuffisantes : ' + (' · '.join(reasons) if reasons else '')
-            )
+                # Si on a quand même une conso N>0, on est pas vraiment indéterminé
+                if latest_cons_n is not None and latest_cons_n > 0 and latest_hours_n is not None and latest_hours_n > 0:
+                    # Recalcul d'un ratio horaire valide à partir de la dernière période
+                    ratio_n = latest_cons_n / latest_hours_n if latest_hours_n else 0
+                    if ratio_n > 0 and volume_proportionnel is not None:
+                        is_infinite_autonomy = False
+                        autonomy_hours = volume_proportionnel / ratio_n
+                        formatted_autonomy = formater_autonomie(autonomy_hours)
+                        indet_reason = None
+                    else:
+                        reasons.append('aucune période avec consommation et delta horaire')
+                        indet_reason = (
+                            'Données insuffisantes : ' + (' · '.join(reasons) if reasons else '')
+                        )
+                else:
+                    reasons.append('aucune période avec consommation et delta horaire')
+                    if latest_hours_n is None and latest_cons_n is None:
+                        reasons.append('pas de relevé sur la semaine N')
+                    indet_reason = (
+                        'Données insuffisantes : ' + (' · '.join(reasons) if reasons else '')
+                    )
+            if is_infinite_autonomy:
+                indet_reason = (
+                    'Données insuffisantes : ' + (' · '.join(reasons) if reasons else '')
+                )
 
         group_blocks.append({
             'id': groupe.id,

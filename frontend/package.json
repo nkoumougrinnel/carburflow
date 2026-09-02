@@ -11,7 +11,6 @@
 	},
 	"dependencies": {
 		"@gsap/react": "^2.1.2",
-		"axios": "^1.19.0",
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",
 		"gsap": "^3.15.0",
@@ -23,7 +22,7 @@
 		"radix-ui": "^1.6.7",
 		"react": "^18.3.1",
 		"react-dom": "^18.3.1",
-		"react-router-dom": "^6.30.6",
+		"react-router-dom": "^7.18.3",
 		"recharts": "^3.10.1",
 		"sonner": "^2.0.8",
 		"tailwind-merge": "^3.6.0",

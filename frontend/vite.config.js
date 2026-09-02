@@ -19,6 +19,22 @@ export default defineConfig(({ mode }) => {
         '@': path.resolve(__dirname, './src'),
       },
     },
+    build: {
+      // Découpe du bundle par famille de vendors : évite un chunk unique
+      // > 500 kB et améliore la mise en cache navigateur (vendors stables).
+      rollupOptions: {
+        output: {
+          codeSplitting: {
+            groups: [
+              { name: 'vendor-react', test: /[\\/]node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/ },
+              { name: 'vendor-charts', test: /[\\/]node_modules[\\/](recharts|d3-|victory-|internmap|decimal.js)[\\/]/ },
+              { name: 'vendor-motion', test: /[\\/]node_modules[\\/](gsap|motion|framer-motion|ogl|@gsap)[\\/]/ },
+              { name: 'vendor', test: /[\\/]node_modules[\\/]/ },
+            ],
+          },
+        },
+      },
+    },
     server: {
       host: true,
       port: 5174,
@@ -29,7 +45,7 @@ export default defineConfig(({ mode }) => {
         allow: [path.resolve(__dirname, '..')],
       },
       // Obligatoire derrière ngrok HTTPS : le WS HMR doit passer en wss:443
-      // (lance avec: npm run dev:tunnel  ou  ./scripts/start-frontend.sh tunnel)
+      // (lance avec: npm run dev:tunnel)
       ...(tunnel
         ? {
             hmr: {

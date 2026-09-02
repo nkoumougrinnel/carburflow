@@ -50,6 +50,36 @@ class EquipmentAnalyticsAPIView(APIView):
         )
 
 
+# ─── Endpoints dynamiques pour les filtres ────────────────────────────────
+
+class SitesDateRangeAPIView(APIView):
+    """
+    Calcule dynamiquement les bornes temporelles min/max des relevés.
+    Si ?site_id= est fourni, les bornes sont restreintes à ce site.
+    Renvoie min_date/max_date=null si aucun relevé n'existe.
+    """
+
+    def get(self, request):
+        site_id_param = request.query_params.get('site_id')
+        site_id = None
+        if site_id_param:
+            try:
+                site_id = int(site_id_param)
+            except (ValueError, TypeError):
+                site_id = None
+        return Response(AnalyticsService.get_date_range(site_id))
+
+
+class SitesListAPIView(APIView):
+    """
+    Liste tous les sites (cuves principales) depuis la base de données.
+    Aucun fallback hardcodé.
+    """
+
+    def get(self, request):
+        return Response({'sites': AnalyticsService.list_sites()})
+
+
 # ─── Alias de compatibilité ─────────────────────────────────────────────────
 # Permettent aux imports existants (urls.py, tests) de continuer à fonctionner.
 

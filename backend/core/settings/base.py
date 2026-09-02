@@ -84,6 +84,9 @@ USE_TZ = True
 STATIC_URL = 'static/'
 # Répertoire où collectstatic place les fichiers statiques en production
 STATIC_ROOT = PROJECT_ROOT / 'staticfiles'
+# Créé à l'avance : évite l'avertissement WhiteNoise en dev/test
+# ("No directory at: ...staticfiles") et reste ignoré par git (dossier vide)
+STATIC_ROOT.mkdir(parents=True, exist_ok=True)
 MEDIA_URL = 'media/'
 MEDIA_ROOT = PROJECT_ROOT / 'data' / 'media'
 

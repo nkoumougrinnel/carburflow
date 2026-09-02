@@ -17,6 +17,8 @@ import { windowStats } from '@/utils/stats.js'
 import { aggregateSeries, aggregateHoursSeries } from '@/utils/chart-utils.js'
 import { deltaClass, ecartTitle, formatEcartPct } from '@/utils/ecart.js'
 import { normalizePersistedAlert } from '@/utils/alerts.js'
+import { DateRangeFilter } from '@/components/DateRangeFilter.jsx'
+import { parseDate } from '@/hooks/useDateFilter.js'
 
 function formatWhen(value) {
   if (!value) return '—'
@@ -30,13 +32,40 @@ function SitesPage({ onNavigate }) {
   const [loadError, setLoadError] = useState('')
   const [startIdx, setStartIdx] = useState(0)
   const [endIdx, setEndIdx] = useState(0)
-  const [siteId, setSiteId] = useState('')
+  const [siteId, setSiteId] = useState('') // Par défaut : chaîne vide = "Tous les sites"
   const [siteAlerts, setSiteAlerts] = useState({})
   const [chartPan, setChartPan] = useState(0)
+  // États pour les dates basées sur les données réelles de l'API
+  const [dateDebut, setDateDebut] = useState('')
+  const [dateFin, setDateFin] = useState('')
+  // États pour les données dynamiques来自于 l'API
+  const [availableDateRange, setAvailableDateRange] = useState(null) // {min_date, max_date, reports_count}
+  const [availableSites, setAvailableSites] = useState([]) // Liste des sites depuis l'API
+
   const querySiteId = useMemo(() => new URLSearchParams(window.location.search).get('siteId'), [])
   const querySiteName = useMemo(() => new URLSearchParams(window.location.search).get('siteName'), [])
   const queryMode = useMemo(() => new URLSearchParams(window.location.search).get('mode'), [])
   const [mode, setMode] = useState(queryMode || (querySiteId ? 'details' : 'all'))
+
+  /**
+   * Convertit une date ISO en index de période correspondant.
+   * @param {string} dateIso
+   * @returns {number}
+   */
+  const dateToIndex = (dateIso) => {
+    if (!dateIso || !sitesDashboard?.labels?.length) return 0
+    const labels = sitesDashboard.labels
+    const target = parseDate(dateIso)
+    if (!target) return 0
+    // Chercher l'index qui correspond à cette date
+    for (let i = 0; i < labels.length; i++) {
+      const labelDate = parseDate(labels[i])
+      if (labelDate && labelDate >= target) {
+        return i
+      }
+    }
+    return labels.length - 1
+  }
 
   const renderDelta = (metric, suffix = '', invert = false) => {
     if (metric?.has_previous_period === false) {
@@ -87,6 +116,62 @@ function SitesPage({ onNavigate }) {
     }
   }, [])
 
+  // Charger les dates min/max disponibles depuis l'API
+  useEffect(() => {
+    const loadDateRange = async () => {
+      try {
+        const rangeData = await apiFetch('/api/sites/date-range')
+        if (rangeData && (rangeData.min_date || rangeData.max_date)) {
+          setAvailableDateRange({
+            min_date: rangeData.min_date,
+            max_date: rangeData.max_date,
+            reports_count: rangeData.reports_count || 0,
+          })
+          // Initialiser les dates : fin = max_date, début = max_date - 30 jours (borné par min_date)
+          if (rangeData.max_date) {
+            setDateFin(rangeData.max_date)
+            // Calculer la date de début (max_date - 30 jours)
+            const maxDate = new Date(rangeData.max_date)
+            const thirtyDaysAgo = new Date(maxDate)
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+            
+            if (rangeData.min_date) {
+              const minDate = new Date(rangeData.min_date)
+              // Ne pas dépasser min_date
+              if (thirtyDaysAgo < minDate) {
+                setDateDebut(rangeData.min_date)
+              } else {
+                setDateDebut(thirtyDaysAgo.toISOString().split('T')[0])
+              }
+            } else {
+              setDateDebut(thirtyDaysAgo.toISOString().split('T')[0])
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Impossible de charger la plage de dates:', err)
+        setAvailableDateRange(null)
+      }
+    }
+    loadDateRange()
+  }, [])
+
+  // Charger la liste des sites depuis l'API
+  useEffect(() => {
+    const loadSitesList = async () => {
+      try {
+        const data = await apiFetch('/api/sites/')
+        if (data && Array.isArray(data.sites)) {
+          setAvailableSites(data.sites)
+        }
+      } catch (err) {
+        console.warn('Impossible de charger la liste des sites:', err)
+        setAvailableSites([])
+      }
+    }
+    loadSitesList()
+  }, [])
+
   useEffect(() => {
     const loadSitesData = async () => {
       try {
@@ -109,6 +194,7 @@ function SitesPage({ onNavigate }) {
           autonomyBySite: data.autonomyBySite || {},
           groupsBySite: data.groupsBySite || {},
           defaultSiteId: data.defaultSiteId,
+          rapport_choices: data.rapport_choices || [],
         })
         await loadSiteAlerts()
       } catch (error) {
@@ -120,14 +206,21 @@ function SitesPage({ onNavigate }) {
     loadSitesData()
   }, [loadSiteAlerts])
 
+  // Liste de sites : on utilise celle de l'API en priorité, sinon fallback sur les données du dashboard
   const siteOptions = useMemo(() => {
+    if (availableSites.length > 0) {
+      return availableSites.map((site) => ({
+        id: site.id,
+        nom_site: site.nom_site,
+      }))
+    }
     if (!sitesDashboard) return []
     const byId = new Map()
     ;[...(sitesDashboard.volumeSeries || []), ...(sitesDashboard.consumptionSeries || []), ...(sitesDashboard.hoursSeries || [])].forEach((site) => {
       byId.set(String(site.id), site)
     })
     return [...byId.values()]
-  }, [sitesDashboard])
+  }, [availableSites, sitesDashboard])
 
   useEffect(() => {
     if (!sitesDashboard) return
@@ -141,8 +234,23 @@ function SitesPage({ onNavigate }) {
       const { first, last } = defaultPeriodIndices(sitesDashboard.labels.length)
       setStartIdx(first)
       setEndIdx(last)
+      // Les dates sont déjà initialisées par le useEffect loadDateRange via l'API /api/sites/date-range
+      // Si pas de dateRange dynamique disponible, fallback sur rapport_choices du dashboard
+      if (!availableDateRange && sitesDashboard.rapport_choices?.length > 0) {
+        const sorted = [...sitesDashboard.rapport_choices].sort((a, b) => {
+          const da = a.date_debut ? new Date(a.date_debut).getTime() : 0
+          const db = b.date_debut ? new Date(b.date_debut).getTime() : 0
+          return da - db
+        })
+        if (sorted.length > 0 && !dateDebut) {
+          setDateDebut(sorted[0].date_debut || '')
+        }
+        if (sorted.length > 0 && !dateFin) {
+          setDateFin(sorted[sorted.length - 1].date_fin || '')
+        }
+      }
     }
-  }, [sitesDashboard, querySiteId, querySiteName, siteOptions])
+  }, [sitesDashboard, querySiteId, querySiteName, siteOptions, availableDateRange, dateDebut, dateFin])
 
   const periodStart = Math.min(startIdx, endIdx)
   const periodEnd = Math.max(startIdx, endIdx)
@@ -311,19 +419,23 @@ function SitesPage({ onNavigate }) {
           />
 
           <form className="groups-filter-bar" onSubmit={(event) => event.preventDefault()}>
-            <Select
-              label="Période — début"
-              id="site-start"
-              value={String(startIdx)}
-              onChange={(event) => setStartIdx(Number(event.target.value))}
-              options={(sitesDashboard?.labels || []).map((label, index) => ({ label, value: String(index) }))}
-            />
-            <Select
-              label="Période — fin"
-              id="site-end"
-              value={String(endIdx)}
-              onChange={(event) => setEndIdx(Number(event.target.value))}
-              options={(sitesDashboard?.labels || []).map((label, index) => ({ label, value: String(index) }))}
+            <DateRangeFilter
+              rapportChoices={availableDateRange
+                ? (sitesDashboard?.rapport_choices || [])
+                : (sitesDashboard?.rapport_choices || [])}
+              dateDebut={dateDebut}
+              dateFin={dateFin}
+              label="Période"
+              onDateDebutChange={(value) => {
+                setDateDebut(value)
+                const idx = dateToIndex(value)
+                if (idx >= 0) setStartIdx(idx)
+              }}
+              onDateFinChange={(value) => {
+                setDateFin(value)
+                const idx = dateToIndex(value)
+                if (idx >= 0) setEndIdx(idx)
+              }}
             />
             <Select
               label="Site"
@@ -338,7 +450,10 @@ function SitesPage({ onNavigate }) {
                   setMode('all')
                 }
               }}
-              options={siteOptions.map((site) => ({ label: site.nom_site, value: String(site.id) }))}
+              options={[
+                { label: 'Tous les sites', value: '' },
+                ...siteOptions.map((site) => ({ label: site.nom_site, value: String(site.id) })),
+              ]}
             />
             <Select
               label="Affichage"
@@ -351,6 +466,22 @@ function SitesPage({ onNavigate }) {
               ]}
             />
           </form>
+          {dateDebut && dateFin && (
+            <p className="group-block-note">
+              <span className="date-filter-info">Données réelles</span>
+              Période sélectionnée : du <strong>{parseDate(dateDebut)?.toLocaleDateString('fr-FR') || '—'}</strong> au <strong>{parseDate(dateFin)?.toLocaleDateString('fr-FR') || '—'}</strong>
+            </p>
+          )}
+
+          {/* État vide dynamique : pas de données disponibles */}
+          {availableDateRange && availableDateRange.reports_count === 0 && (
+            <EmptyState
+              icon={<CircleAlert size={40} />}
+              title="Aucune donnée disponible"
+              description={`La base de données ne contient aucun rapport. Importez des données pour commencer le suivi.`}
+              action={{ label: 'Importer un rapport', onClick: () => onNavigate?.({ view: 'reports' }) }}
+            />
+          )}
 
           {mode === 'all' ? (
             <section className="site-overview">

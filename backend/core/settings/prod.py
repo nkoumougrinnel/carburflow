@@ -2,6 +2,14 @@
 from .base import *  # noqa: F401,F403
 import os
 
+# Fail-fast : en production, démarrer sans SECRET_KEY est une faille
+# (retomberait sur la clé de dev "django-insecure-..." de base.py).
+if not os.getenv('SECRET_KEY'):
+    raise RuntimeError(
+        "SECRET_KEY manquante : définissez la variable d'environnement "
+        "SECRET_KEY en production (cf. .env.example / docker-compose)."
+    )
+
 DEBUG = False
 ALLOWED_HOSTS = [h.strip() for h in os.getenv('ALLOWED_HOSTS', '').split(',') if h.strip()]
 

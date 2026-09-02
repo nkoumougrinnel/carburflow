@@ -25,6 +25,8 @@ import {
   METRIC_LABELS,
 } from '@/utils/format.js'
 import { normalizePersistedAlert } from '@/utils/alerts.js'
+import { DateRangeFilter } from '@/components/DateRangeFilter.jsx'
+import { parseDate } from '@/hooks/useDateFilter.js'
 
 const formatMetric = (value, digits = 1) => (
   isFiniteNumber(value) ? value.toFixed(digits) : '—'
@@ -61,7 +63,11 @@ function GroupsPage({ onNavigate }) {
   const [groupAlerts, setGroupAlerts] = useState([])
   const [rapportDebut, setRapportDebut] = useState('')
   const [rapportFin, setRapportFin] = useState('')
-  const [siteId, setSiteId] = useState('')
+  // Nouveaux états : dates basées sur les données réelles
+  const [dateDebut, setDateDebut] = useState('')
+  const [dateFin, setDateFin] = useState('')
+  const [siteId, setSiteId] = useState('') // Par défaut : chaîne vide = "Tous les sites"
+  const [availableSites, setAvailableSites] = useState([]) // Liste des sites depuis l'API
   const queryGroupId = useMemo(() => new URLSearchParams(window.location.search).get('groupId'), [])
   const queryGroupLabel = useMemo(() => new URLSearchParams(window.location.search).get('groupLabel'), [])
   const queryMode = useMemo(() => new URLSearchParams(window.location.search).get('mode'), [])
@@ -72,6 +78,32 @@ function GroupsPage({ onNavigate }) {
   const [initialLoading, setInitialLoading] = useState(true)
   const [chartPan, setChartPan] = useState(0)
   const filterSeq = useRef(0)
+
+  /**
+   * Convertit une date ISO en identifiant de rapport correspondant.
+   * @param {string} dateIso
+   * @returns {string}
+   */
+  const dateToRapportId = (dateIso) => {
+    if (!dateIso || !groupsData?.rapport_choices?.length) return ''
+    const target = parseDate(dateIso)
+    if (!target) return ''
+    // Cherche le rapport dont la plage contient cette date
+    for (const choice of groupsData.rapport_choices) {
+      const start = parseDate(choice.date_debut)
+      const end = parseDate(choice.date_fin)
+      if (start && end && target >= start && target <= end) {
+        return String(choice.id)
+      }
+    }
+    // Si pas trouvé, prendre le rapport le plus proche
+    const sorted = [...groupsData.rapport_choices].sort((a, b) => {
+      const da = parseDate(a.date_debut)
+      const db = parseDate(b.date_debut)
+      return Math.abs((da?.getTime() || 0) - target.getTime()) - Math.abs((db?.getTime() || 0) - target.getTime())
+    })
+    return sorted.length > 0 ? String(sorted[0].id) : ''
+  }
 
   // Regroupement des alertes par groupe
   const alertsByGroupId = useMemo(() => {
@@ -156,6 +188,18 @@ function GroupsPage({ onNavigate }) {
         const { first, last } = defaultPeriodIndices(choices.length)
         setRapportDebut(String(choices[first]?.id ?? ''))
         setRapportFin(String(choices[last]?.id ?? ''))
+        // Initialiser les dates basées sur les données réelles
+        if (data.rapport_choices?.length > 0) {
+          const sorted = [...data.rapport_choices].sort((a, b) => {
+            const da = a.date_debut ? new Date(a.date_debut).getTime() : 0
+            const db = b.date_debut ? new Date(b.date_debut).getTime() : 0
+            return da - db
+          })
+          if (sorted.length > 0) {
+            setDateDebut(sorted[0].date_debut || '')
+            setDateFin(sorted[sorted.length - 1].date_fin || '')
+          }
+        }
       }
       if (!options.preserveSiteSelection) {
         const nextSite = data.selected_site_id != null ? String(data.selected_site_id) : ''
@@ -170,6 +214,58 @@ function GroupsPage({ onNavigate }) {
       }
     }
   }
+
+  // Charger les dates min/max disponibles depuis l'API
+  useEffect(() => {
+    const loadDateRange = async () => {
+      try {
+        const rangeData = await apiFetch('/api/sites/date-range')
+        if (rangeData && (rangeData.min_date || rangeData.max_date)) {
+          if (rangeData.max_date) {
+            const maxDate = new Date(rangeData.max_date)
+            const thirtyDaysAgo = new Date(maxDate)
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+            
+            if (!dateFin) {
+              setDateFin(rangeData.max_date)
+            }
+            if (!dateDebut) {
+              if (rangeData.min_date) {
+                const minDate = new Date(rangeData.min_date)
+                if (thirtyDaysAgo < minDate) {
+                  setDateDebut(rangeData.min_date)
+                } else {
+                  setDateDebut(thirtyDaysAgo.toISOString().split('T')[0])
+                }
+              } else {
+                setDateDebut(thirtyDaysAgo.toISOString().split('T')[0])
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Impossible de charger la plage de dates:', err)
+      }
+    }
+    loadDateRange()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Charger la liste des sites depuis l'API pour le filtre dynamique
+  useEffect(() => {
+    const loadSitesList = async () => {
+      try {
+        const data = await apiFetch('/api/sites/')
+        if (data && Array.isArray(data.sites)) {
+          setAvailableSites(data.sites)
+        }
+      } catch (err) {
+        console.warn('Impossible de charger la liste des sites:', err)
+        setAvailableSites([])
+      }
+    }
+    loadSitesList()
+  }, [])
 
   useEffect(() => {
     loadGroupsData()
@@ -187,6 +283,8 @@ function GroupsPage({ onNavigate }) {
   const runFilters = async (next = {}) => {
     if (next.rapportDebut != null) setRapportDebut(next.rapportDebut)
     if (next.rapportFin != null) setRapportFin(next.rapportFin)
+    if (next.dateDebut != null) setDateDebut(next.dateDebut)
+    if (next.dateFin != null) setDateFin(next.dateFin)
     if (next.siteId === undefined) return
     const site = next.siteId
     setSiteId(site)
@@ -281,21 +379,22 @@ function GroupsPage({ onNavigate }) {
           />
 
           <form className="groups-filter-bar" onSubmit={(event) => event.preventDefault()}>
-            <Select
-              label="Date — début"
-              id="rapport_debut"
-              value={rapportDebut}
+            <DateRangeFilter
+              rapportChoices={groupsData.rapport_choices || []}
+              dateDebut={dateDebut}
+              dateFin={dateFin}
               disabled={filtering}
-              onChange={(event) => runFilters({ rapportDebut: event.target.value })}
-              options={(groupsData.rapport_choices || []).map((choice) => ({ label: choice.label, value: String(choice.id) }))}
-            />
-            <Select
-              label="Date — fin"
-              id="rapport_fin"
-              value={rapportFin}
-              disabled={filtering}
-              onChange={(event) => runFilters({ rapportFin: event.target.value })}
-              options={(groupsData.rapport_choices || []).map((choice) => ({ label: choice.label, value: String(choice.id) }))}
+              label="Relevé"
+              onDateDebutChange={(value) => {
+                setDateDebut(value)
+                const rapportId = dateToRapportId(value)
+                if (rapportId) setRapportDebut(rapportId)
+              }}
+              onDateFinChange={(value) => {
+                setDateFin(value)
+                const rapportId = dateToRapportId(value)
+                if (rapportId) setRapportFin(rapportId)
+              }}
             />
             <Select
               label="Site"
@@ -303,7 +402,13 @@ function GroupsPage({ onNavigate }) {
               value={siteId}
               disabled={filtering}
               onChange={(event) => runFilters({ siteId: event.target.value })}
-              options={(groupsData.sites || []).map((site) => ({ label: site.nom_site, value: String(site.id) }))}
+              options={[
+                { label: 'Tous les sites', value: '' },
+                ...((availableSites.length > 0
+                  ? availableSites
+                  : (groupsData.sites || [])
+                ).map((site) => ({ label: site.nom_site, value: String(site.id) }))),
+              ]}
             />
             <Select
               label="Affichage"
@@ -321,6 +426,12 @@ function GroupsPage({ onNavigate }) {
               ]}
             />
           </form>
+          {dateDebut && dateFin && (
+            <p className="group-block-note">
+              <span className="date-filter-info">Données réelles</span>
+              Période sélectionnée : du <strong>{parseDate(dateDebut)?.toLocaleDateString('fr-FR') || '—'}</strong> au <strong>{parseDate(dateFin)?.toLocaleDateString('fr-FR') || '—'}</strong>
+            </p>
+          )}
 
           {(mode !== 'all' && siteId) && (
             <section className="metric-section">

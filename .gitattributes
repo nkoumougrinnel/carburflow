@@ -5,3 +5,6 @@
 # Bytecode / cache Python : ne pas compter comme code source
 **/__pycache__/** linguist-generated
 *.pyc linguist-generated
+
+# Scripts shell : toujours LF (un CRLF casse l'entrypoint Docker en Linux)
+*.sh text eol=lf

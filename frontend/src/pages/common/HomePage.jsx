@@ -165,12 +165,13 @@ const benefits = [
 ]
 
 const team = [
-  { name: 'Daniel Beni', role: 'Frontend et UX', image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=900&q=80' },
-  { name: 'Grinnel Germain', role: 'Backend et logique métier', image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=900&q=80' },
-  { name: 'Evijo', role: 'Fullstack', image: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=900&q=80' },
-  { name: 'Rayanne Kengne', role: 'Données et import', image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=900&q=80' },
-  { name: 'Divine Ndzana', role: 'Contribution métier', image: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?auto=format&fit=crop&w=900&q=80' },
-  { name: '003bnb', role: 'Contribution technique', image: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=900&q=80' },
+  { name: 'BALAWE NDIKWA BIENVENU', role: 'Backend & Data Engineer', image: '/assets/team_ultime/balawe.jpeg' },
+  { name: 'SOUNDJOCK NDZANA MARIE ZACHARIE', role: 'Chef projet et Contribution métier', image: '/assets/team_ultime/soundjock.jpeg' },
+  { name: 'DANIEL BENI MPODOL WELISAN', role: 'Frontend et UX', image: '/assets/team_ultime/daniel.jpeg' },
+  { name: 'NKOUMOU TJADE GRINNEL GERMAIN', role: 'Backend et logique métier', image: '/assets/team_ultime/nkoumou.jpeg' },
+  { name: 'EVINA MBAHO ERIC', role: 'Fullstack', image: '/assets/team_ultime/evina.jpeg' },
+  { name: 'DJOUKOUO KENGNE ANGE RAYANNE', role: 'Données et import', image: '/assets/team_ultime/djoukouo.jpeg' },
+  
 ]
 
 function HomePage({ onNavigate }) {
@@ -557,13 +558,18 @@ function HomePage({ onNavigate }) {
                 <p className="mt-4 text-slate-600">
                   Une équipe orientée produit, analyse, sécurité et exploitation, avec un objectif simple : rendre lisible le suivi carburant sur un parc technique large et hétérogène.
                 </p>
-                <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {/* Cartes membres — pop-out 3D au survol (styles : /assets/team_ultime/team_ultime_style.css) */}
+                <link rel="stylesheet" href="/assets/team_ultime/team_ultime_style.css" />
+                <div className="tu-grid">
                   {team.map((person) => (
-                    <div key={person.name} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                      <img src={person.image} alt={person.name} className="unsplash-ph h-28 w-full rounded-xl object-cover" loading="lazy" />
-                      <div className="mt-3">
-                        <p className="font-semibold text-slate-900">{person.name}</p>
-                        <p className="text-sm text-slate-500">{person.role}</p>
+                    <div key={person.name} className="tu-card">
+                      <div className="tu-wrapper">
+                        <img src={person.image} alt="" aria-hidden="true" className="tu-cover" loading="lazy" />
+                      </div>
+                      <img src={person.image} alt={person.name} className="tu-character" loading="lazy" />
+                      <div className="tu-title">
+                        <h3>{person.name}</h3>
+                        <p>{person.role}</p>
                       </div>
                     </div>
                   ))}

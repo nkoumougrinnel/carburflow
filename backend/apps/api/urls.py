@@ -47,6 +47,8 @@ from apps.api.views.analytics import (
     SiteAnalyticsAPIView as SitesDashboardAPIView,
     SystemOverviewAPIView as DashboardOverviewAPIView,
     EquipmentAnalyticsAPIView as GroupesAPIView,
+    SitesDateRangeAPIView,
+    SitesListAPIView,
 )
 from apps.api.views.base import HealthAPIView
 
@@ -90,6 +92,8 @@ urlpatterns = [
     path('dashboard/overview', DashboardOverviewAPIView.as_view(), name='dashboard-overview'),
     path('dashboard/groupes', GroupesAPIView.as_view(), name='dashboard-groupes'),
     path('dashboard/cuves', SitesDashboardAPIView.as_view(), name='dashboard-cuves'),
+    path('sites/date-range', SitesDateRangeAPIView.as_view(), name='sites-date-range'),
+    path('sites/', SitesListAPIView.as_view(), name='sites-list'),
     path('alertes/', AlerteListAPIView.as_view(), name='alertes-list'),
     path('alertes/traitements', AlertTreatmentsAPIView.as_view(), name='alertes-traitements'),
     path('alertes/traiter', AlertTreatAPIView.as_view(), name='alertes-traiter'),

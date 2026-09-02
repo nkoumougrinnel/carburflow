@@ -18,6 +18,8 @@ import {
   normeMeta,
   uploadRapport,
 } from '@/auth.js'
+import { DateRangeFilter } from '@/components/DateRangeFilter.jsx'
+import { parseDate } from '@/hooks/useDateFilter.js'
 
 function formatDate(value) {
   if (!value) return '—'
@@ -360,17 +362,18 @@ function ReportsPage({ onNavigate }) {
                 {/* 4. BLOC DE FILTRES HORIZONTAL */}
                 <form className="op-envois-filters-bar" onSubmit={handleApplyFilter}>
                   <div className="op-envois-filter-group">
-                    <Input
-                      label="Du"
-                      type="date"
-                      value={filterDebut}
-                      onChange={(e) => setFilterDebut(e.target.value)}
-                    />
-                    <Input
-                      label="au"
-                      type="date"
-                      value={filterFin}
-                      onChange={(e) => setFilterFin(e.target.value)}
+                    <DateRangeFilter
+                      rapportChoices={rapports.map((r) => ({
+                        id: r.id,
+                        label: `Relevé #${r.id}`,
+                        date_debut: r.date_debut,
+                        date_fin: r.date_fin,
+                      }))}
+                      dateDebut={filterDebut}
+                      dateFin={filterFin}
+                      label="Période"
+                      onDateDebutChange={(value) => setFilterDebut(value)}
+                      onDateFinChange={(value) => setFilterFin(value)}
                     />
                   </div>
 

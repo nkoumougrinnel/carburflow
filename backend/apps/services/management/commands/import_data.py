@@ -88,12 +88,12 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f'cuves principales  : {stats.cuves_principales}'))
         self.stdout.write(self.style.SUCCESS(f'groupes            : {stats.groupes}'))
         self.stdout.write(self.style.SUCCESS(f'cuves journalières : {stats.cuves_journalieres}'))
-        self.stdout.write(self.style.SUCCESS(f'liaisons CJ↔groupe : {stats.liaisons_cj_groupe}'))
+        self.stdout.write(self.style.SUCCESS(f'liaisons CJ<->groupe : {stats.liaisons_cj_groupe}'))
         self.stdout.write(
             self.style.SUCCESS(f'rapports / lignes  : {stats.rapports} / {stats.lignes}')
         )
         for warning in stats.warnings:
-            self.stdout.write(self.style.WARNING(f'  ⚠ {warning}'))
+            self.stdout.write(self.style.WARNING(f'  WARN: {warning}'))
         if stats.missing_files:
             self.stdout.write(
                 self.style.WARNING(f'Fichiers absents/vides : {", ".join(stats.missing_files)}')
