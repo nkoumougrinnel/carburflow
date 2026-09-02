@@ -8,9 +8,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, __dirname, '')
-  // Activer avec: VITE_TUNNEL=1 npm run dev
+  // Activer avec: npm run dev:tunnel (fonctionne sur Windows, macOS et Linux)
+  // ou: VITE_TUNNEL=1 npm run dev / $env:VITE_TUNNEL='1'; npm run dev (PowerShell)
   // (requis pour Dev Tunnels / Cloudflare — HMR en wss:443)
-  const tunnel = env.VITE_TUNNEL === '1' || process.env.VITE_TUNNEL === '1'
+  // NB: la syntaxe « VITE_TUNNEL=1 vite » du script npm ne fonctionne pas sous
+  // Windows (cmd.exe), on accepte donc aussi le flag CLI --tunnel.
+  const tunnel =
+    env.VITE_TUNNEL === '1' ||
+    process.env.VITE_TUNNEL === '1' ||
+    process.argv.includes('--tunnel')
 
   return {
     plugins: [react(), tailwindcss()],
@@ -18,6 +24,13 @@ export default defineConfig(({ mode }) => {
       alias: {
         '@': path.resolve(__dirname, './src'),
       },
+    },
+    build: {
+      // Le bundle est volontairement mono-chunk (dashboard interne). Au-delà
+      // de 500 kB, Vite écrit un avertissement sur stderr que Windows
+      // PowerShell affiche comme une erreur rouge « NativeCommandError ».
+      // On relève la limite pour garder une sortie console propre.
+      chunkSizeWarningLimit: 1600,
     },
     server: {
       host: true,

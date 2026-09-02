@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Bell, CheckCircle, AlertTriangle, Info, X, Archive } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext.jsx'
 import { apiFetch, listAlertes } from '@/auth.js'

@@ -103,12 +103,23 @@ function ProfilePage({ onNavigate }) {
 
   const mePane = (
     <div className="saas-profile">
-
+      <header className="saas-profile-hero cf-hover-lift">
+        <div className="saas-profile-avatar" aria-hidden="true">{initialsFromUser(user)}</div>
+        <div className="saas-profile-hero-copy">
+          <h2>{displayName}</h2>
+          <p>{user?.email || '—'}</p>
+          <span className={`saas-profile-role saas-profile-role--${role || 'user'}`}>
+            {ROLE_LABELS[role] || 'Consultation'}
+          </span>
+        </div>
+      </header>
 
       <div className="saas-profile-grid">
         <form className="saas-profile-panel" onSubmit={handleProfileSubmit}>
           <div className="saas-profile-panel-head">
-            <UserRound size={18} aria-hidden="true" />
+            <span className="saas-profile-panel-icon saas-profile-panel-icon--primary" aria-hidden="true">
+              <UserRound size={18} />
+            </span>
             <div>
               <h3>Informations du compte</h3>
               <p>Nom affiché et identifiant de connexion.</p>
@@ -163,7 +174,9 @@ function ProfilePage({ onNavigate }) {
 
         <form className="saas-profile-panel" onSubmit={handlePasswordSubmit}>
           <div className="saas-profile-panel-head">
-            <KeyRound size={18} aria-hidden="true" />
+            <span className="saas-profile-panel-icon saas-profile-panel-icon--amber" aria-hidden="true">
+              <KeyRound size={18} />
+            </span>
             <div>
               <h3>Sécurité</h3>
               <p>Changez votre mot de passe. Vous restez connecté.</p>

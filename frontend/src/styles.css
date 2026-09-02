@@ -11200,3 +11200,161 @@ body {
     transform: none !important;
   }
 }
+/* ============================================================
+   AMÉLIORATIONS VISUELLES — AJOUTS (aucune suppression)
+   1) Profil : badges de rôle colorés + icônes de panneaux + avatar dégradé
+   2) Dashboard : carte "Alertes" renforcée en rouge
+   3) Dashboard : pastille rouge animée "Notifications d'alertes"
+   4) Page Alertes : halo sur les cartes critiques
+   ============================================================ */
+
+/* --- 1. Profil : badge de rôle selon le rôle --- */
+.saas-profile-role--admin {
+  color: #b45309;
+  background: color-mix(in srgb, #f59e0b 14%, var(--panel));
+  border-color: color-mix(in srgb, #f59e0b 45%, transparent);
+}
+
+.saas-profile-role--operateur {
+  color: #0e7490;
+  background: color-mix(in srgb, #06b6d4 12%, var(--panel));
+  border-color: color-mix(in srgb, #06b6d4 40%, transparent);
+}
+
+.saas-profile-role--user,
+.saas-profile-role--viewer {
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, var(--panel));
+  border-color: color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
+[data-theme="dark"] .saas-profile-role--admin,
+html[data-theme="dark"] .saas-profile-role--admin {
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .saas-profile-role--operateur,
+html[data-theme="dark"] .saas-profile-role--operateur {
+  color: #22d3ee;
+}
+
+/* --- 1. Profil : pastille d'icône des panneaux --- */
+.saas-profile-panel-icon {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+}
+
+.saas-profile-panel-icon--primary {
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+
+.saas-profile-panel-icon--amber {
+  color: #b45309;
+  background: color-mix(in srgb, #f59e0b 16%, transparent);
+}
+
+[data-theme="dark"] .saas-profile-panel-icon--amber,
+html[data-theme="dark"] .saas-profile-panel-icon--amber {
+  color: #fbbf24;
+}
+
+/* --- 1. Profil : avatar en dégradé (même taille, plus de profondeur) --- */
+.saas-profile-avatar {
+  background: linear-gradient(135deg, var(--primary) 0%, color-mix(in srgb, var(--primary) 55%, #0ea5e9) 100%);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--primary) 28%, transparent);
+}
+
+/* --- 2. Dashboard : carte de synthèse "Alertes" (danger) renforcée --- */
+.dashboard-summary-card--danger {
+  border-color: color-mix(in srgb, #dc2626 40%, var(--border));
+  background: linear-gradient(160deg, color-mix(in srgb, #dc2626 7%, var(--panel)), var(--panel));
+  box-shadow: inset 3px 0 0 #dc2626;
+}
+
+button.dashboard-summary-card--link.dashboard-summary-card--danger:not(:disabled):hover {
+  box-shadow: 0 10px 26px color-mix(in srgb, #dc2626 20%, transparent), inset 3px 0 0 #dc2626;
+}
+
+.dashboard-summary-card--danger p {
+  color: color-mix(in srgb, #b91c1c 70%, var(--muted));
+}
+
+[data-theme="dark"] .dashboard-summary-card--danger,
+html[data-theme="dark"] .dashboard-summary-card--danger {
+  border-color: color-mix(in srgb, #f87171 45%, var(--border));
+}
+
+[data-theme="dark"] .dashboard-summary-card--danger p,
+html[data-theme="dark"] .dashboard-summary-card--danger p {
+  color: #fca5a5;
+}
+
+/* --- 3. Dashboard : pastille rouge animée devant "Notifications d'alertes" --- */
+@keyframes alertDotPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.45); }
+  50%      { box-shadow: 0 0 0 5px rgba(220, 38, 38, 0.08); }
+}
+
+.alert-section-head h3 {
+  position: relative;
+  padding-left: 1.15rem;
+}
+
+.alert-section-head h3::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #dc2626;
+  animation: alertDotPulse 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alert-section-head h3::before {
+    animation: none;
+  }
+}
+
+/* --- 4. Page Alertes : halo renforcé sur les cartes critiques --- */
+.alx-card--critical {
+  box-shadow: 0 4px 18px color-mix(in srgb, #dc2626 10%, transparent);
+}
+
+.alx-card--critical:hover {
+  box-shadow: 0 10px 30px color-mix(in srgb, #dc2626 18%, transparent);
+}
+
+.alx-card--critical .alx-card-rail {
+  box-shadow: 0 0 12px color-mix(in srgb, #dc2626 55%, transparent);
+}
+
+/* --- 5. Espace visuel : respiration accrue (ajouts doux) --- */
+.dashboard-summary-grid {
+  gap: clamp(14px, 1.6vw, 20px);
+}
+
+.alert-section-head {
+  gap: 20px;
+}
+
+.alert-list--compact {
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.saas-profile-grid {
+  gap: clamp(1rem, 1.7vw, 1.5rem);
+}
+
+.saas-profile-hero {
+  margin-bottom: clamp(1.15rem, 2.2vw, 1.6rem);
+}

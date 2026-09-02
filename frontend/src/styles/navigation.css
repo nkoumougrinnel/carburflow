@@ -753,3 +753,41 @@
     font-size: var(--font-size-base);
   }
 }
+/* ============================================================
+   AJOUTS — Alertes en rouge dans la navigation
+   ============================================================ */
+
+/* Burger avec alertes actives -> teinte rouge */
+.topbar-burger.has-alerts {
+  color: #dc2626;
+  background: color-mix(in srgb, #dc2626 10%, transparent);
+  border-color: color-mix(in srgb, #dc2626 35%, transparent);
+}
+
+.topbar-burger.has-alerts:hover {
+  background: color-mix(in srgb, #dc2626 16%, transparent);
+}
+
+/* Item mobile "Alertes" quand au moins une alerte est active */
+.mobile-menu-item--alert {
+  color: #dc2626;
+}
+
+.mobile-menu-item--alert .mobile-menu-item-icon {
+  color: #dc2626;
+}
+
+.mobile-menu-item--alert:hover {
+  background: color-mix(in srgb, #dc2626 10%, transparent);
+  color: #b91c1c;
+}
+
+.mobile-menu-item--alert.active {
+  background: color-mix(in srgb, #dc2626 14%, transparent);
+  color: #b91c1c;
+}
+
+.mobile-menu-item--alert .mobile-menu-item-badge {
+  background: #dc2626;
+  color: #fff;
+}

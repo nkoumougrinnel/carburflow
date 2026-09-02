@@ -149,7 +149,7 @@ function Topbar({ activeView, onNavigate }) {
             </button>
             <NotificationPanel isOpen={notificationPanelTriggerOpen} onClose={() => setNotificationPanelTriggerOpen(false)} unreadCount={unreadMessages} />
           </div>
-          <button type="button" className="topbar-burger" aria-label={mobileMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'} aria-expanded={mobileMenuOpen} onClick={() => setMobileMenuOpen((v) => !v)}>
+          <button type="button" className={`topbar-burger${isAdmin && activeAlertsCount > 0 ? ' has-alerts' : ''}`} aria-label={mobileMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'} aria-expanded={mobileMenuOpen} onClick={() => setMobileMenuOpen((v) => !v)}>
             {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
             {!mobileMenuOpen && isAdmin && activeAlertsCount > 0 && <AnimatedBadge count={activeAlertsCount} variant="danger" animationType="bounce" />}
           </button>

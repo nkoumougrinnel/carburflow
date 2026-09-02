@@ -86,7 +86,7 @@ function MobileMenu({ isOpen, onClose, activeView, activeAlertsCount = 0 }) {
               <button
                 key={item.id}
                 type="button"
-                className={`mobile-menu-item ${isActive ? 'active' : ''}`}
+                className={`mobile-menu-item ${isActive ? 'active' : ''}${badge ? ' mobile-menu-item--alert' : ''}`}
                 onClick={() => handleNavigate(item.id)}
                 aria-current={isActive ? 'page' : undefined}
                 aria-label={item.label}
