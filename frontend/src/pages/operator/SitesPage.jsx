@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Building2, ChevronDown, ArrowLeft, Layers } from 'lucide-react'
+import { Building2, ChevronDown, Layers, Fuel } from 'lucide-react'
 import Topbar from '@/components/Topbar.jsx'
 import WelcomeBanner from '@/components/WelcomeBanner.jsx'
 import PageEnter from '@/components/PageEnter.jsx'
@@ -7,6 +7,12 @@ import PageLoader from '@/components/PageLoader.jsx'
 import { apiFetch } from '@/auth.js'
 import { StatusBadge } from '@/components/ui/status-badge.jsx'
 import { TankGauge } from '@/components/ui/tank-gauge.jsx'
+import {
+  SiteDetailBack,
+  SiteDetailHeader,
+  SiteDetailLayout,
+  SiteMainTankBlock,
+} from '@/components/site/SiteDetail.jsx'
 
 function OperatorSitesPage({ onNavigate }) {
   const [sitesDashboard, setSitesDashboard] = useState(null)
@@ -58,7 +64,7 @@ function OperatorSitesPage({ onNavigate }) {
       const capacity = series.capacity || 3000
       const cpId = series.cp_identifiant || `CP${String(series.id).padStart(3, '0')}`
       const percent = capacity > 0 ? (latestVolume / capacity) * 100 : 0
-      
+
       const autonomyInfo = sitesDashboard.autonomyBySite?.[siteIdStr] || {}
       const groups = sitesDashboard.groupsBySite?.[siteIdStr] || []
 
@@ -71,7 +77,6 @@ function OperatorSitesPage({ onNavigate }) {
       const formattedAutonomy = autonomyInfo.formatted_autonomy || '—'
       const groupLabels = groups.map(g => g.label).join(', ') || '—'
 
-      // Cuves journalières rattachées au site
       const siteCjs = cuvesJournalieres.filter(cj => String(cj.site_id) === siteIdStr || String(cj.cuve_principale) === siteIdStr)
 
       return {
@@ -101,7 +106,7 @@ function OperatorSitesPage({ onNavigate }) {
   const filteredSites = useMemo(() => {
     return parsedSites.filter((site) => {
       if (selectedSiteId !== 'ALL' && String(site.id) !== String(selectedSiteId)) return false
-      
+
       if (selectedLevelFilter === 'CRITICAL' && site.statusKey !== 'CRITICAL') return false
       if (selectedLevelFilter === 'WARNING' && site.statusKey !== 'WARNING') return false
       if (selectedLevelFilter === 'NORMAL' && site.statusKey !== 'NORMAL') return false
@@ -126,172 +131,118 @@ function OperatorSitesPage({ onNavigate }) {
   }
 
   /* ═══════════════════════════════════════════
-     VUE DÉTAIL — quand un site est sélectionné
+     NIVEAU 2 — Vue détail Opérateur
+     Socle commun + bande autonomie/consommation + cuves journalières.
      ═══════════════════════════════════════════ */
   if (selectedSite) {
-    const volumeDisponible = Math.max(0, selectedSite.capacity - selectedSite.currentVolume)
     const groupsCount = selectedSite.groups.length
+    const statusVariant =
+      selectedSite.statusKey === 'CRITICAL' ? 'critical' :
+      selectedSite.statusKey === 'WARNING' ? 'warning' : 'neutral'
+    const statusLabel =
+      selectedSite.statusKey === 'CRITICAL' ? 'Critique' :
+      selectedSite.statusKey === 'WARNING' ? 'À surveiller' :
+      selectedSite.statusKey === 'INDETERMINATE' ? 'Indéterminée' :
+      selectedSite.statusKey === 'OFF' ? 'Sans fonctionnement' : 'Opérationnel'
 
     return (
       <div className="app-shell">
         <Topbar activeView="sites" onNavigate={onNavigate} />
         <PageEnter>
           <main className="user-home">
+            <SiteDetailBack onBack={() => setSelectedSiteId('ALL')} />
 
-            <button
-                type="button"
-                className="op-btn-back"
-                onClick={() => setSelectedSiteId('ALL')}
-                style={{ marginTop: '0.8rem' }}
-              >
-                <ArrowLeft size={15} />
-                <span>Retour aux sites</span>
-              </button>
-
-            {/* En-tête du site */}
-            <article className="group-card" style={{ position: 'relative', borderLeft: '4px solid #0b3d7a', padding: '1.5rem' }}>
-              <div style={{ position: 'absolute', top: '1.2rem', right: '1.2rem' }}>
-                <StatusBadge
-                  variant={
-                    selectedSite.statusKey === 'CRITICAL' ? 'critical' :
-                    selectedSite.statusKey === 'WARNING' ? 'warning' : 'neutral'
-                  }
-                  size="sm"
-                >
-                  {selectedSite.statusKey === 'CRITICAL' ? 'Critique' :
-                   selectedSite.statusKey === 'WARNING' ? 'À surveiller' :
-                   selectedSite.statusKey === 'INDETERMINATE' ? 'Indéterminée' :
-                   selectedSite.statusKey === 'OFF' ? 'Sans fonctionnement' : 'Normal'}
-                </StatusBadge>
-              </div>
-
-              <div className="section-title-wrap">
-                <span className="metric-label">Sites</span>
-                <h2>{selectedSite.nom}</h2>
-              </div>
-              <p style={{ margin: '0.3rem 0 0', color: 'var(--muted)', fontSize: '0.92rem' }}>
-                Site · {selectedSite.cpIdentifiant} · {groupsCount} groupe{groupsCount > 1 ? 's' : ''}
-              </p>
-
-              <div className="op-tank-main-layout">
-                {/* À gauche : grande cuve */}
-                <TankGauge
-                  variant="vertical"
-                  size="lg"
-                  percent={selectedSite.percent}
-                  currentVolume={selectedSite.currentVolume}
-                  capacity={selectedSite.capacity}
+            <SiteDetailLayout>
+              {/* Socle commun : en-tête + cuve principale */}
+              <article className="site-detail-card">
+                <SiteDetailHeader
+                  site={selectedSite}
+                  kicker="Sites"
+                  subtitle={`${selectedSite.cpIdentifiant} · ${groupsCount} groupe${groupsCount > 1 ? 's' : ''}`}
+                  rightSlot={<StatusBadge variant={statusVariant} size="sm">{statusLabel}</StatusBadge>}
                 />
+                <SiteMainTankBlock site={selectedSite} />
 
-                {/* À droite : métriques essentielles + Autonomie */}
-                <div className="op-tank-main-metrics">
-                  <div className="op-tank-metric">
-                    <strong className="op-tank-metric-value">
-                      {selectedSite.currentVolume.toLocaleString('fr-FR')} L
-                    </strong>
-                    <span className="op-tank-metric-label">Niveau actuel</span>
-                  </div>
-
-                  <div className="op-tank-metric">
-                    <strong className="op-tank-metric-value">
-                      {Math.round(selectedSite.percent)} %
-                    </strong>
-                    <span className="op-tank-metric-label">Niveau de remplissage</span>
-                  </div>
-
-                  <div className="op-tank-metric">
-                    <strong className="op-tank-metric-value">
-                      {selectedSite.capacity.toLocaleString('fr-FR')} L
-                    </strong>
-                    <span className="op-tank-metric-label">Capacité totale</span>
-                  </div>
-
-                  <div className="op-tank-metric">
-                    <strong className="op-tank-metric-value">
-                      {volumeDisponible.toLocaleString('fr-FR')} L
-                    </strong>
-                    <span className="op-tank-metric-label">Volume disponible</span>
-                  </div>
-
-                  <div className="op-tank-metric">
-                    <strong className="op-tank-metric-value" style={{ color: 'var(--primary)' }}>
-                      {selectedSite.formattedAutonomy}
-                    </strong>
-                    <span className="op-tank-metric-label">Autonomie estimée</span>
-                  </div>
+                {/* Bande opérationnelle : autonomie + consommation */}
+                <div className="site-main-metrics-grid" style={{ marginTop: '0.4rem' }}>
+                  <article className="site-main-metric-card site-main-metric-card--emphasis">
+                    <span className="site-main-metric-label">Autonomie estimée</span>
+                    <strong className="site-main-metric-value">{selectedSite.formattedAutonomy}</strong>
+                  </article>
+                  <article className="site-main-metric-card">
+                    <span className="site-main-metric-label">Conso. moyenne / h</span>
+                    <strong className="site-main-metric-value">—</strong>
+                  </article>
                 </div>
-              </div>
+              </article>
 
-            </article>
-
-            
-
-            {/* Section CUVES JOURNALIÈRES */}
-            <section className="op-section-panel">
-              <div className="op-section-header">
-                <div>
-                  <span className="op-section-kicker">Stockage journalier</span>
-                  <h2>Cuves journalières</h2>
-                  <p>Cuves secondaires rattachées aux groupes électrogènes du site.</p>
-                </div>
-              </div>
-
-              {selectedSite.cuvesJournalieres.length === 0 ? (
-                <div className="op-empty-card">
-                  <Layers size={24} className="text-muted" />
+              {/* Bloc Opérateur — cuves journalières */}
+              <section className="site-detail-section" aria-label="Cuves journalières">
+                <div className="site-detail-section-head">
                   <div>
-                    <strong>Aucune cuve journalière configurée</strong>
-                    <p>Ce site utilise directement la cuve principale.</p>
+                    <span className="metric-label">Stockage journalier</span>
+                    <h3>Cuves journalières</h3>
                   </div>
+                  <span className="site-detail-section-count">
+                    {selectedSite.cuvesJournalieres.length} cuve{selectedSite.cuvesJournalieres.length > 1 ? 's' : ''}
+                  </span>
                 </div>
-              ) : (
-                <div className="cj-cards-grid">
-                  {selectedSite.cuvesJournalieres.map((cj) => {
-                    const cap = cj.capacite || 1000
-                    const cjPct = selectedSite.percent
-                    const cjVol = Math.round((cjPct / 100) * cap)
-                    const groupLabel = cj.groupe_electrogene_identifiant || cj.groupe_electrogene || selectedSite.groupLabels || 'Groupe G1'
 
-                    return (
-                      <article key={cj.id} className="cj-card">
-                        <TankGauge
-                          variant="vertical"
-                          size="md"
-                          percent={cjPct}
-                          currentVolume={cjVol}
-                          capacity={cap}
-                        />
-                        <div className="op-tank-main-metrics">
-                          <div className="op-tank-metric">
-                            <strong className="op-tank-metric-value">{cj.identifiant || `CJ${cj.id}`}</strong>
-                            <span className="op-tank-metric-label">Identifiant</span>
-                          </div>
-                          <div className="op-tank-metric">
-                            <strong className="op-tank-metric-value">{cjVol.toLocaleString('fr-FR')} L</strong>
-                            <span className="op-tank-metric-label">Niveau actuel</span>
-                          </div>
-                          <div className="op-tank-metric">
-                            <strong className="op-tank-metric-value">{Math.round(cjPct)} %</strong>
-                            <span className="op-tank-metric-label">Remplissage</span>
-                          </div>
-                          <div className="op-tank-metric">
-                            <strong className="op-tank-metric-value">{cap.toLocaleString('fr-FR')} L</strong>
-                            <span className="op-tank-metric-label">Capacité</span>
-                          </div>
-                          <div className="op-tank-metric">
-                            <strong className="op-tank-metric-value" style={{ color: 'var(--primary)' }}>
-                              {groupLabel}
-                            </strong>
-                            <span className="op-tank-metric-label">Groupe alimenté</span>
-                          </div>
-                        </div>
-                      </article>
-                    )
-                  })}
-                </div>
-              )}
-            </section>
+                {selectedSite.cuvesJournalieres.length === 0 ? (
+                  <div className="site-attached-groups-empty">
+                    <Layers size={20} className="text-muted" />
+                    <div>Aucune cuve journalière configurée pour ce site.</div>
+                  </div>
+                ) : (
+                  <div className="cj-cards-grid">
+                    {selectedSite.cuvesJournalieres.map((cj) => {
+                      const cap = cj.capacite || 1000
+                      const cjPct = selectedSite.percent
+                      const cjVol = Math.round((cjPct / 100) * cap)
+                      const groupLabel = cj.groupe_electrogene_identifiant || cj.groupe_electrogene || selectedSite.groupLabels || '—'
 
+                      const isCritical = cjPct < 20
+                      const isWarning = !isCritical && cjPct < 40
+                      const cjBadgeVariant = isCritical ? 'critical' : isWarning ? 'warning' : 'success'
+                      const cjBadgeLabel = isCritical ? 'Critique' : isWarning ? 'Surveillance' : 'Active'
+
+                      return (
+                        <article key={cj.id} className="cj-card">
+                          <TankGauge
+                            variant="vertical"
+                            size="md"
+                            percent={cjPct}
+                            currentVolume={cjVol}
+                            capacity={cap}
+                          />
+                          <div className="site-main-metrics-grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+                            <div className="site-main-metric-card">
+                              <span className="site-main-metric-label">Niveau</span>
+                              <strong className="site-main-metric-value">{cjVol.toLocaleString('fr-FR')} / {cap.toLocaleString('fr-FR')} L</strong>
+                            </div>
+                            <div className="site-main-metric-card">
+                              <span className="site-main-metric-label">Remplissage</span>
+                              <strong className="site-main-metric-value">{Math.round(cjPct)} %</strong>
+                            </div>
+                            <div className="site-main-metric-card" style={{ gridColumn: '1 / -1' }}>
+                              <span className="site-main-metric-label">Groupe alimenté</span>
+                              <strong className="site-main-metric-value" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                <Fuel size={14} />
+                                {groupLabel}
+                              </strong>
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <span className="metric-label">{cj.identifiant || `CJ${cj.id}`}</span>
+                            <StatusBadge variant={cjBadgeVariant} size="sm">{cjBadgeLabel}</StatusBadge>
+                          </div>
+                        </article>
+                      )
+                    })}
+                  </div>
+                )}
+              </section>
+            </SiteDetailLayout>
           </main>
         </PageEnter>
       </div>
@@ -322,7 +273,6 @@ function OperatorSitesPage({ onNavigate }) {
             </div>
           )}
 
-          {/* 3 Filtres Opérateur : Site, Niveau, Autonomie */}
           <div className="op-filters-bar">
             <div className="op-filter-field">
               <label htmlFor="op-sites-select">Site</label>
@@ -378,7 +328,6 @@ function OperatorSitesPage({ onNavigate }) {
             </div>
           </div>
 
-          {/* Liste "Mes sites" */}
           <section className="op-section-panel">
             <div className="op-section-header">
               <div>

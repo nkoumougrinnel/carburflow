@@ -103,17 +103,6 @@ function ProfilePage({ onNavigate }) {
 
   const mePane = (
     <div className="saas-profile">
-      <header className="saas-profile-hero">
-        <div className="saas-profile-avatar" aria-hidden="true">{initialsFromUser(user)}</div>
-        <div className="saas-profile-hero-copy">
-          <h2>{displayName}</h2>
-          <p>{user?.email || '—'}</p>
-          <span className={`saas-profile-role saas-profile-role--${role || 'user'}`}>
-            {ROLE_LABELS[role] || 'Consultation'}
-          </span>
-        </div>
-      </header>
-
       <div className="saas-profile-grid">
         <form className="saas-profile-panel" onSubmit={handleProfileSubmit}>
           <div className="saas-profile-panel-head">

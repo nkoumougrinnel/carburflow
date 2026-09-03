@@ -1,55 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Building2, ChevronDown, ArrowLeft } from 'lucide-react'
+import { Building2, ChevronDown } from 'lucide-react'
 import Topbar from '@/components/Topbar.jsx'
 import WelcomeBanner from '@/components/WelcomeBanner.jsx'
 import PageEnter from '@/components/PageEnter.jsx'
 import PageLoader from '@/components/PageLoader.jsx'
 import { apiFetch } from '@/auth.js'
 import { ViewerStatusBadge } from './HomePage.jsx'
-
-/**
- * Grande cuve verticale — élément visuel dominant de la page détail.
- */
-function LargeTankGauge({ percent }) {
-  const safePercent = Math.min(100, Math.max(0, percent || 0))
-  let fillGradient = 'linear-gradient(180deg, #10b981 0%, #059669 100%)'
-  let glowColor = 'rgba(16, 185, 129, 0.25)'
-
-  if (safePercent < 20) {
-    fillGradient = 'linear-gradient(180deg, #ef4444 0%, #b91c1c 100%)'
-    glowColor = 'rgba(239, 68, 68, 0.35)'
-  } else if (safePercent < 40) {
-    fillGradient = 'linear-gradient(180deg, #f59e0b 0%, #d97706 100%)'
-    glowColor = 'rgba(245, 158, 11, 0.3)'
-  }
-
-  return (
-    <div className="viewer-tank-large-wrap">
-      <div className="viewer-tank-large">
-        <div className="viewer-tank-large-cap" />
-        <div className="viewer-tank-large-body">
-          <div className="viewer-tank-large-ticks">
-            <span className="viewer-tank-large-tick" style={{ bottom: '75%' }}>75%</span>
-            <span className="viewer-tank-large-tick" style={{ bottom: '50%' }}>50%</span>
-            <span className="viewer-tank-large-tick" style={{ bottom: '25%' }}>25%</span>
-          </div>
-          <div
-            className="viewer-tank-large-liquid"
-            style={{
-              height: `${safePercent}%`,
-              background: fillGradient,
-              boxShadow: `0 0 18px ${glowColor}`,
-            }}
-          >
-            <div className="viewer-tank-large-surface" />
-          </div>
-          <div className="viewer-tank-large-shine" />
-        </div>
-        <div className="viewer-tank-large-base" />
-      </div>
-    </div>
-  )
-}
+import {
+  SiteDetailBack,
+  SiteDetailHeader,
+  SiteDetailLayout,
+  SiteMainTankBlock,
+} from '@/components/site/SiteDetail.jsx'
 
 function HorizontalTankGauge({ percent, currentVolume, capacity }) {
   const safePercent = Math.min(100, Math.max(0, percent || 0))
@@ -151,79 +113,25 @@ function UserSitesPage({ onNavigate }) {
   }
 
   /* ═══════════════════════════════════════════
-     VUE DÉTAIL — quand un site est sélectionné
+     NIVEAU 1 — Vue détail Utilisateur
+     Cuve principale uniquement (bidon + 4 métriques).
      ═══════════════════════════════════════════ */
   if (selectedSite) {
-    const volumeDisponible = Math.max(0, selectedSite.capacity - selectedSite.currentVolume)
-
     return (
       <div className="app-shell">
         <Topbar activeView="sites" onNavigate={onNavigate} />
         <PageEnter>
           <main className="user-home">
+            <SiteDetailBack onBack={() => setSelectedSiteId('ALL')} />
 
-            {/* Bouton retour discret */}
-              <button
-                type="button"
-                className="viewer-btn-back"
-                onClick={() => setSelectedSiteId('ALL')}
-                style={{ marginTop: '0.8rem' }}
-              >
-                <ArrowLeft size={15} />
-                <span>Retour aux sites</span>
-              </button>
-
-            {/* En-tête du site — même structure que SitesPage admin */}
-            <article className="group-card" style={{ position: 'relative', borderLeft: '4px solid #0b3d7a', padding: '1.5rem' }}>
-
-              {/* Badge unique en haut à droite */}
-              <div style={{ position: 'absolute', top: '1.2rem', right: '1.2rem' }}>
-                <ViewerStatusBadge statusKey={selectedSite.statusKey} />
-              </div>
-
-              <div className="section-title-wrap">
-                <span className="metric-label">Site</span>
-                <h2>{selectedSite.nom}</h2>
-              </div>
-              <p style={{ margin: '0.3rem 0 0', color: 'var(--muted)', fontSize: '0.92rem' }}>
-                État de la cuve principale
-              </p>
-
-              <div className="viewer-tank-main-layout">
-                {/* À gauche : grande cuve */}
-                <LargeTankGauge percent={selectedSite.percent} />
-
-                {/* À droite : les 4 métriques essentielles */}
-                <div className="viewer-tank-main-metrics">
-                  <div className="viewer-tank-metric">
-                    <strong className="viewer-tank-metric-value">
-                      {selectedSite.currentVolume.toLocaleString('fr-FR')} L
-                    </strong>
-                    <span className="viewer-tank-metric-label">Niveau actuel</span>
-                  </div>
-
-                  <div className="viewer-tank-metric">
-                    <strong className="viewer-tank-metric-value">
-                      {Math.round(selectedSite.percent)} %
-                    </strong>
-                    <span className="viewer-tank-metric-label">Niveau de remplissage</span>
-                  </div>
-
-                  <div className="viewer-tank-metric">
-                    <strong className="viewer-tank-metric-value">
-                      {selectedSite.capacity.toLocaleString('fr-FR')} L
-                    </strong>
-                    <span className="viewer-tank-metric-label">Capacité totale</span>
-                  </div>
-
-                  <div className="viewer-tank-metric">
-                    <strong className="viewer-tank-metric-value">
-                      {volumeDisponible.toLocaleString('fr-FR')} L
-                    </strong>
-                    <span className="viewer-tank-metric-label">Volume disponible</span>
-                  </div>
-                </div>
-              </div>
+            <article className="site-detail-card">
+              <SiteDetailHeader
+                site={selectedSite}
+                kicker="Site"
+                subtitle="Cuve principale"
+                rightSlot={<ViewerStatusBadge statusKey={selectedSite.statusKey} />}
+              />
+              <SiteMainTankBlock site={selectedSite} />
             </article>
           </main>
         </PageEnter>

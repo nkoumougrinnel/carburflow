@@ -1251,7 +1251,7 @@ button.alert-item--link {
   vertical-align: middle;
 }
 
-.autonomy-badge--sm { font-size: 0.95rem; padding: 0.4rem 0.8rem; min-width: 0; }
+.autonomy-badge--sm { font-size: 0.7rem; padding: 0.15rem 0.5rem; min-width: 0; }
 .autonomy-badge--lg {
   flex-direction: column;
   align-items: flex-end;
@@ -11618,4 +11618,454 @@ body {
   background: rgba(255, 255, 255, 0.24);
   transform: translateY(-2px);
   box-shadow: 0 6px 18px rgba(8, 30, 45, 0.28);
+}
+
+/* ============================================================
+   SOCLE COMMUN — Détail site (Utilisateur, Opérateur, Admin)
+   Même langage visuel pour les 3 rôles.
+   ============================================================ */
+
+.site-detail-layout {
+  display: grid;
+  gap: 1.4rem;
+}
+
+.site-btn-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: fit-content;
+  padding: 0.55rem 0.9rem;
+  margin-top: 0.6rem;
+  background: var(--primary);
+  border: 1px solid var(--primary);
+  border-radius: 8px;
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+  box-shadow: 0 5px 14px color-mix(in srgb, var(--primary) 22%, transparent);
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.site-btn-back:hover {
+  background: color-mix(in srgb, var(--primary) 86%, #000);
+  border-color: color-mix(in srgb, var(--primary) 86%, #000);
+  transform: translateY(-1px);
+}
+
+.site-btn-back:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--primary) 55%, #fff);
+  outline-offset: 3px;
+}
+
+.site-detail-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  box-shadow: var(--shadow);
+  padding: 1.6rem 1.8rem;
+  position: relative;
+  display: grid;
+  gap: 1.4rem;
+}
+
+.site-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.site-detail-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.site-detail-header-text h2 {
+  margin: 0;
+  color: var(--primary);
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.site-detail-header-sub {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.site-detail-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+/* Bloc principal : bidon à gauche + 4 métriques individuelles à droite */
+.site-main-tank-block {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) 1fr;
+  gap: 2rem;
+  align-items: center;
+}
+
+.site-main-tank-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.site-main-tank-percent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.site-main-tank-percent strong {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--primary);
+  line-height: 1;
+}
+
+.site-main-tank-fraction {
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.site-main-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.site-main-metric-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.site-main-metric-card--emphasis {
+  border-color: var(--primary);
+  background: linear-gradient(180deg, var(--panel), rgba(59, 130, 246, 0.06));
+}
+
+.site-main-metric-label {
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.site-main-metric-value {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+@media (max-width: 899px) {
+  .site-main-tank-block {
+    grid-template-columns: 1fr;
+    gap: 1.4rem;
+  }
+  .site-main-metrics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .site-main-metrics-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Section header partagé */
+.site-detail-section {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  box-shadow: var(--shadow);
+  padding: 1.6rem 1.8rem;
+  display: grid;
+  gap: 1.1rem;
+}
+
+.site-detail-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.site-detail-section-head h3 {
+  margin: 0;
+  color: var(--primary);
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.site-detail-section-head .site-detail-section-count {
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+/* ============================================================
+   Bloc "Groupes rattachés" — Admin
+   ============================================================ */
+
+.site-attached-group-link {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+  font: inherit;
+  color: inherit;
+}
+
+.site-attached-group-link:hover {
+  border-color: var(--primary);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow);
+}
+
+.site-attached-group-name {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.site-attached-group-cta {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.site-attached-groups-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.site-attached-groups-empty {
+  margin: 0;
+  padding: 1rem 1.1rem;
+  background: var(--bg);
+  border: 1px dashed var(--border);
+  border-radius: 14px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+/* ============================================================
+   Analyse — Admin (3 graphiques côte à côte)
+   ============================================================ */
+
+.site-analysis-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.2rem;
+}
+
+@media (max-width: 1100px) {
+  .site-analysis-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================================
+   PeriodFilter — Barre de filtre de relevés unifiée
+   Une seule ligne : boutons rapides + (toggle) sélecteur de période
+   ============================================================ */
+
+.period-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 0.7rem 1rem;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.period-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  flex: 0 0 auto;
+  min-width: max-content;
+}
+
+.period-filter-label {
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.period-filter-quick {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.25rem;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.period-filter-quick-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: transparent;
+  border: none;
+  padding: 0.5rem 0.9rem;
+  border-radius: 9px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.period-filter-quick-btn:hover {
+  background: color-mix(in srgb, var(--primary-2) 8%, transparent);
+  color: var(--text);
+}
+
+.period-filter-quick-btn.is-active {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-2) 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(11, 61, 122, 0.25);
+}
+
+.period-filter-dates {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.7rem;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.period-filter-dates .date-filter-field {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: none;
+  flex-direction: row;
+}
+
+.period-filter-dates .date-filter-field label {
+  margin: 0;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.period-filter-dates .date-input-wrap,
+.period-filter-dates input[type="date"] {
+  width: 9.5rem;
+}
+
+.period-filter-dates input[type="date"] {
+  min-width: 0;
+}
+
+.period-filter-apply {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.6rem 1.1rem;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-2) 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(11, 61, 122, 0.25);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.period-filter-apply:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(11, 61, 122, 0.35);
+}
+
+.period-filter-apply:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.period-filter-reset {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem 0.9rem;
+  background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.period-filter-reset:hover {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary-2) 8%, transparent);
+}
+
+@media (max-width: 720px) {
+  .period-filter-bar {
+    align-items: center;
+  }
+
+  .period-filter-dates .date-filter-field {
+    flex: 0 0 auto;
+  }
 }

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Download, Upload, History, Search, Trash2, CheckCircle2, Sparkles, PlusCircle, FileSpreadsheet, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react'
+import { Download, Upload, History, Trash2, CheckCircle2, Sparkles, PlusCircle, FileSpreadsheet, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react'
 import Topbar from '@/components/Topbar.jsx'
 import PageEnter from '@/components/PageEnter.jsx'
 import WelcomeBanner from '@/components/WelcomeBanner.jsx'
@@ -18,7 +18,7 @@ import {
   normeMeta,
   uploadRapport,
 } from '@/auth.js'
-import { DateRangeFilter } from '@/components/DateRangeFilter.jsx'
+import { PeriodFilter } from '@/components/DateRangeFilter.jsx'
 import { parseDate } from '@/hooks/useDateFilter.js'
 
 function formatDate(value) {
@@ -109,6 +109,7 @@ function ReportsPage({ onNavigate }) {
   const [filterDebut, setFilterDebut] = useState('')
   const [filterFin, setFilterFin] = useState('')
   const [appliedFilter, setAppliedFilter] = useState({ debut: '', fin: '' })
+  const [activeQuick, setActiveQuick] = useState('all')
   
   const [page, setPage] = useState(1)
   const pageSize = 10
@@ -239,16 +240,11 @@ function ReportsPage({ onNavigate }) {
     }
   }
 
-  const handleApplyFilter = (e) => {
-    e?.preventDefault?.()
-    setAppliedFilter({ debut: filterDebut, fin: filterFin })
-    setPage(1)
-  }
-
   const handleResetFilter = () => {
     setFilterDebut('')
     setFilterFin('')
     setAppliedFilter({ debut: '', fin: '' })
+    setActiveQuick('all')
     setPage(1)
   }
 
@@ -359,62 +355,36 @@ function ReportsPage({ onNavigate }) {
             {(pane === 'download' || isAdmin) && (
               <section className="reports-download-flow">
                 
-                {/* 4. BLOC DE FILTRES HORIZONTAL */}
-                <form className="op-envois-filters-bar" onSubmit={handleApplyFilter}>
-                  <div className="op-envois-filter-group">
-                    <DateRangeFilter
-                      rapportChoices={rapports.map((r) => ({
-                        id: r.id,
-                        label: `Relevé #${r.id}`,
-                        date_debut: r.date_debut,
-                        date_fin: r.date_fin,
-                      }))}
-                      dateDebut={filterDebut}
-                      dateFin={filterFin}
-                      label="Période"
-                      onDateDebutChange={(value) => setFilterDebut(value)}
-                      onDateFinChange={(value) => setFilterFin(value)}
-                    />
-                  </div>
-
-                  <div className="op-envois-filter-actions">
-                    <Button
-                      variant="primary"
-                      type="submit"
-                      className="reports-btn--primary"
-                    >
-                      <Search size={16} />
-                      Voir les relevés
-                    </Button>
-
-                    {(appliedFilter.debut || appliedFilter.fin) && (
-                      <Button
-                        variant="secondary"
-                        onClick={handleResetFilter}
-                        className="op-btn-secondary"
-                        style={{ padding: '0.55rem 0.9rem' }}
-                      >
-                        Réinitialiser
-                      </Button>
-                    )}
-                  </div>
-                </form>
+                {/* 4. BLOC DE FILTRES HORIZONTAL — boutons rapides + sélecteur de période spécifique */}
+                <PeriodFilter
+                  rapportChoices={rapports.map((r) => ({
+                    id: r.id,
+                    label: `Relevé #${r.id}`,
+                    date_debut: r.date_debut,
+                    date_fin: r.date_fin,
+                  }))}
+                  dateDebut={filterDebut}
+                  dateFin={filterFin}
+                  activeQuick={activeQuick}
+                  onQuickChange={setActiveQuick}
+                  onDateDebutChange={(value) => setFilterDebut(value)}
+                  onDateFinChange={(value) => setFilterFin(value)}
+                  onApply={(range) => {
+                    setAppliedFilter(range || { debut: filterDebut, fin: filterFin })
+                    setPage(1)
+                  }}
+                  onReset={() => {
+                    setFilterDebut('')
+                    setFilterFin('')
+                    setAppliedFilter({ debut: '', fin: '' })
+                    setActiveQuick('all')
+                    setPage(1)
+                  }}
+                />
 
                 {feedbackBlocks}
 
-                {/* 8. SECTION MES RELEVÉS TRANSMIS */}
-                <div className="op-section-header" style={{ marginTop: '1rem', marginBottom: '0.8rem' }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                      <h2>{isAdmin ? 'Historique' : 'Derniers relevés'}</h2>
-                      <span className="reports-consult-filter-count" style={{ fontSize: '0.88rem', padding: '0.2rem 0.6rem' }}>
-                        {filteredRapports.length} relevé{filteredRapports.length > 1 ? 's' : ''}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 9. TABLEAU DES RELEVÉS TRANSMIS */}
+                {/* TABLEAU DES RELEVÉS TRANSMIS */}
                 {loadingList ? (
                   <div className="reports-skeleton">
                     {[1, 2, 3].map((i) => <div key={i} className="reports-skeleton-row" />)}

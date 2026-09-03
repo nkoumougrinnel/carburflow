@@ -4,10 +4,8 @@ import Topbar from '@/components/Topbar.jsx'
 import WelcomeBanner from '@/components/WelcomeBanner.jsx'
 import { EmptyState } from '@/components/ui/empty-state.jsx'
 import { Select } from '@/components/ui/select.jsx'
-import Button from '@/components/ui/button.jsx'
-import { StatusBadge } from '@/components/ui/status-badge.jsx'
-import { apiFetch } from '@/auth.js'
 import AutonomyBadge from '@/components/AutonomyBadge.jsx'
+import { apiFetch } from '@/auth.js'
 import PageLoader from '@/components/PageLoader.jsx'
 import PageEnter from '@/components/PageEnter.jsx'
 import PeriodLineChart from '@/components/PeriodLineChart.jsx'
@@ -16,48 +14,37 @@ import { formatAutonomyValue, getAutonomySeverity } from '@/utils/format.js'
 import { windowStats } from '@/utils/stats.js'
 import { aggregateSeries, aggregateHoursSeries } from '@/utils/chart-utils.js'
 import { deltaClass, ecartTitle, formatEcartPct } from '@/utils/ecart.js'
-import { normalizePersistedAlert } from '@/utils/alerts.js'
 import { DateRangeFilter } from '@/components/DateRangeFilter.jsx'
 import { parseDate } from '@/hooks/useDateFilter.js'
-
-function formatWhen(value) {
-  if (!value) return '—'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return '—'
-  return date.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
-}
+import {
+  SiteDetailBack,
+  SiteDetailHeader,
+  SiteDetailLayout,
+  SiteMainTankBlock,
+} from '@/components/site/SiteDetail.jsx'
 
 function SitesPage({ onNavigate }) {
   const [sitesDashboard, setsitesDashboard] = useState(null)
   const [loadError, setLoadError] = useState('')
   const [startIdx, setStartIdx] = useState(0)
   const [endIdx, setEndIdx] = useState(0)
-  const [siteId, setSiteId] = useState('') // Par défaut : chaîne vide = "Tous les sites"
-  const [siteAlerts, setSiteAlerts] = useState({})
+  const [siteId, setSiteId] = useState('')
   const [chartPan, setChartPan] = useState(0)
-  // États pour les dates basées sur les données réelles de l'API
   const [dateDebut, setDateDebut] = useState('')
   const [dateFin, setDateFin] = useState('')
-  // États pour les données dynamiques来自于 l'API
-  const [availableDateRange, setAvailableDateRange] = useState(null) // {min_date, max_date, reports_count}
-  const [availableSites, setAvailableSites] = useState([]) // Liste des sites depuis l'API
+  const [availableDateRange, setAvailableDateRange] = useState(null)
+  const [availableSites, setAvailableSites] = useState([])
 
   const querySiteId = useMemo(() => new URLSearchParams(window.location.search).get('siteId'), [])
   const querySiteName = useMemo(() => new URLSearchParams(window.location.search).get('siteName'), [])
   const queryMode = useMemo(() => new URLSearchParams(window.location.search).get('mode'), [])
   const [mode, setMode] = useState(queryMode || (querySiteId ? 'details' : 'all'))
 
-  /**
-   * Convertit une date ISO en index de période correspondant.
-   * @param {string} dateIso
-   * @returns {number}
-   */
   const dateToIndex = (dateIso) => {
     if (!dateIso || !sitesDashboard?.labels?.length) return 0
     const labels = sitesDashboard.labels
     const target = parseDate(dateIso)
     if (!target) return 0
-    // Chercher l'index qui correspond à cette date
     for (let i = 0; i < labels.length; i++) {
       const labelDate = parseDate(labels[i])
       if (labelDate && labelDate >= target) {
@@ -93,30 +80,6 @@ function SitesPage({ onNavigate }) {
     )
   }
 
-  // Fonction pour charger les alertes du site
-  const loadSiteAlerts = useCallback(async () => {
-    try {
-      const rows = await apiFetch('/api/alertes/?etat=actives').catch(() => [])
-      const normalized = (Array.isArray(rows) ? rows : [])
-        .map(normalizePersistedAlert)
-        .filter(Boolean)
-        .filter((a) => !a.traitee)
-      const bySite = {}
-      normalized.forEach((alert) => {
-        const sid = alert.site_id ? String(alert.site_id) : null
-        if (sid) {
-          if (!bySite[sid]) bySite[sid] = []
-          bySite[sid].push(alert)
-        }
-      })
-      setSiteAlerts(bySite)
-    } catch (err) {
-      console.warn('Impossible de charger les alertes par site:', err)
-      setSiteAlerts({})
-    }
-  }, [])
-
-  // Charger les dates min/max disponibles depuis l'API
   useEffect(() => {
     const loadDateRange = async () => {
       try {
@@ -127,17 +90,14 @@ function SitesPage({ onNavigate }) {
             max_date: rangeData.max_date,
             reports_count: rangeData.reports_count || 0,
           })
-          // Initialiser les dates : fin = max_date, début = max_date - 30 jours (borné par min_date)
           if (rangeData.max_date) {
             setDateFin(rangeData.max_date)
-            // Calculer la date de début (max_date - 30 jours)
             const maxDate = new Date(rangeData.max_date)
             const thirtyDaysAgo = new Date(maxDate)
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-            
+
             if (rangeData.min_date) {
               const minDate = new Date(rangeData.min_date)
-              // Ne pas dépasser min_date
               if (thirtyDaysAgo < minDate) {
                 setDateDebut(rangeData.min_date)
               } else {
@@ -156,7 +116,6 @@ function SitesPage({ onNavigate }) {
     loadDateRange()
   }, [])
 
-  // Charger la liste des sites depuis l'API
   useEffect(() => {
     const loadSitesList = async () => {
       try {
@@ -196,7 +155,6 @@ function SitesPage({ onNavigate }) {
           defaultSiteId: data.defaultSiteId,
           rapport_choices: data.rapport_choices || [],
         })
-        await loadSiteAlerts()
       } catch (error) {
         console.warn('Site backend unavailable.', error)
         setsitesDashboard(null)
@@ -204,9 +162,8 @@ function SitesPage({ onNavigate }) {
       }
     }
     loadSitesData()
-  }, [loadSiteAlerts])
+  }, [])
 
-  // Liste de sites : on utilise celle de l'API en priorité, sinon fallback sur les données du dashboard
   const siteOptions = useMemo(() => {
     if (availableSites.length > 0) {
       return availableSites.map((site) => ({
@@ -234,8 +191,6 @@ function SitesPage({ onNavigate }) {
       const { first, last } = defaultPeriodIndices(sitesDashboard.labels.length)
       setStartIdx(first)
       setEndIdx(last)
-      // Les dates sont déjà initialisées par le useEffect loadDateRange via l'API /api/sites/date-range
-      // Si pas de dateRange dynamique disponible, fallback sur rapport_choices du dashboard
       if (!availableDateRange && sitesDashboard.rapport_choices?.length > 0) {
         const sorted = [...sitesDashboard.rapport_choices].sort((a, b) => {
           const da = a.date_debut ? new Date(a.date_debut).getTime() : 0
@@ -342,13 +297,6 @@ function SitesPage({ onNavigate }) {
     })
   }
 
-  const openSiteAlerts = (siteId) => {
-    onNavigate?.({
-      view: 'alerts',
-      siteId: siteId,
-    })
-  }
-
   const siteTableRows = useMemo(() => {
     if (!sitesDashboard?.volumeSeries?.length) return []
     const filteredSites = siteId
@@ -359,19 +307,15 @@ function SitesPage({ onNavigate }) {
       const consumptionSeries = (sitesDashboard.consumptionSeries || []).find((entry) => String(entry.id) === String(site.id))?.data || []
       const matchingHours = (sitesDashboard.hoursSeries || []).find((entry) => String(entry.id) === String(site.id))
       const hoursSeries = matchingHours ? aggregateHoursSeries([matchingHours]) : []
-      const siteIdStr = String(site.id)
-      const alerts = siteAlerts[siteIdStr] || []
       return {
         id: site.id,
         nom_site: site.nom_site,
         volume: windowStats(volumeSeries, periodStart, periodEnd),
         consumption: windowStats(consumptionSeries, periodStart, periodEnd, { ignoreZeros: true }),
         hours: windowStats(hoursSeries, periodStart, periodEnd, { ignoreZeros: true }),
-        alerts,
-        alertsCount: alerts.length,
       }
     })
-  }, [sitesDashboard, periodStart, periodEnd, siteId, siteAlerts])
+  }, [sitesDashboard, periodStart, periodEnd, siteId])
 
   useEffect(() => {
     if (mode === 'all') return undefined
@@ -402,6 +346,183 @@ function SitesPage({ onNavigate }) {
         ) : (
           <PageLoader label="Chargement des sites…" />
         )}
+      </div>
+    )
+  }
+
+  /* ═══════════════════════════════════════════
+     NIVEAU 3 — Vue détail Admin/Responsable
+     Socle commun + groupes rattachés (cliquables) + analyse (3 charts).
+     Aucun bloc "Alertes du site".
+     ═══════════════════════════════════════════ */
+  if (mode !== 'all' && selectedSite) {
+    const latestVolume = siteVolumeData?.[siteVolumeData.length - 1] ?? 0
+    const capacity = selectedSite?.capacity ?? 3000
+    const percent = capacity > 0 ? (latestVolume / capacity) * 100 : 0
+    const siteForTank = {
+      id: selectedSite.id,
+      nom: selectedSite.nom_site || selectedSite.label || `Site ${selectedSite.id}`,
+      currentVolume: Math.round(latestVolume),
+      capacity: Math.round(capacity),
+      percent: Number(percent.toFixed(1)),
+    }
+    const cpId = selectedSite.cp_identifiant || `CP${String(selectedSite.id).padStart(3, '0')}`
+
+    return (
+      <div className="app-shell dashboard-shell">
+        <Topbar activeView="sites" onNavigate={onNavigate} />
+
+        <PageEnter>
+          <main className="page-layout groups-grid">
+            <SiteDetailBack onBack={() => { setSiteId(''); setMode('all') }} />
+
+            <SiteDetailLayout>
+              {/* Socle commun : en-tête + cuve principale (4 métriques) */}
+              <article className="site-detail-card">
+                <SiteDetailHeader
+                  site={siteForTank}
+                  kicker="Sites"
+                  subtitle={cpId}
+                  rightSlot={siteAutonomy ? (
+                    <AutonomyBadge
+                      entity={siteAutonomy}
+                      size="md"
+                      aria-label={`Temps restant : ${formatAutonomyValue(siteAutonomy)}`}
+                    />
+                  ) : null}
+                />
+                <SiteMainTankBlock site={siteForTank} />
+              </article>
+
+              {/* Groupes rattachés — cliquables, navigation existante conservée */}
+              <section className="site-detail-section" aria-label="Groupes rattachés">
+                <div className="site-detail-section-head">
+                  <div>
+                    <span className="metric-label">Groupes rattachés</span>
+                    <h3>Groupes électrogènes du site</h3>
+                  </div>
+                  <span className="site-detail-section-count">
+                    {siteAttachedGroups.length} groupe{siteAttachedGroups.length > 1 ? 's' : ''}
+                  </span>
+                </div>
+                {siteAttachedGroups.length > 0 ? (
+                  <ul className="site-attached-groups-list">
+                    {siteAttachedGroups.map((group) => (
+                      <li key={group.id}>
+                        <button
+                          type="button"
+                          className="site-attached-group-link"
+                          onClick={() => openGroup(group)}
+                          title={`Ouvrir le groupe ${group.label}`}
+                        >
+                          <span className="site-attached-group-name">{group.label}</span>
+                          <AutonomyBadge entity={group} size="sm" showLabel={false} />
+                          <span className="site-attached-group-cta">Voir →</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="site-attached-groups-empty">
+                    Aucun groupe électrogène rattaché à ce site.
+                  </p>
+                )}
+              </section>
+
+              {/* Analyse — 3 graphiques côte à côte */}
+              <section className="site-detail-section" aria-label="Analyse">
+                <div className="site-detail-section-head">
+                  <div>
+                    <span className="metric-label">Analyse</span>
+                    <h3>Vue analytique du site</h3>
+                  </div>
+                </div>
+                <div className="site-analysis-grid">
+                  <article className="metric-panel site-metric-card">
+                    <span className="metric-label">Delta horaire</span>
+                    <h3>Delta horaire</h3>
+                    <div className="site-metric-stack">
+                      <div>
+                        <span>Total sur la période</span>
+                        <strong>{siteHoursStats.total.toFixed(1)} h</strong>
+                        {renderDelta(siteHoursStats)}
+                      </div>
+                      <div>
+                        <span>Delta horaire moyen</span>
+                        <strong>{siteHoursStats.mean.toFixed(1)} h</strong>
+                        {renderMeanDelta(siteHoursStats)}
+                      </div>
+                    </div>
+                    <div className={`chart-box secondary-box${canScroll ? ' is-scrollable' : ''}`}>
+                      <PeriodLineChart
+                        data={sliceChart(siteHoursData)}
+                        labels={chartLabels}
+                        fullLabels={chartFullLabels}
+                        color="#3b82f6"
+                        unit="h"
+                        strokeWidth={3}
+                      />
+                    </div>
+                  </article>
+
+                  <article className="metric-panel site-metric-card">
+                    <span className="metric-label">Consommation</span>
+                    <h3>Consommation</h3>
+                    <div className="site-metric-stack">
+                      <div>
+                        <span>Total sur la période</span>
+                        <strong>{siteConsumptionStats.total.toFixed(1)} L</strong>
+                        {renderDelta(siteConsumptionStats)}
+                      </div>
+                      <div>
+                        <span>Consommation moyenne</span>
+                        <strong>{siteConsumptionStats.mean.toFixed(1)} L</strong>
+                        {renderMeanDelta(siteConsumptionStats)}
+                      </div>
+                    </div>
+                    <div className={`chart-box secondary-box${canScroll ? ' is-scrollable' : ''}`}>
+                      <PeriodLineChart
+                        data={sliceChart(siteConsumptionData)}
+                        labels={chartLabels}
+                        fullLabels={chartFullLabels}
+                        color="#60a5fa"
+                        unit="L"
+                        strokeWidth={3}
+                      />
+                    </div>
+                  </article>
+
+                  <article className="metric-panel site-metric-card">
+                    <span className="metric-label">Stock</span>
+                    <h3>Volume stock</h3>
+                    <div className="site-metric-stack">
+                      <div>
+                        <span>Dernière valeur</span>
+                        <strong>{siteVolumeStats.latest.toFixed(1)} L</strong>
+                        {renderDelta(siteVolumeStats, '', true)}
+                      </div>
+                      <div>
+                        <span>Volume moyen</span>
+                        <strong>{siteVolumeStats.mean.toFixed(1)} L</strong>
+                        {renderMeanDelta(siteVolumeStats, '', true)}
+                      </div>
+                    </div>
+                    <div className={`chart-box secondary-box${canScroll ? ' is-scrollable' : ''}`}>
+                      <PeriodLineChart
+                        data={sliceChart(siteVolumeData)}
+                        labels={chartLabels}
+                        fullLabels={chartFullLabels}
+                        color="#0b3d7a"
+                        unit="L"
+                        strokeWidth={3}
+                      />
+                    </div>
+                  </article>
+                </div>
+              </section>
+            </SiteDetailLayout>
+          </main>
+        </PageEnter>
       </div>
     )
   }
@@ -473,7 +594,6 @@ function SitesPage({ onNavigate }) {
             </p>
           )}
 
-          {/* État vide dynamique : pas de données disponibles */}
           {availableDateRange && availableDateRange.reports_count === 0 && (
             <EmptyState
               icon={<CircleAlert size={40} />}
@@ -499,7 +619,6 @@ function SitesPage({ onNavigate }) {
                       <th style={{ textAlign: 'right' }}>Consommation</th>
                       <th style={{ textAlign: 'right' }}>Évolution</th>
                       <th style={{ textAlign: 'center' }}>Autonomie</th>
-                      <th style={{ textAlign: 'center' }}>Alertes</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -507,7 +626,6 @@ function SitesPage({ onNavigate }) {
                       siteTableRows.map((site) => {
                         const siteAut = sitesDashboard?.autonomyBySite?.[String(site.id)] || {}
                         const severity = getAutonomySeverity(siteAut)
-                        const alertsCount = site.alertsCount || 0
                         return (
                           <tr
                             key={site.id}
@@ -544,31 +662,12 @@ function SitesPage({ onNavigate }) {
                             <td style={{ textAlign: 'center' }}>
                               <AutonomyBadge entity={siteAut} size="sm" />
                             </td>
-                            <td style={{ textAlign: 'center' }}>
-                              {alertsCount > 0 ? (
-                                <Button
-                                  type="button"
-                                  variant="danger"
-                                  size="sm"
-                                  className="site-alert-chip"
-                                  title={`${alertsCount} alerte${alertsCount > 1 ? 's' : ''} active${alertsCount > 1 ? 's' : ''}`}
-                                  onClick={(event) => {
-                                    event.stopPropagation()
-                                    openSiteAlerts(site.id)
-                                  }}
-                                >
-                                  {alertsCount} {alertsCount > 1 ? 'alertes' : 'alerte'}
-                                </Button>
-                              ) : (
-                                <span className="site-alert-none" style={{ color: '#6b7280' }}>—</span>
-                              )}
-                            </td>
                           </tr>
                         )
                       })
                     ) : (
                       <tr>
-                        <td colSpan={6}>
+                        <td colSpan={5}>
                           <EmptyState
                             icon={<div className="text-muted">📍</div>}
                             title="Aucun site disponible"
@@ -581,222 +680,7 @@ function SitesPage({ onNavigate }) {
                 </table>
               </div>
             </section>
-          ) : (
-            <article
-              key={selectedSite?.id || 'site-details'}
-              className="group-card"
-              style={{
-                position: 'relative',
-                borderLeft: `4px solid ${selectedSite?.color || '#0b3d7a'}`,
-                padding: '1.5rem'
-              }}
-            >
-              <section className="site-overview">
-                {/* Badge d'autonomie en haut à droite */}
-                {selectedSite && siteAutonomy && (
-                  <div className="site-autonomy-float" aria-label={`Temps restant : ${formatAutonomyValue(siteAutonomy)}`}>
-                    <AutonomyBadge entity={siteAutonomy} size="lg" />
-                  </div>
-                )}
-
-                <div className="section-title-wrap">
-                  <span className="metric-label">Sites</span>
-                  <h2>{selectedSite?.nom_site || 'Tous les sites'}</h2>
-                </div>
-
-                {/* Groupes rattachés */}
-                {mode === 'details' && selectedSite && (
-                  <section className="site-attached-groups" aria-label="Groupes rattachés">
-                    <div className="site-attached-groups-head">
-                      <strong>Groupes rattachés</strong>
-                      <span>
-                        {siteAttachedGroups.length
-                          ? `${siteAttachedGroups.length} groupe${siteAttachedGroups.length > 1 ? 's' : ''}`
-                          : 'Aucun'}
-                      </span>
-                    </div>
-                    {siteAttachedGroups.length > 0 ? (
-                      <ul className="site-attached-groups-list">
-                        {siteAttachedGroups.map((group) => {
-                          const groupSeverity = getAutonomySeverity(group)
-                          return (
-                            <li key={group.id}>
-                              <button
-                                type="button"
-                                className="site-attached-group-link"
-                                onClick={() => openGroup(group)}
-                                title={`Ouvrir le groupe ${group.label}`}
-                              >
-                                <span className="site-attached-group-name">{group.label}</span>
-                                <AutonomyBadge entity={group} size="sm" showLabel={false} />
-                                <span className={`site-attached-group-meta autonomy-row--${groupSeverity}`}>Temps restant</span>
-                                <span className="site-attached-group-cta">Voir →</span>
-                              </button>
-                            </li>
-                          )
-                        })}
-                      </ul>
-                    ) : (
-                      <p className="site-attached-groups-empty">
-                        Aucun groupe électrogène rattaché à ce site.
-                      </p>
-                    )}
-                  </section>
-                )}
-
-                {/* Alertes du site */}
-                {mode === 'details' && selectedSite && (() => {
-                  const siteIdStr = String(selectedSite.id)
-                  const alerts = siteAlerts[siteIdStr] || []
-                  if (alerts.length === 0) return null
-                  return (
-                    <section className="site-alerts-section" aria-label="Alertes du site">
-                      <div className="site-alerts-head">
-                        <strong>Alertes du site</strong>
-                        <span>{alerts.length} alerte{alerts.length > 1 ? 's' : ''}</span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openSiteAlerts(selectedSite.id)}
-                        >
-                          Voir toutes →
-                        </Button>
-                      </div>
-                      <ul className="site-alerts-list">
-                        {alerts.slice(0, 5).map((alert) => {
-                          const severityClass = alert.severity || 'medium'
-                          const label = alert.priority || 'Moyenne'
-                          return (
-                            <li key={alert.id} className="site-alert-item">
-                              <span className={`alx-pill alx-pill--${severityClass}`}>{label}</span>
-                              <span className="site-alert-date">{formatWhen(alert.detected_at)}</span>
-                              <span className="site-alert-title">{alert.title}</span>
-                              {alert.subtitle && (
-                                <span className="site-alert-subtitle">{alert.subtitle}</span>
-                              )}
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="site-alert-link"
-                                onClick={() => onNavigate?.({
-                                  view: 'alerts',
-                                  alertId: alert.id,
-                                  siteId: selectedSite.id,
-                                })}
-                              >
-                                Voir →
-                              </Button>
-                            </li>
-                          )
-                        })}
-                        {alerts.length > 5 && (
-                          <li className="site-alert-more">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openSiteAlerts(selectedSite.id)}
-                            >
-                              +{alerts.length - 5} autres alertes
-                            </Button>
-                          </li>
-                        )}
-                      </ul>
-                    </section>
-                  )
-                })()}
-
-                {/* 3 graphiques côte à côte */}
-                <div className="site-metrics-grid" style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(3, 1fr)',
-                  gap: '1.5rem',
-                  marginBottom: '2rem'
-                }}>
-                  <article className="metric-panel site-metric-card">
-                    <span className="metric-label">Delta horaire</span>
-                    <h3>{selectedSite ? 'Delta horaire' : 'Delta horaire cumulé'}</h3>
-                    <div className="site-metric-stack">
-                      <div>
-                        <span>Total sur la période de la courbe</span>
-                        <strong>{siteHoursStats.total.toFixed(1)} h</strong>
-                        {renderDelta(siteHoursStats)}
-                      </div>
-                      <div>
-                        <span>Delta horaire moyen</span>
-                        <strong>{siteHoursStats.mean.toFixed(1)} h</strong>
-                        {renderMeanDelta(siteHoursStats)}
-                      </div>
-                    </div>
-                    <div className={`chart-box secondary-box${canScroll ? ' is-scrollable' : ''}`}>
-                      <PeriodLineChart
-                        data={sliceChart(siteHoursData)}
-                        labels={chartLabels}
-                        fullLabels={chartFullLabels}
-                        color="#3b82f6"
-                        unit="h"
-                        strokeWidth={3}
-                      />
-                    </div>
-                  </article>
-
-                  <article className="metric-panel site-metric-card">
-                    <span className="metric-label">Consommation</span>
-                    <h3>{selectedSite ? 'Consommation' : 'Consommation cumulée'}</h3>
-                    <div className="site-metric-stack">
-                      <div>
-                        <span>Total sur la période de la courbe</span>
-                        <strong>{siteConsumptionStats.total.toFixed(1)} L</strong>
-                        {renderDelta(siteConsumptionStats)}
-                      </div>
-                      <div>
-                        <span>Consommation moyenne</span>
-                        <strong>{siteConsumptionStats.mean.toFixed(1)} L</strong>
-                        {renderMeanDelta(siteConsumptionStats)}
-                      </div>
-                    </div>
-                    <div className={`chart-box secondary-box${canScroll ? ' is-scrollable' : ''}`}>
-                      <PeriodLineChart
-                        data={sliceChart(siteConsumptionData)}
-                        labels={chartLabels}
-                        fullLabels={chartFullLabels}
-                        color="#60a5fa"
-                        unit="L"
-                        strokeWidth={3}
-                      />
-                    </div>
-                  </article>
-
-                  <article className="metric-panel site-metric-card">
-                    <span className="metric-label">Stock</span>
-                    <h3>{selectedSite ? 'Volume stock' : 'Volume stock cumulé'}</h3>
-                    <div className="site-metric-stack">
-                      <div>
-                        <span>Stock semaine N (dernière valeur)</span>
-                        <strong>{siteVolumeStats.latest.toFixed(1)} L</strong>
-                        {renderDelta(siteVolumeStats, '', true)}
-                      </div>
-                      <div>
-                        <span>Volume moyen</span>
-                        <strong>{siteVolumeStats.mean.toFixed(1)} L</strong>
-                        {renderMeanDelta(siteVolumeStats, '', true)}
-                      </div>
-                    </div>
-                    <div className={`chart-box secondary-box${canScroll ? ' is-scrollable' : ''}`}>
-                      <PeriodLineChart
-                        data={sliceChart(siteVolumeData)}
-                        labels={chartLabels}
-                        fullLabels={chartFullLabels}
-                        color="#0b3d7a"
-                        unit="L"
-                        strokeWidth={3}
-                      />
-                    </div>
-                  </article>
-                </div>
-              </section>
-            </article>
-          )}
+          ) : null}
         </main>
       </PageEnter>
     </div>
