@@ -10127,10 +10127,12 @@ body {
   display: flex;
   align-items: center;
   gap: 1.2rem;
-  background: rgba(16, 185, 129, 0.08);
-  border: 1px solid rgba(16, 185, 129, 0.2);
+  /* Carte d'état vide : dégradé vert émeraude vivant et stylé (lisible). */
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.28) 0%, rgba(5, 150, 105, 0.32) 100%);
+  border: 1px solid rgba(5, 150, 105, 0.45);
   padding: 1.4rem 1.6rem;
   border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(5, 150, 105, 0.18);
 }
 
 .op-empty-card strong ,
@@ -10147,6 +10149,35 @@ body {
 .viewer-empty-card p {
   margin: 0;
   font-size: 0.88rem;
+}
+
+/* Bouton CTA à l'intérieur d'une carte vide : vert très foncé / presque noir-vert
+   pour bien ressortir sur le fond vert vif de la empty-card (ex. "Envoyer mon premier relevé"). */
+.op-empty-card .op-hero-cta-btn,
+.viewer-empty-card .op-hero-cta-btn {
+  background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
+  color: #ffffff;
+  border: 1px solid rgba(6, 78, 59, 0.85);
+  box-shadow: 0 6px 16px rgba(6, 78, 59, 0.32);
+  backdrop-filter: none;
+}
+
+.op-empty-card .op-hero-cta-btn:hover,
+.viewer-empty-card .op-hero-cta-btn:hover {
+  background: linear-gradient(135deg, #022c22 0%, #064e3b 100%);
+  box-shadow: 0 8px 22px rgba(2, 44, 34, 0.5);
+}
+
+/* Texte dans la carte vide : couleur vert très foncé pour un contraste optimal
+   sur le fond vert vif de la empty-card. */
+.op-empty-card .text-muted,
+.viewer-empty-card .text-muted {
+  color: #064e3b !important;
+  font-weight: 500;
+}
+
+.op-empty-card .op-hero-cta-btn-icon,
+.viewer-empty-card .op-hero-cta-btn-icon {
   color: var(--muted);
 }
 
