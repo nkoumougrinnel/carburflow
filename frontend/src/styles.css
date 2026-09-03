@@ -6433,11 +6433,29 @@ main.page-layout.user-home form.groups-filter-bar .ui-input:focus,
 .alerts-page--workspace {
   /* Même respiration haute que .groups-grid (Sites / Groupes) */
   padding-top: clamp(16px, 2vw, 24px);
-  gap: clamp(20px, 2.2vw, 28px);
-  flex: 1 1 auto;
-  min-height: 0;
-  height: 100%;
 }
+
+/* ——— Espacement systématique entre la topbar et le bandeau de titre ——— */
+/* Garantit que le WelcomeBanner (et tout contenu principal) ne soit jamais collé au Topbar,
+   quelle que soit la page (admin, opérateur, consultant). N'agit pas sur les
+   shells "pleine hauteur" (reports/alerts/messaging) dont le contenu principal
+   est déjà en flex: 1 1 auto et dont on ne veut pas réduire la zone visible. */
+.app-shell > .page-enter-root,
+.app-shell > .page-layout,
+.app-shell--operator > .page-enter-root,
+.dashboard-shell > .page-enter-root,
+.dashboard-shell > .page-layout {
+  margin-top: clamp(14px, 1.4vw, 22px);
+}
+
+/* Pour les shells pleine hauteur : on espace uniquement le WelcomeBanner interne
+   (et les enfants directs de page-enter-root qui commencent par un bandeau). */
+.app-shell--reports .reports-layout--workspace > .welcome-banner,
+.app-shell--alerts .alerts-page--workspace > .welcome-banner,
+.app-shell--messaging .notifications-layout .welcome-banner {
+  margin-top: clamp(14px, 1.4vw, 22px);
+}
+
 
 /* Bannière : même marge haute que Sites/Groupes, air sous la bannière avant le contenu */
 .alerts-page > .welcome-banner,
