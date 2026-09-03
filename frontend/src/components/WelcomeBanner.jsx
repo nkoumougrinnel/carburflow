@@ -1,10 +1,6 @@
-import React, { useMemo, useRef } from 'react'
-import { useGSAP } from '@gsap/react'
-import gsap from 'gsap'
+import React, { useMemo } from 'react'
 import { useAuth } from '@/context/AuthContext.jsx'
 import { getDisplayFirstName } from '@/utils/userDisplay.js'
-
-gsap.registerPlugin(useGSAP)
 
 /** Salutation selon l’heure locale. */
 export function greetingForHour(date = new Date()) {
@@ -31,20 +27,8 @@ function WelcomeBanner({
   actions,
 }) {
   const { user, isAdmin, isOperator } = useAuth()
-  const ref = useRef(null)
   const firstName = getDisplayFirstName(user)
   const greet = useMemo(() => greetingForHour(), [])
-
-  useGSAP(() => {
-    if (!ref.current) return
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (reduce) return
-    gsap.from(ref.current, {
-      opacity: 0,
-      duration: 0.35,
-      ease: 'power1.out',
-    })
-  }, { scope: ref })
 
   const isAdminImport = variant === 'admin-import'
   const isCustom = Boolean(title || kicker)
@@ -66,7 +50,6 @@ function WelcomeBanner({
 
   return (
     <section
-      ref={ref}
       className={`welcome-banner ${isAdminImport ? 'welcome-banner--admin' : ''} ${isCustom ? 'welcome-banner--page' : ''} ${className}`.trim()}
       aria-label={title || 'Bienvenue'}
     >

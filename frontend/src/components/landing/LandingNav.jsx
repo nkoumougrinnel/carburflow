@@ -34,15 +34,21 @@ function LandingNav({ onNavigate }) {
   const isDark = theme === 'dark'
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border/70 bg-background/85 backdrop-blur-md">
+    <header
+      className="sticky top-0 z-40 border-b border-white/15 backdrop-blur-md"
+      style={{
+        background:
+          'linear-gradient(135deg, rgba(15,76,110,0.96), rgba(26,107,138,0.9)), var(--primary)',
+      }}
+    >
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <button
           type="button"
           onClick={() => go('home')}
-          className="flex items-center gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex items-center gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
         >
           <BrandLogo variant="icon" className="size-9 rounded-md object-cover" />
-          <span className="font-display text-lg font-semibold tracking-tight text-petrol">
+          <span className="font-display text-lg font-semibold tracking-tight text-white">
             CarburFlow
           </span>
         </button>
@@ -53,7 +59,7 @@ function LandingNav({ onNavigate }) {
               key={link.id}
               type="button"
               onClick={() => scrollToSection(link.id)}
-              className="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted/80 hover:text-foreground"
+              className="rounded-md px-3 py-2 text-sm font-medium text-white/75 transition hover:bg-white/15 hover:text-white"
             >
               {link.label}
             </button>
@@ -62,6 +68,7 @@ function LandingNav({ onNavigate }) {
             type="button"
             variant="ghost"
             size="icon"
+            className="text-white/80 hover:bg-white/15 hover:text-white"
             onClick={(e) => { e.preventDefault(); toggleTheme() }}
             aria-label={isDark ? 'Passer en mode clair' : 'Passer en mode sombre'}
           >
@@ -70,15 +77,16 @@ function LandingNav({ onNavigate }) {
           {isAuthenticated ? (
             <>
               {isAdmin && (
-                <Button variant="ghost" onClick={() => go('dashboard')}>
+                <Button variant="ghost" className="text-white/90 hover:bg-white/15 hover:text-white" onClick={() => go('dashboard')}>
                   Tableau de bord
                 </Button>
               )}
-              <Button variant="ghost" onClick={() => go('reports')}>
+              <Button variant="ghost" className="text-white/90 hover:bg-white/15 hover:text-white" onClick={() => go('reports')}>
                 Relevés
               </Button>
               <Button
                 variant="outline"
+                className="border-white/40 bg-white/10 text-white hover:bg-white/20 hover:text-white"
                 onClick={async () => {
                   await logout()
                   go('home')
@@ -89,10 +97,10 @@ function LandingNav({ onNavigate }) {
             </>
           ) : (
             <>
-              <Button variant="ghost" onClick={() => go('login')}>
+              <Button variant="ghost" className="text-white/90 hover:bg-white/15 hover:text-white" onClick={() => go('login')}>
                 Se connecter
               </Button>
-              <Button onClick={() => go('register')}>S’inscrire</Button>
+              <Button className="bg-white text-petrol hover:bg-white/90" onClick={() => go('register')}>S’inscrire</Button>
             </>
           )}
         </nav>
@@ -102,6 +110,7 @@ function LandingNav({ onNavigate }) {
             type="button"
             variant="outline"
             size="icon"
+            className="border-white/40 bg-white/10 text-white hover:bg-white/20 hover:text-white"
             onClick={(e) => { e.preventDefault(); toggleTheme() }}
             aria-label={isDark ? 'Passer en mode clair' : 'Passer en mode sombre'}
           >
@@ -110,6 +119,7 @@ function LandingNav({ onNavigate }) {
           <Button
             variant="outline"
             size="icon"
+            className="border-white/40 bg-white/10 text-white hover:bg-white/20 hover:text-white"
             aria-label={open ? 'Fermer le menu' : 'Ouvrir le menu'}
             aria-expanded={open}
             onClick={() => setOpen((v) => !v)}
