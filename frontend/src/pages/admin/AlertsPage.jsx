@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { ArrowRight, Bell, CheckCircle2, ChevronDown, Filter, History } from 'lucide-react'
+import { ArrowRight, Bell, CheckCircle2, History } from 'lucide-react'
 import Topbar from '@/components/Topbar.jsx'
 import PageEnter from '@/components/PageEnter.jsx'
 import PageLoader from '@/components/PageLoader.jsx'
@@ -73,6 +73,14 @@ const REASON_PRESETS = [
 ]
 const MIN_JUSTIF = 20
 const MAX_JUSTIF = 280
+
+const SEVERITY_OPTIONS = [
+  { id: 'all', key: 'total', label: 'Toutes' },
+  { id: 'critique', key: 'critique', label: 'Critique' },
+  { id: 'haute', key: 'haute', label: 'Haute' },
+  { id: 'moyenne', key: 'moyenne', label: 'Moyenne' },
+  { id: 'basse', key: 'basse', label: 'Basse' },
+]
 
 /* ——————————————————————————————————————————————————————————
     Composants internes
@@ -384,9 +392,6 @@ function AlertsPage({ onNavigate }) {
   const [focusAlertId, setFocusAlertId] = useState(() => new URLSearchParams(window.location.search).get('alertId') || '')
   const [period, setPeriod] = useState('all')
   const [pendingTreat, setPendingTreat] = useState(null)
-  const [filtersOpen, setFiltersOpen] = useState(false)
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
 
   const loadAll = useCallback(async () => {
     setLoading(true)
@@ -483,14 +488,6 @@ function AlertsPage({ onNavigate }) {
     [periodFiltered, priority, filterStatus],
   )
 
-  useEffect(() => {
-    setPage(1)
-  }, [panel, priority, period, pageSize])
-
-  const pageCount = Math.max(1, Math.ceil(visible.length / pageSize))
-  const safePage = Math.min(page, pageCount)
-  const pagedAlerts = visible.slice((safePage - 1) * pageSize, safePage * pageSize)
-
   const navItems = useMemo(() => ([
     {
       id: 'active',
@@ -579,49 +576,38 @@ function AlertsPage({ onNavigate }) {
               <h1>Centre d’alertes</h1>
               <p>Suivi et traitement des alertes détectées sur vos sites.</p>
             </div>
-            <div className="mq-alx-filters">
-              <button
-                type="button"
-                className="mq-alx-filters-btn"
-                aria-expanded={filtersOpen}
-                onClick={() => setFiltersOpen((open) => !open)}
-              >
-                <Filter size={16} aria-hidden="true" />
-                Filtres
-                <ChevronDown size={16} aria-hidden="true" />
-              </button>
-              {filtersOpen ? (
-                <div className="mq-alx-filters-panel cf-filter-bar" role="dialog" aria-label="Filtres des alertes">
-                  <div className="cf-filter-field">
-                    <span className="cf-filter-label">Statut</span>
-                    <AlertsTabs
-                      items={navItems}
-                      value={panel}
-                      onChange={(id) => {
-                        setMessage('')
-                        setFocusAlertId('')
-                        setPanel(id)
-                      }}
-                    />
-                  </div>
-                  <div className="cf-filter-field">
-                    <span className="cf-filter-label">Niveau</span>
-                    <SeverityChips
-                      counts={panel === 'history' ? historyCounts : counts}
-                      value={priority}
-                      onChange={setPriority}
-                    />
-                  </div>
-                  {panel === 'history' ? (
-                    <div className="cf-filter-field">
-                      <span className="cf-filter-label">Période</span>
-                      <PeriodChips value={period} onChange={setPeriod} />
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
           </header>
+
+          <AlertsHero counts={counts} />
+
+          <section className="mq-alx-filters-panel mq-alx-filters-panel--inline cf-filter-bar" aria-label="Filtres des alertes">
+            <div className="cf-filter-field">
+              <span className="cf-filter-label">Statut</span>
+              <AlertsTabs
+                items={navItems}
+                value={panel}
+                onChange={(id) => {
+                  setMessage('')
+                  setFocusAlertId('')
+                  setPanel(id)
+                }}
+              />
+            </div>
+            <div className="cf-filter-field">
+              <span className="cf-filter-label">Niveau</span>
+              <SeverityChips
+                counts={panel === 'history' ? historyCounts : counts}
+                value={priority}
+                onChange={setPriority}
+              />
+            </div>
+            {panel === 'history' ? (
+              <div className="cf-filter-field">
+                <span className="cf-filter-label">Période</span>
+                <PeriodChips value={period} onChange={setPeriod} />
+              </div>
+            ) : null}
+          </section>
 
           {message && <div className="reports-success" role="status">{message}</div>}
 
@@ -635,7 +621,7 @@ function AlertsPage({ onNavigate }) {
           )}
 
           <section className="alx-list mq-alx-grid" aria-label={panel === 'history' ? 'Historique des alertes' : 'Alertes à traiter'}>
-            {pagedAlerts.length ? pagedAlerts.map((alert, index) => (
+            {visible.length ? visible.map((alert, index) => (
               <AlertCard
                 key={alert.id}
                 alert={alert}
@@ -660,37 +646,6 @@ function AlertsPage({ onNavigate }) {
             )}
           </section>
 
-          {visible.length > 0 ? (
-            <nav className="mq-alx-pager" aria-label="Pagination des alertes">
-              <button
-                type="button"
-                className="mq-alx-pager-btn"
-                disabled={safePage <= 1}
-                onClick={() => setPage((current) => Math.max(1, current - 1))}
-              >
-                Précédent
-              </button>
-              <span className="mq-alx-pager-status">{safePage} / {pageCount}</span>
-              <button
-                type="button"
-                className="mq-alx-pager-btn"
-                disabled={safePage >= pageCount}
-                onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
-              >
-                Suivant →
-              </button>
-              <label className="mq-alx-pager-size">
-                <span className="sr-only">Alertes par page</span>
-                <select
-                  value={pageSize}
-                  onChange={(event) => setPageSize(Number(event.target.value))}
-                >
-                  <option value={10}>10 par page</option>
-                  <option value={20}>20 par page</option>
-                </select>
-              </label>
-            </nav>
-          ) : null}
         </main>
       </PageEnter>
 
