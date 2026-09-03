@@ -11415,3 +11415,158 @@ body {
     transform: none !important;
   }
 }
+
+/* ——— Page profil : cartes « Informations » / « Mot de passe » (maquette) ——— */
+.saas-profile-grid .saas-profile-panel {
+  border: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(15, 42, 68, 0.05);
+  gap: 18px;
+}
+
+.saas-profile-grid .saas-profile-panel-head h3 {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #16283a;
+}
+
+.saas-profile-grid .saas-profile-panel-head p {
+  font-size: 0.85rem;
+  color: #5f7183;
+}
+
+.saas-profile-grid .ui-input-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #24435e;
+}
+
+.saas-profile-grid .ui-input {
+  background: #edf2f8;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 0.7rem 0.9rem;
+  box-shadow: none;
+  font-size: 0.95rem;
+}
+
+.saas-profile-grid .ui-input:focus {
+  border-color: transparent;
+  background: #eaf1fa;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.22);
+}
+
+.saas-profile-grid .ui-input:disabled {
+  background: #f0f4f9;
+  color: #4a5b6e;
+}
+
+.saas-profile-grid .ui-input-hint {
+  font-size: 0.78rem;
+  color: #7a8ba0;
+}
+
+.saas-profile-grid .saas-profile-submit {
+  width: 100%;
+  border-radius: 10px;
+  background-image: linear-gradient(115deg, #0d4158 0%, #155c7d 55%, #1d7496 100%);
+  box-shadow: none;
+}
+
+.saas-profile-grid .saas-profile-submit:hover {
+  opacity: 0.92;
+}
+
+/* Adaptations mode sombre */
+[data-theme="dark"] .saas-profile-grid .saas-profile-panel {
+  background: var(--panel);
+}
+
+[data-theme="dark"] .saas-profile-grid .saas-profile-panel-head h3 {
+  color: var(--text);
+}
+
+[data-theme="dark"] .saas-profile-grid .saas-profile-panel-head p,
+[data-theme="dark"] .saas-profile-grid .ui-input-hint {
+  color: var(--muted);
+}
+
+[data-theme="dark"] .saas-profile-grid .ui-input-label {
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .saas-profile-grid .ui-input {
+  background: var(--panel-soft);
+  color: var(--text);
+}
+
+[data-theme="dark"] .saas-profile-grid .ui-input:focus {
+  background: color-mix(in srgb, var(--primary) 14%, var(--panel-soft));
+}
+
+[data-theme="dark"] .saas-profile-grid .ui-input:disabled {
+  background: color-mix(in srgb, var(--text) 5%, var(--panel));
+  color: var(--muted);
+}
+
+/* =============================================================
+   Bandeaux de titre : dégradé pétrole unifié (tous les comptes)
+   — Les bannières blanches (opérateur / consultation) adoptent
+     le même dégradé que le bandeau « Mon profil ».
+   ============================================================= */
+
+/* WelcomeBanner des pages opérateur & consultation */
+.user-home > .welcome-banner,
+.op-home > .welcome-banner {
+  background: linear-gradient(135deg, #0b3a52 0%, #145a78 55%, #1a6b8a 100%);
+  color: #ffffff;
+  border: none;
+  box-shadow: 0 18px 44px rgba(15, 76, 110, 0.22);
+}
+
+.user-home > .welcome-banner .welcome-banner-kicker,
+.op-home > .welcome-banner .welcome-banner-kicker {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.user-home > .welcome-banner .welcome-banner-title,
+.op-home > .welcome-banner .welcome-banner-title,
+.user-home > .welcome-banner .welcome-banner-sub,
+.op-home > .welcome-banner .welcome-banner-sub {
+  color: #ffffff;
+}
+
+/* Hero orienté action (Accueil opérateur « Bonjour … ! ») */
+.op-hero-action-card {
+  background: linear-gradient(135deg, #0b3a52 0%, #145a78 55%, #1a6b8a 100%);
+  border: none;
+  color: #ffffff;
+  box-shadow: 0 18px 44px rgba(15, 76, 110, 0.22);
+}
+
+.op-hero-action-card .op-hero-kicker {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.op-hero-action-card .op-hero-title {
+  color: #ffffff;
+}
+
+.op-hero-action-card .op-hero-sub {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+/* CTA : verre blanc translucide pour rester lisible sur le pétrole */
+.op-hero-cta-btn {
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow: none;
+  backdrop-filter: blur(6px);
+}
+
+.op-hero-cta-btn:hover {
+  background: rgba(255, 255, 255, 0.24);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(8, 30, 45, 0.28);
+}

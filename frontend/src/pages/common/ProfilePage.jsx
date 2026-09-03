@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { KeyRound, UserRound, Users } from 'lucide-react'
+import { UserRound, Users } from 'lucide-react'
 import Topbar from '@/components/Topbar.jsx'
 import PageEnter from '@/components/PageEnter.jsx'
 import WelcomeBanner from '@/components/WelcomeBanner.jsx'
@@ -117,23 +117,14 @@ function ProfilePage({ onNavigate }) {
       <div className="saas-profile-grid">
         <form className="saas-profile-panel" onSubmit={handleProfileSubmit}>
           <div className="saas-profile-panel-head">
-            <UserRound size={18} aria-hidden="true" />
             <div>
-              <h3>Informations du compte</h3>
-              <p>Nom affiché et identifiant de connexion.</p>
+              <h3>Informations</h3>
+              <p>Nom, prénom et e-mail visibles dans l’application.</p>
             </div>
           </div>
 
           <Input
-            label="E-mail"
-            type="email"
-            value={user?.email || ''}
-            disabled
-            readOnly
-          />
-
-          <Input
-            label="Nom d’utilisateur"
+            label="Identifiant"
             type="text"
             value={profileForm.username}
             onChange={(e) => setProfileForm((p) => ({ ...p, username: e.target.value }))}
@@ -158,6 +149,14 @@ function ProfilePage({ onNavigate }) {
             />
           </div>
 
+          <Input
+            label="E-mail"
+            type="email"
+            value={user?.email || ''}
+            disabled
+            readOnly
+          />
+
           {profileMsg && <div className="reports-success" role="status">{profileMsg}</div>}
           {profileErr && <div className="reports-error" role="alert">{profileErr}</div>}
 
@@ -165,16 +164,16 @@ function ProfilePage({ onNavigate }) {
             variant="primary"
             loading={savingProfile}
             type="submit"
+            className="saas-profile-submit"
           >
-            Enregistrer
+            Enregistrer le profil
           </Button>
         </form>
 
         <form className="saas-profile-panel" onSubmit={handlePasswordSubmit}>
           <div className="saas-profile-panel-head">
-            <KeyRound size={18} aria-hidden="true" />
             <div>
-              <h3>Sécurité</h3>
+              <h3>Mot de passe</h3>
               <p>Changez votre mot de passe. Vous restez connecté.</p>
             </div>
           </div>
@@ -198,7 +197,7 @@ function ProfilePage({ onNavigate }) {
             hint="Minimum 6 caractères."
           />
           <Input
-            label="Confirmer"
+            label="Confirmer le nouveau mot de passe"
             type="password"
             value={passwordForm.new_password_confirm}
             onChange={(e) => setPasswordForm((p) => ({ ...p, new_password_confirm: e.target.value }))}
@@ -214,8 +213,9 @@ function ProfilePage({ onNavigate }) {
             variant="primary"
             loading={savingPassword}
             type="submit"
+            className="saas-profile-submit"
           >
-            Mettre à jour le mot de passe
+            Changer le mot de passe
           </Button>
         </form>
       </div>
