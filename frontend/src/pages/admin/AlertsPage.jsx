@@ -118,41 +118,11 @@ function AlertsHero({ counts }) {
 }
 
 /**
- * Tuiles de filtre par sévérité (sans emoji, uniquement la couleur)
- */
-const SEVERITY_OPTIONS = [
-  { id: 'all', label: 'Toutes', key: 'total', tone: 'all' },
-  { id: 'critique', label: 'Critiques', key: 'critique', tone: 'critical' },
-  { id: 'haute', label: 'Hautes', key: 'haute', tone: 'high' },
-  { id: 'moyenne', label: 'Moyennes', key: 'moyenne', tone: 'medium' },
-  { id: 'basse', label: 'Basses', key: 'basse', tone: 'low' },
-]
-
-function SeverityTiles({ counts, value, onChange }) {
-  return (
-    <div className="alx-tiles" role="group" aria-label="Filtrer les alertes par niveau">
-      {SEVERITY_OPTIONS.map((option) => (
-        <button
-          key={option.id}
-          type="button"
-          className={`alx-tile alx-tile--${option.tone}${value === option.id ? ' is-active' : ''}`}
-          aria-pressed={value === option.id}
-          onClick={() => onChange(option.id)}
-        >
-          <span className="alx-tile-label">{option.label}</span>
-          <strong className="alx-tile-count">{counts?.[option.key] ?? 0}</strong>
-        </button>
-      ))}
-    </div>
-  )
-}
-
-/**
  * Onglets « À traiter » / « Historique »
  */
 function AlertsTabs({ items, value, onChange }) {
   return (
-    <div className="alx-tabs" role="tablist" aria-label="Sections des alertes">
+    <div className="saas-profile-tabs" role="tablist" aria-label="Sections des alertes">
       {items.map((item) => {
         const Icon = item.icon
         return (
@@ -161,17 +131,39 @@ function AlertsTabs({ items, value, onChange }) {
             type="button"
             role="tab"
             aria-selected={value === item.id}
-            className={`alx-tab${value === item.id ? ' is-active' : ''}`}
+            className={`saas-profile-tab${value === item.id ? ' is-active' : ''}`}
             onClick={() => onChange(item.id)}
           >
             {Icon ? <Icon size={17} aria-hidden="true" /> : null}
             {item.label}
             {item.badge != null && item.badge > 0 ? (
-              <span className="alx-tab-badge">{item.badge}</span>
+              <span className="saas-profile-tab-badge">{item.badge}</span>
             ) : null}
           </button>
         )
       })}
+    </div>
+  )
+}
+
+/**
+ * Filtres de priorité (toutes / critique / haute / moyenne / basse)
+ */
+function SeverityChips({ counts, value, onChange }) {
+  return (
+    <div className="saas-profile-tabs" role="group" aria-label="Filtrer par niveau">
+      {SEVERITY_OPTIONS.map((option) => (
+        <button
+          key={option.id}
+          type="button"
+          className={`saas-profile-tab${value === option.id ? ' is-active' : ''}`}
+          aria-pressed={value === option.id}
+          onClick={() => onChange(option.id)}
+        >
+          <span className="saas-profile-tab-label">{option.label}</span>
+          <span className="saas-profile-tab-badge">{counts?.[option.key] ?? 0}</span>
+        </button>
+      ))}
     </div>
   )
 }
@@ -187,20 +179,17 @@ function PeriodChips({ value, onChange }) {
     { id: 'all', label: 'Tout' },
   ]
   return (
-    <div className="alx-period" role="group" aria-label="Filtrer par période">
-      <span className="alx-period-label">Période :</span>
-      <div className="alx-period-chips">
-        {options.map((option) => (
-          <button
-            key={option.id}
-            type="button"
-            className={`alx-period-chip${value === option.id ? ' is-active' : ''}`}
-            onClick={() => onChange(option.id)}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
+    <div className="saas-profile-tabs" role="group" aria-label="Filtrer par période">
+      {options.map((option) => (
+        <button
+          key={option.id}
+          type="button"
+          className={`saas-profile-tab${value === option.id ? ' is-active' : ''}`}
+          onClick={() => onChange(option.id)}
+        >
+          {option.label}
+        </button>
+      ))}
     </div>
   )
 }
@@ -602,33 +591,32 @@ function AlertsPage({ onNavigate }) {
                 <ChevronDown size={16} aria-hidden="true" />
               </button>
               {filtersOpen ? (
-                <div className="mq-alx-filters-panel" role="dialog" aria-label="Filtres des alertes">
-                  <p className="mq-alx-filters-label">Statut</p>
-                  <div className="mq-alx-filters-row">
-                    {navItems.map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        className={`mq-alx-chip${panel === item.id ? ' is-active' : ''}`}
-                        onClick={() => {
-                          setMessage('')
-                          setFocusAlertId('')
-                          setPanel(item.id)
-                        }}
-                      >
-                        {item.label}
-                        {item.badge ? ` ${item.badge}` : ''}
-                      </button>
-                    ))}
+                <div className="mq-alx-filters-panel cf-filter-bar" role="dialog" aria-label="Filtres des alertes">
+                  <div className="cf-filter-field">
+                    <span className="cf-filter-label">Statut</span>
+                    <AlertsTabs
+                      items={navItems}
+                      value={panel}
+                      onChange={(id) => {
+                        setMessage('')
+                        setFocusAlertId('')
+                        setPanel(id)
+                      }}
+                    />
                   </div>
-                  <p className="mq-alx-filters-label">Niveau</p>
-                  <SeverityTiles
-                    counts={panel === 'history' ? historyCounts : counts}
-                    value={priority}
-                    onChange={setPriority}
-                  />
+                  <div className="cf-filter-field">
+                    <span className="cf-filter-label">Niveau</span>
+                    <SeverityChips
+                      counts={panel === 'history' ? historyCounts : counts}
+                      value={priority}
+                      onChange={setPriority}
+                    />
+                  </div>
                   {panel === 'history' ? (
-                    <PeriodChips value={period} onChange={setPeriod} />
+                    <div className="cf-filter-field">
+                      <span className="cf-filter-label">Période</span>
+                      <PeriodChips value={period} onChange={setPeriod} />
+                    </div>
                   ) : null}
                 </div>
               ) : null}

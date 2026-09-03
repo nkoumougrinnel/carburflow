@@ -186,14 +186,11 @@ function DashboardPage({ onNavigate }) {
   const summaryCards = useMemo(() => {
     if (!dashboardData) return []
 
-    // Sites urgents = alertes critiques ciblées sur un site, pour rester cohérent
-    // avec la liste d'alertes réellement déclarées par le backend.
     const criticalSiteAlertCount = alerts.filter((alert) => {
       if (alert.target !== 'site' && alert.site_id == null) return false
       return resolvePrioriteKey(alert) === 'critique'
     }).length
 
-    // Compteur aligné sur la liste filtrée (hors autonomie indéterminée)
     const activeAlertCount = alerts.length
 
     const totalConsumption = dashboardData.summary?.total_consumption ?? 0
@@ -210,7 +207,8 @@ function DashboardPage({ onNavigate }) {
         title: `${criticalSiteAlertCount}`,
         detail: 'Alertes critiques de site actives',
         tone: criticalSiteAlertCount > 0 ? 'danger' : null,
-        open: () => goSites(),
+        open: () => onNavigate?.({ view: 'sites' }),
+        destination: 'Sites',
       },
       {
         label: 'Alertes',
@@ -218,6 +216,7 @@ function DashboardPage({ onNavigate }) {
         detail: activeAlertCount === 1 ? 'Alerte active à traiter' : 'Alertes actives à traiter',
         tone: activeAlertCount > 0 ? 'danger' : null,
         open: () => onNavigate?.({ view: 'alerts' }),
+        destination: 'Centre d’alertes',
       },
       {
         label: 'Consommation',
@@ -228,6 +227,8 @@ function DashboardPage({ onNavigate }) {
           isNegative: consumptionDeviation !== null && consumptionDeviation < 0,
           text: consumptionDeviation == null ? '—' : `${Math.abs(consumptionDeviation).toFixed(1)}%`,
         },
+        open: () => onNavigate?.({ view: 'sites', mode: 'all' }),
+        destination: 'Sites',
       },
       {
         label: 'Delta horaire',
@@ -238,6 +239,8 @@ function DashboardPage({ onNavigate }) {
           isNegative: runtimeDeviation !== null && runtimeDeviation < 0,
           text: runtimeDeviation == null ? '—' : `${Math.abs(runtimeDeviation).toFixed(1)}%`,
         },
+        open: () => onNavigate?.({ view: 'sites', mode: 'all' }),
+        destination: 'Sites',
       },
     ]
   }, [dashboardData, siteRows, alerts, onNavigate])
@@ -335,27 +338,36 @@ function DashboardPage({ onNavigate }) {
         <WelcomeBanner />
 
         <div className="dashboard-summary-grid">
-          {summaryCards.map((card) => (
-            <button
-              key={card.label}
-              type="button"
-              className={`metric-panel dashboard-summary-card dashboard-summary-card--link${card.tone ? ` dashboard-summary-card--${card.tone}` : ''}`}
-              onClick={card.open}
-              disabled={!card.open}
-            >
-              <div className="summary-card-header">
-                <span className="metric-label">{card.label}</span>
-                {card.deviation ? (
-                  <span className={`summary-trend ${card.deviation.isNegative ? 'negative' : 'positive'}`}>
-                    <span className="summary-trend-arrow">{card.deviation.isNegative ? '▼' : '▲'}</span>
-                    {card.deviation.text}
+          {summaryCards.map((card) => {
+            const isClickable = typeof card.open === 'function'
+            return (
+              <button
+                key={card.label}
+                type="button"
+                className={`metric-panel dashboard-summary-card dashboard-summary-card--link${card.tone ? ` dashboard-summary-card--${card.tone}` : ''}`}
+                onClick={card.open}
+                disabled={!isClickable}
+                aria-label={`${card.label}: ${card.title}${card.destination ? ` — ${card.destination}` : ''}`}
+              >
+                <div className="summary-card-header">
+                  <span className="metric-label">{card.label}</span>
+                  {card.deviation ? (
+                    <span className={`summary-trend ${card.deviation.isNegative ? 'negative' : 'positive'}`}>
+                      <span className="summary-trend-arrow">{card.deviation.isNegative ? '▼' : '▲'}</span>
+                      {card.deviation.text}
+                    </span>
+                  ) : null}
+                </div>
+                <h3>{card.title}</h3>
+                <p>{card.detail}</p>
+                {isClickable && card.destination && (
+                  <span className="dashboard-summary-card-link" aria-hidden="true">
+                    {card.destination} →
                   </span>
-                ) : null}
-              </div>
-              <h3>{card.title}</h3>
-              <p>{card.detail}</p>
-            </button>
-          ))}
+                )}
+              </button>
+            )
+          })}
         </div>
 
         <section className="dashboard-alerts metric-panel mq-dash-alerts" style={{ gridColumn: '1 / -1' }}>
