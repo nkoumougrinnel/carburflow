@@ -642,6 +642,10 @@ def calculer_groupes(
                     previous_hourly_consumption = rate
                     break
 
+        # 🔧 CORRECTION BUG INDÉTERMINÉE :
+        # On cherche le DERNIER VOLUME DISPONIBLE (non nul) au lieu de s'arrêter
+        # à la dernière semaine. Cela permet de calculer l'autonomie même si la
+        # semaine N n'a pas de volume pour ce site (ex: BEPANDA INTERNATIONAL).
         latest_main_volume = None
         latest_daily_volume = None
         for report in reversed(reports):
@@ -653,14 +657,22 @@ def calculer_groupes(
                     float(l.quantite_gasoil_cuve_principale)
                     for l in last_lines
                     if l.quantite_gasoil_cuve_principale is not None
+                    and float(l.quantite_gasoil_cuve_principale) > 0
                 ]
                 cj_vals = [
                     float(l.quantite_gasoil_cuve_journaliere or 0.0)
                     for l in last_lines
                 ]
-                latest_main_volume = round(max(cp_vals), 1) if cp_vals else None
-                latest_daily_volume = round(sum(cj_vals), 1) if cj_vals else None
-                break
+                # On ne s'arrête que si on a trouvé un volume non nul
+                if cp_vals:
+                    latest_main_volume = round(max(cp_vals), 1)
+                    latest_daily_volume = round(sum(cj_vals), 1) if cj_vals else None
+                    break
+                # Sinon on continue à chercher dans les rapports précédents
+                # mais on garde en mémoire le dernier volume vu (pour fallback)
+                if latest_main_volume is None and cp_vals:
+                    latest_main_volume = round(max(cp_vals), 1)
+                    latest_daily_volume = round(sum(cj_vals), 1) if cj_vals else None
 
         # ──────────────────────────────────────────────────────────
         # AUTONOMIE — CORRECTION : utilisation de mean_hourly_consumption_deduite

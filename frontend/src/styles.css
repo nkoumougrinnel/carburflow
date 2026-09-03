@@ -1938,14 +1938,32 @@ main.page-layout.groups-grid > form.groups-filter-bar {
   width: 100%;
 }
 
-main.page-layout.groups-grid > form.groups-filter-bar > * {
+/* Harmoniser le style des filtres pour TOUS les types de comptes (user, admin, operator, consultant)
+   Le style est identique en couleur, police, dimension, timbre */
+form.groups-filter-bar,
+main.page-layout.groups-grid > form.groups-filter-bar,
+main.page-layout.user-home form.groups-filter-bar,
+.user-home form.groups-filter-bar,
+.operator-home form.groups-filter-bar {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 12px;
+  align-items: end;
+  width: 100%;
+}
+
+form.groups-filter-bar > *,
+main.page-layout.groups-grid > form.groups-filter-bar > *,
+main.page-layout.user-home form.groups-filter-bar > *,
+.user-home form.groups-filter-bar > * {
   flex: 1 1 0;
   min-width: 0;
 }
 
-/* Harmoniser le style du <Select> (Site, Affichage) avec le DateRangeFilter (Période)
-   pour qu'ils soient identiques en couleur, police, dimension, timbre */
-main.page-layout.groups-grid > form.groups-filter-bar .ui-input-group {
+form.groups-filter-bar .ui-input-group,
+main.page-layout.user-home form.groups-filter-bar .ui-input-group,
+.user-home form.groups-filter-bar .ui-input-group,
+.operator-home form.groups-filter-bar .ui-input-group {
   flex: 1 1 0;
   min-width: 0;
   display: flex;
@@ -1953,7 +1971,10 @@ main.page-layout.groups-grid > form.groups-filter-bar .ui-input-group {
   gap: 6px;
 }
 
-main.page-layout.groups-grid > form.groups-filter-bar .ui-input-label {
+form.groups-filter-bar .ui-input-label,
+main.page-layout.user-home form.groups-filter-bar .ui-input-label,
+.user-home form.groups-filter-bar .ui-input-label,
+.operator-home form.groups-filter-bar .ui-input-label {
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--muted);
@@ -1963,7 +1984,10 @@ main.page-layout.groups-grid > form.groups-filter-bar .ui-input-label {
   margin-bottom: 0;
 }
 
-main.page-layout.groups-grid > form.groups-filter-bar .ui-input {
+form.groups-filter-bar .ui-input,
+main.page-layout.user-home form.groups-filter-bar .ui-input,
+.user-home form.groups-filter-bar .ui-input,
+.operator-home form.groups-filter-bar .ui-input {
   appearance: none;
   -webkit-appearance: none;
   width: 100%;
@@ -1984,11 +2008,17 @@ main.page-layout.groups-grid > form.groups-filter-bar .ui-input {
   min-height: 42px;
 }
 
-main.page-layout.groups-grid > form.groups-filter-bar .ui-input:hover {
+form.groups-filter-bar .ui-input:hover,
+main.page-layout.user-home form.groups-filter-bar .ui-input:hover,
+.user-home form.groups-filter-bar .ui-input:hover,
+.operator-home form.groups-filter-bar .ui-input:hover {
   border-color: var(--primary-2);
 }
 
-main.page-layout.groups-grid > form.groups-filter-bar .ui-input:focus {
+form.groups-filter-bar .ui-input:focus,
+main.page-layout.user-home form.groups-filter-bar .ui-input:focus,
+.user-home form.groups-filter-bar .ui-input:focus,
+.operator-home form.groups-filter-bar .ui-input:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--primary-alpha-10);

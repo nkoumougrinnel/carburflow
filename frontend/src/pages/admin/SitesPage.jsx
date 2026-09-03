@@ -548,7 +548,7 @@ function SitesPage({ onNavigate }) {
                               {alertsCount > 0 ? (
                                 <Button
                                   type="button"
-                                  variant="secondary"
+                                  variant="danger"
                                   size="sm"
                                   className="site-alert-chip"
                                   title={`${alertsCount} alerte${alertsCount > 1 ? 's' : ''} active${alertsCount > 1 ? 's' : ''}`}
@@ -560,7 +560,7 @@ function SitesPage({ onNavigate }) {
                                   {alertsCount} {alertsCount > 1 ? 'alertes' : 'alerte'}
                                 </Button>
                               ) : (
-                                <span className="site-alert-none">—</span>
+                                <span className="site-alert-none" style={{ color: '#6b7280' }}>—</span>
                               )}
                             </td>
                           </tr>

@@ -540,8 +540,25 @@ function ReportsPage({ onNavigate }) {
                                       size="sm"
                                       onClick={() => setDeleteConfirmRapport(r)}
                                       title="Retirer ce relevé"
+                                      style={{
+                                        backgroundColor: '#dc2626',
+                                        color: '#ffffff',
+                                        border: '1px solid #b91c1c',
+                                        boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)',
+                                        transition: 'all 0.2s ease',
+                                      }}
+                                      onMouseEnter={(e) => {
+                                        e.currentTarget.style.backgroundColor = '#b91c1c'
+                                        e.currentTarget.style.boxShadow = '0 6px 16px rgba(220, 38, 38, 0.45)'
+                                        e.currentTarget.style.transform = 'translateY(-1px)'
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.currentTarget.style.backgroundColor = '#dc2626'
+                                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(220, 38, 38, 0.3)'
+                                        e.currentTarget.style.transform = 'translateY(0)'
+                                      }}
                                     >
-                                      <Trash2 size={14} />
+                                      <Trash2 size={14} color="#ffffff" strokeWidth={2.5} />
                                     </Button>
                                   </div>
                                 </td>
