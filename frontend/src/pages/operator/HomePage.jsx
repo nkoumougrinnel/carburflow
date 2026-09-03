@@ -101,22 +101,22 @@ function OperatorHomePage({ onNavigate }) {
       <PageEnter>
         <main className="user-home">
 
-          {/* HERO Orienté Action */}
-          <section className="op-hero-action-card">
-            <div className="op-hero-action-text">
-              <span className="op-hero-kicker">POSTE DE PILOTAGE</span>
-              <h1 className="op-hero-title">Bonjour {firstName} !</h1>
-              <p className="op-hero-sub">Suivez l’état de vos sites et transmettez vos relevés.</p>
-            </div>
-            <button
-              type="button"
-              className="op-hero-cta-btn"
-              onClick={() => onNavigate('reports')}
-            >
-              <PlusCircle size={18} />
-              <span>Envoyer un relevé</span>
-            </button>
-          </section>
+          {/* HERO — même bannière partagée (WelcomeBanner) que les autres pages */}
+          <WelcomeBanner
+            kicker="POSTE DE PILOTAGE"
+            title={`Bonjour ${firstName} !`}
+            subtitle="Suivez l’état de vos sites et transmettez vos relevés."
+            actions={
+              <button
+                type="button"
+                className="op-hero-cta-btn op-hero-cta-btn--on-banner"
+                onClick={() => onNavigate('reports')}
+              >
+                <PlusCircle size={18} />
+                <span>Envoyer un relevé</span>
+              </button>
+            }
+          />
 
           {error && (
             <div className="reports-error-panel" role="alert">

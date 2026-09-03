@@ -637,6 +637,14 @@ html.theme-light .group-card {
   color: rgba(255, 255, 255, 0.88);
   max-width: 46ch;
 }
+.welcome-banner-actions{
+  margin-top:16px;
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:0.75rem;
+}
+
 
 .dashboard-shell .dashboard-grid,
 .dashboard-shell .groups-grid {
@@ -5694,29 +5702,6 @@ main.page-layout.user-home form.groups-filter-bar .ui-input:focus,
   min-width: 0;
 }
 
-.user-home > .welcome-banner,
-.op-home > .welcome-banner {
-  margin-top: 0;
-  margin-bottom: 0;
-  width: 100%;
-  background: linear-gradient(135deg, #ffffff 0%, #f5f9ff 100%);
-  color: var(--text);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-soft);
-}
-
-.user-home > .welcome-banner .welcome-banner-kicker,
-.op-home > .welcome-banner .welcome-banner-kicker {
-  color: var(--primary);
-}
-
-.user-home > .welcome-banner .welcome-banner-title,
-.op-home > .welcome-banner .welcome-banner-title,
-.user-home > .welcome-banner .welcome-banner-sub,
-.op-home > .welcome-banner .welcome-banner-sub {
-  color: var(--text);
-}
-
 .user-home-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -5979,13 +5964,6 @@ main.page-layout.user-home form.groups-filter-bar .ui-input:focus,
   display: flex;
   flex-direction: column;
   gap: clamp(14px, 1.6vw, 20px);
-}
-
-.op-home > .welcome-banner {
-  flex: 0 0 auto;
-  margin-top: 0;
-  margin-bottom: 0;
-  width: 100%;
 }
 
 .op-home-stats {
@@ -9294,94 +9272,6 @@ body {
    STYLE VIEWER / UTILISATEUR LECTURE
    ========================================== */
 
-/* Hero Banner Viewer */
-.op-hero-banner ,
-
-/* ==========================================
-   STYLE VIEWER / UTILISATEUR LECTURE
-   ========================================== */
-
-/* Hero Banner Viewer */
-.viewer-hero-banner {
-  background: linear-gradient(135deg, #0b3d7a 0%, #1e40af 50%, #1d4ed8 100%);
-  border-radius: 20px;
-  padding: 2.2rem 2.5rem;
-  color: #ffffff;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  position: relative;
-  overflow: hidden;
-  box-shadow: 0 12px 30px rgba(11, 61, 122, 0.22);
-}
-
-.op-hero-content ,
-
-.viewer-hero-content {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-  z-index: 2;
-  max-width: 650px;
-}
-
-.op-hero-kicker ,
-
-.viewer-hero-kicker {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.3rem 0.85rem;
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 20px;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  width: fit-content;
-}
-
-.op-hero-greeting ,
-
-.viewer-hero-greeting {
-  font-family: var(--font-display);
-  font-size: 1.35rem;
-  font-weight: 600;
-  opacity: 0.9;
-  margin: 0;
-}
-
-.op-hero-title-group h2 ,
-
-.viewer-hero-title-group h2 {
-  font-family: var(--font-display);
-  font-size: 2.1rem;
-  font-weight: 800;
-  margin: 0 0 0.4rem 0;
-  line-height: 1.15;
-  color: #ffffff;
-}
-
-.op-hero-title-group p ,
-
-.viewer-hero-title-group p {
-  font-size: 1.05rem;
-  opacity: 0.92;
-  margin: 0;
-  line-height: 1.45;
-}
-
-.op-hero-illustration ,
-
-.viewer-hero-illustration {
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  filter: drop-shadow(0 8px 16px rgba(0,0,0,0.2));
-}
-
 /* Grille des 3 indicateurs */
 .op-indicators-grid ,
 
@@ -10133,16 +10023,6 @@ body {
 }
 
 @media (max-width: 840px) {
-  .op-hero-banner ,
-  .viewer-hero-banner {
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 1.6rem;
-  }
-  .op-hero-illustration ,
-  .viewer-hero-illustration {
-    display: none;
-  }
   .op-indicators-grid ,
   .viewer-indicators-grid {
     grid-template-columns: repeat(1, minmax(0, 1fr));
@@ -10525,47 +10405,6 @@ body {
    STYLE OPÉRATEUR (Poste de pilotage)
    ========================================== */
 
-/* Hero Orienté Action */
-.op-hero-action-card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 1.8rem 2.2rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1.5rem;
-  box-shadow: var(--shadow);
-}
-
-.op-hero-action-text {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
-
-.op-hero-kicker {
-  font-size: 0.76rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--primary);
-}
-
-.op-hero-title {
-  font-family: var(--font-display);
-  font-size: 1.8rem;
-  font-weight: 800;
-  margin: 0;
-  color: var(--text);
-}
-
-.op-hero-sub {
-  font-size: 0.95rem;
-  color: var(--muted);
-  margin: 0;
-}
-
 .op-hero-cta-btn {
   display: inline-flex;
   align-items: center;
@@ -10844,10 +10683,6 @@ body {
 @media (max-width: 900px) {
   .op-home-grid-layout {
     grid-template-columns: 1fr;
-  }
-  .op-hero-action-card {
-    flex-direction: column;
-    align-items: flex-start;
   }
   .op-site-card-metrics {
     grid-template-columns: 1fr;
@@ -11511,62 +11346,21 @@ body {
 }
 
 /* =============================================================
-   Bandeaux de titre : dégradé pétrole unifié (tous les comptes)
-   — Les bannières blanches (opérateur / consultation) adoptent
-     le même dégradé que le bandeau « Mon profil ».
+   Bandeaux : toutes les bannieres utilisent desormais le composant
+   partage WelcomeBanner (style de reference .welcome-banner base
+   sur les variables de theme --primary / --primary-2).
    ============================================================= */
 
-/* WelcomeBanner des pages opérateur & consultation */
-.user-home > .welcome-banner,
-.op-home > .welcome-banner {
-  background: linear-gradient(135deg, #0b3a52 0%, #145a78 55%, #1a6b8a 100%);
-  color: #ffffff;
-  border: none;
-  box-shadow: 0 18px 44px rgba(15, 76, 110, 0.22);
+/* CTA pose sur la banniere petrol : verre blanc translucide pour rester lisible */
+.op-hero-cta-btn--on-banner{
+  background:rgba(255,255,255,0.14);
+  border:1px solid rgba(255,255,255,0.55);
+  box-shadow:none;
+  backdrop-filter:blur(6px);
+  color:#ffffff;
 }
 
-.user-home > .welcome-banner .welcome-banner-kicker,
-.op-home > .welcome-banner .welcome-banner-kicker {
-  color: rgba(255, 255, 255, 0.75);
-}
-
-.user-home > .welcome-banner .welcome-banner-title,
-.op-home > .welcome-banner .welcome-banner-title,
-.user-home > .welcome-banner .welcome-banner-sub,
-.op-home > .welcome-banner .welcome-banner-sub {
-  color: #ffffff;
-}
-
-/* Hero orienté action (Accueil opérateur « Bonjour … ! ») */
-.op-hero-action-card {
-  background: linear-gradient(135deg, #0b3a52 0%, #145a78 55%, #1a6b8a 100%);
-  border: none;
-  color: #ffffff;
-  box-shadow: 0 18px 44px rgba(15, 76, 110, 0.22);
-}
-
-.op-hero-action-card .op-hero-kicker {
-  color: rgba(255, 255, 255, 0.75);
-}
-
-.op-hero-action-card .op-hero-title {
-  color: #ffffff;
-}
-
-.op-hero-action-card .op-hero-sub {
-  color: rgba(255, 255, 255, 0.88);
-}
-
-/* CTA : verre blanc translucide pour rester lisible sur le pétrole */
-.op-hero-cta-btn {
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  box-shadow: none;
-  backdrop-filter: blur(6px);
-}
-
-.op-hero-cta-btn:hover {
-  background: rgba(255, 255, 255, 0.24);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(8, 30, 45, 0.28);
+.op-hero-cta-btn--on-banner:hover{
+  background:rgba(255,255,255,0.24);
+  transform:translateY(-2px);
 }

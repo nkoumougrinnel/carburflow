@@ -28,7 +28,6 @@ import { useAuth, homeViewForUser } from '@/context/AuthContext.jsx'
 gsap.registerPlugin(useGSAP, ScrollTrigger, SplitText)
 
 const ILLU = {
-  hero: 'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?auto=format&fit=crop&w=2400&q=80',
   control: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1600&q=80',
 }
 
@@ -209,12 +208,6 @@ function HomePage({ onNavigate }) {
           .from('.hero-lead', { autoAlpha: 0, y: 22, duration: 0.55 }, '-=0.4')
           .from('.hero-cta', { autoAlpha: 0, y: 18, duration: 0.45, stagger: 0.08 }, '-=0.3')
 
-        gsap.to('.hero-bg-img', {
-          scale: 1.08,
-          ease: 'none',
-          scrollTrigger: { trigger: '.hero-section', start: 'top top', end: 'bottom top', scrub: 1.1 },
-        })
-
         gsap.utils.toArray('.reveal-section').forEach((section) => {
           const head = section.querySelectorAll('.reveal-head')
           const items = section.querySelectorAll('.reveal-item')
@@ -270,11 +263,24 @@ function HomePage({ onNavigate }) {
       </div>
 
       <main>
-        <section id="home" className="hero-section relative isolate overflow-hidden bg-slate-950">
-          <img src={ILLU.hero} alt="" className="hero-bg-img unsplash-ph absolute inset-0 h-full w-full object-cover opacity-75" fetchPriority="high" />
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-950/80 to-sky-950/55" aria-hidden="true" />
+        <section
+          id="home"
+          className="hero-section relative isolate overflow-hidden"
+          style={{
+            background:
+              'linear-gradient(135deg, rgba(15,76,110,0.96), rgba(26,107,138,0.9)), var(--primary)',
+          }}
+        >
+          <div
+            className="absolute inset-0"
+            aria-hidden="true"
+            style={{
+              background:
+                'radial-gradient(circle at 82% 12%, rgba(255, 255, 255, 0.14), transparent 44%), radial-gradient(circle at 8% 88%, rgba(255, 255, 255, 0.07), transparent 38%)',
+            }}
+          />
           <div className="relative z-10 mx-auto max-w-6xl px-4 pb-16 pt-20 sm:px-6 lg:px-8 lg:pb-24 lg:pt-24">
-            <p className="hero-brand text-sm font-semibold uppercase tracking-[0.22em] text-sky-200">
+            <p className="hero-brand text-sm font-semibold uppercase tracking-[0.22em] text-white/75">
               LUTTE CONTRE LA FRAUDE · CAMTEL
             </p>
             <div className="mt-6 max-w-3xl">
@@ -282,7 +288,7 @@ function HomePage({ onNavigate }) {
                 Sécurisez le suivi du carburant de vos sites télécoms.
               </h1>
             </div>
-            <p className="hero-lead mt-6 max-w-2xl text-lg leading-relaxed text-slate-200">
+            <p className="hero-lead mt-6 max-w-2xl text-lg leading-relaxed text-white/80">
               CarburFlow centralise les relevés de carburant, supervise les sites et les groupes électrogènes, et signale les écarts nécessitant une analyse.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -294,7 +300,7 @@ function HomePage({ onNavigate }) {
                 Découvrir la plateforme
               </Button>
             </div>
-            <p className="mt-6 text-sm text-slate-300">Une vision centralisée. Des données structurées. Des alertes exploitables.</p>
+            <p className="mt-6 text-sm text-white/70">Une vision centralisée. Des données structurées. Des alertes exploitables.</p>
           </div>
         </section>
 

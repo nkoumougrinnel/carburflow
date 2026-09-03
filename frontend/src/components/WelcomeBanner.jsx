@@ -28,6 +28,7 @@ function WelcomeBanner({
   subtitle,
   kicker,
   className = '',
+  actions,
 }) {
   const { user, isAdmin, isOperator } = useAuth()
   const ref = useRef(null)
@@ -74,6 +75,7 @@ function WelcomeBanner({
         <p className="welcome-banner-kicker">{eyebrow}</p>
         <h1 className="welcome-banner-title">{heading}</h1>
         <p className="welcome-banner-sub">{sub}</p>
+        {actions && <div className="welcome-banner-actions">{actions}</div>}
       </div>
     </section>
   )
