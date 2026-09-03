@@ -22,14 +22,23 @@ from apps.equipment.models import CuvePrincipale, GroupeElectrogene
 logger = logging.getLogger(__name__)
 
 SEUIL_AUTONOMIE_CRITIQUE_H = 24.0
+SEUIL_AUTONOMIE_PREVENTIVE_H = 36.0
 SEUIL_ECART_CONSO_PCT = 15.0
 
 TYPES_DETECTES = (
     'autonomie_critique',
-    'conso_sans_horaire',
-    'horaire_sans_conso',
+    'autonomie_preventive',
+    'conso_sans_fonctionnement',
+    'fonctionnement_sans_consommation',
     'ecart_conso',
+    'compteur_incoherent',
 )
+
+
+def _detection_datetime(report):
+    """Instant de détection : création de la fiche (rapport), sinon maintenant."""
+    created = getattr(report, 'date_creation', None) if report is not None else None
+    return created or timezone.now()
 
 
 def _last_period_value(series, default=0.0):
@@ -99,6 +108,7 @@ def _candidates_from_counter_quality(lignes_all, sites_by_cp_id, groupes_by_id, 
             'cuve_journaliere': None,
             'groupe_electrogene': groupe,
             'date_apparition': report_by_id.get(report_id).date_fin if report_id in report_by_id else report_date,
+            'date_detection': _detection_datetime(report_by_id.get(report_id) or latest_report),
         })
 
     return candidates
@@ -190,25 +200,32 @@ def _upsert_active(cle, **fields):
     """Crée ou met à jour une alerte active.
 
     Si la condition réapparait pour la même clé, une alerte traitée ou ignorée
-    est rouverte et réactivée.
+    est rouverte et réactivée. L'instant de détection (`date_detection`) est
+    conservé tant que l'alerte reste active ; il est posé à la création et
+    rafraîchi à la réouverture.
 
     Returns:
         (alerte, should_alert): should_alert si création ou réactivation.
     """
+    detection = fields.pop('date_detection', None) or timezone.now()
+
     existing = Alerte.objects.filter(cle=cle).first()
     if existing is None:
-        return Alerte.objects.create(cle=cle, **fields), True
+        return Alerte.objects.create(cle=cle, date_detection=detection, **fields), True
 
     should_alert = existing.etat in ('ignoree', 'traitee')
 
     for key, value in fields.items():
         setattr(existing, key, value)
 
-    if existing.etat in ('ignoree', 'traitee'):
+    if should_alert:
         existing.etat = 'nouvelle'
         existing.justification = ''
         existing.traite_par = None
         existing.date_traitement = None
+        existing.date_detection = detection
+    elif existing.date_detection is None:
+        existing.date_detection = detection
 
     existing.save()
     return existing, should_alert
@@ -231,6 +248,9 @@ def _candidates_from_block(block, groupe, cp, site, cuve_j, latest_report, repor
         'cuve_principale_id': cp_id,
         'site_name': site_name,
     }
+    stock_actuel = block.get('volume_proportionnel')
+    if stock_actuel is None:
+        stock_actuel = block.get('latest_main_volume')
 
     autonomie = block.get('autonomie_hours')
     is_infinite_autonomy = bool(block.get('is_infinite_autonomy'))
@@ -242,7 +262,7 @@ def _candidates_from_block(block, groupe, cp, site, cuve_j, latest_report, repor
                 'type_alerte': 'autonomie_critique',
                 'priorite': 'critique',
                 'message': (
-                    f'Autonomie carburant inférieure à 24h : '
+                    f'Autonomie inférieure à 24 h : '
                     f'{autonomie:.1f}h restantes — Groupe {label}'
                     + (f' ({site_name})' if site_name else '')
                 ),
@@ -250,7 +270,28 @@ def _candidates_from_block(block, groupe, cp, site, cuve_j, latest_report, repor
                     **base_ctx,
                     'autonomie_heures': autonomie,
                     'seuil': SEUIL_AUTONOMIE_CRITIQUE_H,
+                    'stock_actuel': stock_actuel,
                 },
+                'date_detection': _detection_datetime(latest_report),
+            })
+
+        elif autonomie < SEUIL_AUTONOMIE_PREVENTIVE_H:
+            candidates.append({
+                'cle': Alerte.generer_cle('autonomie_preventive', gid),
+                'type_alerte': 'autonomie_preventive',
+                'priorite': 'moyenne',
+                'message': (
+                    f'Autonomie inférieure à 36 h : '
+                    f'{autonomie:.1f}h restantes — Groupe {label}'
+                    + (f' ({site_name})' if site_name else '')
+                ),
+                'donnees_contexte': {
+                    **base_ctx,
+                    'autonomie_heures': autonomie,
+                    'seuil': SEUIL_AUTONOMIE_PREVENTIVE_H,
+                    'stock_actuel': stock_actuel,
+                },
+                'date_detection': _detection_datetime(latest_report),
             })
 
     consumption_series = block.get('consumption') or []
@@ -264,11 +305,11 @@ def _candidates_from_block(block, groupe, cp, site, cuve_j, latest_report, repor
             c_val = float(c)
             h_val = float(h) if h is not None else 0.0
             candidates.append({
-                'cle': Alerte.generer_cle('conso_sans_horaire', gid, suffix=report.id),
-                'type_alerte': 'conso_sans_horaire',
+                'cle': Alerte.generer_cle('conso_sans_fonctionnement', gid, suffix=report.id),
+                'type_alerte': 'conso_sans_fonctionnement',
                 'priorite': 'haute',
                 'message': (
-                    'Consommation enregistrée sans relevé du compteur horaire '
+                    'Consommation sans fonctionnement '
                     f'— Groupe {label}'
                     + (f' ({site_name})' if site_name else '')
                 ),
@@ -277,8 +318,10 @@ def _candidates_from_block(block, groupe, cp, site, cuve_j, latest_report, repor
                     'rapport_id': report.id,
                     'quantite_conso': c_val,
                     'compteur_horaire': h_val,
+                    'date_rapport': report.date_fin.isoformat() if report.date_fin else None,
                 },
                 'date_apparition': report.date_fin,
+                'date_detection': _detection_datetime(report),
             })
 
     # 2. Delta horaire élevé sans consommation enregistrée (par rapport)
@@ -289,11 +332,11 @@ def _candidates_from_block(block, groupe, cp, site, cuve_j, latest_report, repor
             c_val = float(c) if c is not None else 0.0
             h_val = float(h)
             candidates.append({
-                'cle': Alerte.generer_cle('horaire_sans_conso', gid, suffix=report.id),
-                'type_alerte': 'horaire_sans_conso',
+                'cle': Alerte.generer_cle('fonctionnement_sans_consommation', gid, suffix=report.id),
+                'type_alerte': 'fonctionnement_sans_consommation',
                 'priorite': 'haute',
                 'message': (
-                    'Delta horaire élevé sans consommation enregistrée '
+                    'Fonctionnement sans consommation '
                     f'— Groupe {label}'
                     + (f' ({site_name})' if site_name else '')
                     + f' ({h_val:.1f} h / {c_val:.1f} L)'
@@ -303,8 +346,10 @@ def _candidates_from_block(block, groupe, cp, site, cuve_j, latest_report, repor
                     'rapport_id': report.id,
                     'quantite_conso': c_val,
                     'compteur_horaire': h_val,
+                    'date_rapport': report.date_fin.isoformat() if report.date_fin else None,
                 },
                 'date_apparition': report.date_fin,
+                'date_detection': _detection_datetime(report),
             })
 
     # 3. Écart de consommation horaire > 15% (par rapport, référence semaine N-1)
@@ -320,10 +365,10 @@ def _candidates_from_block(block, groupe, cp, site, cuve_j, latest_report, repor
         for idx, report, c_val, h_val in valid_pairs:
             hourly = c_val / h_val
             if not historical_rates:
-                historical_rates.append(hourly)
+                historical_rates.append((hourly, report))
                 continue
 
-            previous_rate = historical_rates[-1]
+            previous_rate, previous_report = historical_rates[-1]
             ecart = abs((hourly - previous_rate) / previous_rate) * 100
             if should_emit_hourly_variance_alert(previous_rate, hourly, SEUIL_ECART_CONSO_PCT):
                 candidates.append({
@@ -341,11 +386,20 @@ def _candidates_from_block(block, groupe, cp, site, cuve_j, latest_report, repor
                         'ecart_pourcent': round(ecart, 1),
                         'previous_hourly': round(previous_rate, 2),
                         'latest_hourly': round(hourly, 2),
+                        'date_rapport_courant': (
+                            report.date_fin.isoformat() if report.date_fin else None
+                        ),
+                        'date_rapport_reference': (
+                            previous_report.date_fin.isoformat()
+                            if previous_report is not None and previous_report.date_fin
+                            else None
+                        ),
                     },
                     'date_apparition': report.date_fin,
+                    'date_detection': _detection_datetime(report),
                 })
 
-            historical_rates.append(hourly)
+            historical_rates.append((hourly, report))
 
     report_date = latest_report.date_fin if latest_report is not None else None
     for item in candidates:
@@ -353,6 +407,7 @@ def _candidates_from_block(block, groupe, cp, site, cuve_j, latest_report, repor
         item['cuve_journaliere'] = cuve_j
         item['groupe_electrogene'] = groupe
         item.setdefault('date_apparition', report_date)
+        item.setdefault('date_detection', _detection_datetime(latest_report))
     return candidates
 
 
@@ -389,8 +444,11 @@ def _candidates_from_site_blocks(group_blocks, sites_by_cp_id, latest_report):
         if finite:
             aut_hours = round(max(finite), 1)
             if aut_hours < SEUIL_AUTONOMIE_CRITIQUE_H:
+                stock_site = sum(
+                    float(b.get('volume_proportionnel') or 0) for b in blocks
+                )
                 message = (
-                    f'Site urgent — autonomie critique : {aut_hours:.1f}h restantes'
+                    f'Site urgent — Autonomie inférieure à 24 h : {aut_hours:.1f}h restantes'
                     + (f' — {site_name}' if site_name else '')
                 )
 
@@ -404,6 +462,7 @@ def _candidates_from_site_blocks(group_blocks, sites_by_cp_id, latest_report):
                         'site_name': site_name,
                         'autonomie_heures': aut_hours,
                         'seuil': SEUIL_AUTONOMIE_CRITIQUE_H,
+                        'stock_actuel': round(stock_site, 1),
                         'is_site_urgent': True,
                         'is_infinite_consumption': False,
                     },
@@ -411,6 +470,7 @@ def _candidates_from_site_blocks(group_blocks, sites_by_cp_id, latest_report):
                     'groupe_electrogene': None,
                     'cuve_journaliere': None,
                     'date_apparition': report_date,
+                    'date_detection': _detection_datetime(latest_report),
                 })
 
         # Aucun autre type d'alerte site n'est généré ici ; seul le site urgent
@@ -506,7 +566,10 @@ def detecter_et_persister_alertes(*, auto_ignorer_levees: bool = True):
 def serialize_dashboard_alerts(alerts):
     """
     Transforme une liste d'alertes en payloads simplifiés pour le frontend.
+    Titres / sous-titres figés des 5 typologies (même grille que la page Alertes).
     """
+    from apps.alerts.serializers import AlerteListSerializer
+
     priority_map = {
         'critique': 'critical',
         'haute': 'critical',
@@ -514,12 +577,9 @@ def serialize_dashboard_alerts(alerts):
         'basse': 'low',
     }
 
+    list_serializer = AlerteListSerializer()
     results = []
     for a in alerts:
-        msg_lines = (a.message or '').split('\n')
-        title = msg_lines[0] if msg_lines else ''
-        subtitle = '\n'.join(msg_lines[1:]) if len(msg_lines) > 1 else ''
-
         ctx = getattr(a, 'donnees_contexte', None) or {}
         is_group_alert = getattr(a, 'groupe_electrogene_id', None) or ctx.get('groupe_id')
 
@@ -528,8 +588,10 @@ def serialize_dashboard_alerts(alerts):
             'target': 'groups' if is_group_alert else 'site',
             'priority': a.get_priorite_display(),
             'priority_level': priority_map.get(a.priorite, 'medium'),
-            'title': title,
-            'subtitle': subtitle,
+            'title': list_serializer.get_title(a),
+            'subtitle': list_serializer.get_subtitle(a),
+            'detected_at': list_serializer.get_detected_at(a),
+            'ecart_pct': list_serializer.get_ecart_pct(a),
             'donnees_contexte': a.donnees_contexte,
         })
     return results

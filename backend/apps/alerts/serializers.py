@@ -1,3 +1,5 @@
+from datetime import date as date_cls
+
 from rest_framework import serializers
 
 from .models import Alerte
@@ -16,6 +18,58 @@ PRIORITE_TO_LABEL = {
     'moyenne': 'Moyenne',
     'basse': 'Basse',
 }
+
+
+# ——————————————————————————————————————————————————————————
+#  Textes figés des 5 typologies (grille d'affichage commune)
+# ——————————————————————————————————————————————————————————
+
+TITRES_TYPES = {
+    'autonomie_critique': 'Autonomie inférieure à 24 h',
+    'autonomie_preventive': 'Autonomie inférieure à 36 h',
+    'conso_sans_fonctionnement': 'Consommation sans fonctionnement',
+    'fonctionnement_sans_consommation': 'Fonctionnement sans consommation',
+    'ecart_conso': 'Écart de consommation horaire',
+    'compteur_incoherent': 'Compteur horaire incohérent',
+}
+
+
+def _fmt_fr_number(value, digits=1):
+    """1234.5 → '1 234,5' (format fr-FR, espace des milliers)."""
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return None
+    return f'{value:,.{digits}f}'.replace(',', ' ').replace('.', ',')
+
+
+def _fmt_heures(value):
+    text = _fmt_fr_number(value, 1)
+    return f'{text} h' if text is not None else None
+
+
+def _fmt_litres(value):
+    text = _fmt_fr_number(value, 0)
+    return f'{text} L' if text is not None else None
+
+
+def _fmt_taux(value):
+    text = _fmt_fr_number(value, 2)
+    return f'{text} L/h' if text is not None else None
+
+
+def _fmt_date_fr(value):
+    """'2026-08-31' / date → '31/08/2026'."""
+    if not value:
+        return None
+    if isinstance(value, str):
+        try:
+            value = date_cls.fromisoformat(value[:10])
+        except ValueError:
+            return value
+    if hasattr(value, 'strftime'):
+        return value.strftime('%d/%m/%Y')
+    return str(value)
 
 
 class AlerteListSerializer(serializers.ModelSerializer):
@@ -93,30 +147,75 @@ class AlerteListSerializer(serializers.ModelSerializer):
         return self.get_priority_level(obj)
 
     def get_title(self, obj):
+        titre = TITRES_TYPES.get(obj.type_alerte)
+        if titre:
+            return titre
         message = (obj.message or '').strip()
         if not message:
             return obj.get_type_alerte_display()
         return message.split('\n', 1)[0]
 
     def get_subtitle(self, obj):
+        ctx = self._ctx(obj)
+        code = obj.type_alerte
+
+        if code in ('autonomie_critique', 'autonomie_preventive'):
+            heures = ctx.get('autonomie_heures')
+            if heures is None:
+                return ''
+            parts = [f'Autonomie restante : {_fmt_heures(heures)}.']
+            stock = ctx.get('stock_actuel')
+            if stock is not None:
+                parts.append(f'Stock actuel : {_fmt_litres(stock)}.')
+            return ' '.join(parts)
+
+        if code == 'conso_sans_fonctionnement':
+            conso = ctx.get('quantite_conso')
+            if conso is None:
+                return ''
+            heures = ctx.get('compteur_horaire') or 0
+            return (
+                f'Consommation enregistrée : {_fmt_litres(conso)}. '
+                f'Temps de fonctionnement : {_fmt_heures(heures)}.'
+            )
+
+        if code == 'fonctionnement_sans_consommation':
+            heures = ctx.get('compteur_horaire')
+            if heures is None:
+                return ''
+            conso = ctx.get('quantite_conso') or 0
+            return (
+                f'Temps de fonctionnement : {_fmt_heures(heures)}. '
+                f'Consommation enregistrée : {_fmt_litres(conso)}.'
+            )
+
+        if code == 'ecart_conso':
+            latest = ctx.get('latest_hourly')
+            previous = ctx.get('previous_hourly')
+            ecart = ctx.get('ecart_pourcent')
+            if latest is not None and previous is not None and float(previous) > 0:
+                signe = '▲' if float(latest) >= float(previous) else '▼'
+                date_courant = _fmt_date_fr(ctx.get('date_rapport_courant'))
+                date_ref = _fmt_date_fr(ctx.get('date_rapport_reference'))
+                phrase = 'Consommation horaire'
+                if date_courant:
+                    phrase += f' au {date_courant}'
+                phrase += f' : {_fmt_taux(latest)}. Référence'
+                if date_ref:
+                    phrase += f' au {date_ref}'
+                phrase += f' : {_fmt_taux(previous)}.'
+                if ecart is not None:
+                    phrase += f' Écart : {signe}{_fmt_fr_number(ecart, 1)} %.'
+                return phrase
+            if ecart is not None:
+                return f"Écart : {_fmt_fr_number(ecart, 1)} % (seuil {ctx.get('seuil', 15)}%)."
+            return ''
+
+        # Anciens codes : repli sur le message détaillé
         message = (obj.message or '').strip()
         parts = message.split('\n', 1)
         if len(parts) > 1:
             return parts[1].strip()
-        ctx = self._ctx(obj)
-        if obj.type_alerte == 'ecart_conso' and ctx.get('ecart_pourcent') is not None:
-            return (
-                f"Écart : {ctx['ecart_pourcent']}% "
-                f"(seuil {ctx.get('seuil', 15)}%)"
-            )
-        if obj.type_alerte in ('autonomie_critique', 'autonomie_preventive'):
-            heures = ctx.get('autonomie_heures')
-            if heures is not None:
-                return f'Autonomie restante : {heures}h'
-        if obj.type_alerte == 'conso_sans_horaire':
-            conso = ctx.get('quantite_conso')
-            if conso is not None:
-                return f'Consommation relevée : {conso} L — delta horaire manquant.'
         return ''
 
     def get_site_id(self, obj):
@@ -153,6 +252,9 @@ class AlerteListSerializer(serializers.ModelSerializer):
         return 'site'
 
     def get_detected_at(self, obj):
+        detection = getattr(obj, 'date_detection', None)
+        if detection:
+            return detection.isoformat()
         if obj.date_apparition:
             return obj.date_apparition.isoformat()
         return None

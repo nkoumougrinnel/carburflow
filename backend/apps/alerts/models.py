@@ -17,10 +17,12 @@ class Alerte(models.Model):
     ]
 
     TYPE_CHOICES = [
-        ('autonomie_critique', 'Autonomie critique (< 24h)'),
-        ('conso_sans_horaire', 'Consommation sans delta horaire'),
-        ('horaire_sans_conso', 'Delta horaire sans consommation'),
-        ('ecart_conso', 'Écart de consommation (> 15%)'),
+        ('autonomie_critique', 'Autonomie inférieure à 24 h'),
+        ('autonomie_preventive', 'Autonomie inférieure à 36 h'),
+        ('conso_sans_fonctionnement', 'Consommation sans fonctionnement'),
+        ('fonctionnement_sans_consommation', 'Fonctionnement sans consommation'),
+        ('ecart_conso', 'Écart de consommation horaire'),
+        ('compteur_incoherent', 'Compteur horaire incohérent'),
     ]
 
     ETAT_CHOICES = [
@@ -42,6 +44,12 @@ class Alerte(models.Model):
     )
 
     date_apparition = models.DateField(default=timezone.now, db_index=True)
+    date_detection = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text='Instant réel de détection (dépôt de fiche) — date + heure affichées dans l’UI.',
+    )
     date_traitement = models.DateTimeField(null=True, blank=True)
 
     priorite = models.CharField(

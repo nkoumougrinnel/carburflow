@@ -16,12 +16,17 @@ from .serializers import (
 TYPE_ALIASES = {
     'critique': 'autonomie_critique',
     'alerte': 'autonomie_preventive',
-    'anomalie': 'conso_sans_horaire',
+    'anomalie': 'conso_sans_fonctionnement',
     'ecart': 'ecart_conso',
     'autonomie_critique': 'autonomie_critique',
     'autonomie_preventive': 'autonomie_preventive',
-    'conso_sans_horaire': 'conso_sans_horaire',
+    'conso_sans_fonctionnement': 'conso_sans_fonctionnement',
+    'fonctionnement_sans_consommation': 'fonctionnement_sans_consommation',
+    # anciens codes (compat lectures avant migration de données)
+    'conso_sans_horaire': 'conso_sans_fonctionnement',
+    'horaire_sans_conso': 'fonctionnement_sans_consommation',
     'ecart_conso': 'ecart_conso',
+    'compteur_incoherent': 'compteur_incoherent',
 }
 
 PRIORITE_ALIASES = {

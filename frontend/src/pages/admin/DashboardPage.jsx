@@ -21,6 +21,7 @@ import {
 function DashboardPage({ onNavigate }) {
   const [dashboardData, setDashboardData] = useState(null)
   const [loadError, setLoadError] = useState('')
+  const [alertFilter, setAlertFilter] = useState('all')
 
   const formatValue = (value, suffix = '') => {
     if (value == null || Number.isNaN(value)) return '—'
@@ -284,7 +285,19 @@ function DashboardPage({ onNavigate }) {
   }, [siteRows])
 
   const alertCounts = useMemo(() => countAlertsBySeverity(alerts), [alerts])
-  const previewAlerts = useMemo(() => pickPreviewAlerts(alerts, { maxTotal: 3 }), [alerts])
+  const previewAlerts = useMemo(() => {
+    const source = alertFilter === 'all'
+      ? alerts
+      : alerts.filter((alert) => resolvePrioriteKey(alert) === alertFilter)
+    return pickPreviewAlerts(source, { maxTotal: alertFilter === 'all' ? 5 : 8 })
+  }, [alerts, alertFilter])
+
+  const SEVERITY_PILLS = [
+    { id: 'critique', label: 'Critique', count: alertCounts.critique, tone: 'critical' },
+    { id: 'haute', label: 'Haute', count: alertCounts.haute, tone: 'high' },
+    { id: 'moyenne', label: 'Moyenne', count: alertCounts.moyenne, tone: 'medium' },
+    { id: 'basse', label: 'Basse', count: alertCounts.basse, tone: 'low' },
+  ]
 
   const openAlertInCenter = (alert) => {
     onNavigate?.({
@@ -345,44 +358,42 @@ function DashboardPage({ onNavigate }) {
           ))}
         </div>
 
-        <section className="dashboard-alerts metric-panel" style={{ gridColumn: '1 / -1' }}>
-          <div className="metric-title-row alert-section-head">
-            <div>
-              <h3>Notifications d’alertes</h3>
-            </div>
-            <div className="dashboard-alerts-actions">
-              {alerts.length > 0 && (
-                <div className="alert-legend alert-legend--static" aria-label="Répartition des alertes">
-                  <span className="alert-legend-item alert-legend--critical is-active">Critique <strong>{alertCounts.critique}</strong></span>
-                  <span className="alert-legend-item alert-legend--high is-active">Haute <strong>{alertCounts.haute}</strong></span>
-                  <span className="alert-legend-item alert-legend--medium is-active">Moyenne <strong>{alertCounts.moyenne}</strong></span>
-                  <span className="alert-legend-item alert-legend--low is-active">Basse <strong>{alertCounts.basse}</strong></span>
-                </div>
-              )}
+        <section className="dashboard-alerts metric-panel mq-dash-alerts" style={{ gridColumn: '1 / -1' }}>
+          <div className="mq-dash-alerts-head">
+            <h3>Notifications d’alertes</h3>
+            <div className="mq-dash-pills" role="group" aria-label="Filtrer les alertes par niveau">
+              {SEVERITY_PILLS.map((pill) => (
+                <button
+                  key={pill.id}
+                  type="button"
+                  className={`mq-dash-pill mq-dash-pill--${pill.tone}${alertFilter === pill.id ? ' is-active' : ''}`}
+                  aria-pressed={alertFilter === pill.id}
+                  onClick={() => setAlertFilter((current) => current === pill.id ? 'all' : pill.id)}
+                >
+                  {pill.label} {pill.count}
+                </button>
+              ))}
             </div>
           </div>
-          <div className="alert-list alert-list--compact">
+          <div className="mq-dash-alert-list">
             {previewAlerts.length ? previewAlerts.map((alert) => {
               const severity = alert.severity || 'medium'
-              const label = alert.priority || 'Moyenne'
+              const heading = alert.group_label
+                ? `${alert.title} — ${alert.group_label}`
+                : alert.title
               return (
                 <button
                   key={alert.id}
                   type="button"
-                  className={`alert-item alert-item--compact alert-${severity} alert-item--preview alert-item--link`}
-                  data-severity={severity}
+                  className={`mq-dash-alert mq-dash-alert--${severity}`}
                   onClick={() => openAlertInCenter(alert)}
                 >
-                  <div className="alert-severity-bar" aria-hidden="true" />
-                  <div className="alert-header alert-header--compact">
-                    <strong className="alert-preview-title">{alert.title}</strong>
-                    <span className={`alert-level-tag alert-level-tag--${severity}`}>
-                      {label}
-                    </span>
-                  </div>
-                  {alert.subtitle ? (
-                    <p className="alert-detail alert-detail--preview">{alert.subtitle}</p>
-                  ) : null}
+                  <span className={`alx-pill alx-pill--${severity}`}>{alert.priority || 'Moyenne'}</span>
+                  <span className="mq-dash-alert-copy">
+                    <strong>{heading}</strong>
+                    {alert.essential ? <span>{alert.essential}</span> : null}
+                  </span>
+                  <span className="mq-dash-alert-open">Ouvrir →</span>
                 </button>
               )
             }) : (
@@ -391,25 +402,18 @@ function DashboardPage({ onNavigate }) {
               </div>
             )}
           </div>
-          {alerts.length > previewAlerts.length && (
-            <div className="dashboard-alerts-footer">
-              <Button
-                variant="outline"
-                onClick={() => onNavigate?.({
-                  view: 'alerts',
-                  priority: alertCounts.critique > 0 ? 'critique' : 'all',
-                })}
-              >
-                Plus d’alertes
-                <span
-                  className="dashboard-alerts-more-count"
-                  aria-label={`${alerts.length - previewAlerts.length} autres non traitées`}
-                >
-                  {alerts.length - previewAlerts.length}
-                </span>
-              </Button>
-            </div>
-          )}
+          <div className="dashboard-alerts-footer">
+            <Button
+              variant="outline"
+              className="mq-dash-all-btn"
+              onClick={() => onNavigate?.({
+                view: 'alerts',
+                priority: alertFilter !== 'all' ? alertFilter : (alertCounts.critique > 0 ? 'critique' : 'all'),
+              })}
+            >
+              Voir toutes les alertes →
+            </Button>
+          </div>
         </section>
 
         {/* 1. Sites à faible autonomie */}

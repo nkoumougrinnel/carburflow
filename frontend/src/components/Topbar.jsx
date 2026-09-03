@@ -218,7 +218,9 @@ function Topbar({ activeView, onNavigate }) {
             {unreadMessages}
           </span>
         )}
+      </nav>
 
+      <div className="topbar-right">
         {isAuthenticated && (
           <div className="topbar-user">
             <div className="topbar-user-meta">
@@ -233,9 +235,6 @@ function Topbar({ activeView, onNavigate }) {
             </button>
           </div>
         )}
-      </nav>
-
-      <div className="topbar-right">
         <button
           type="button"
           className="theme-toggle"

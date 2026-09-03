@@ -1,5 +1,3 @@
-import { formatAutonomy } from './format.js'
-
 /** Libellés / rangs des 4 priorités métier (alignés backend). */
 export const PRIORITE_META = {
   critique: { label: 'Critique', level: 'critical', rank: 4, key: 'critique' },
@@ -16,12 +14,212 @@ export const SEVERITY_META = {
   low: PRIORITE_META.basse,
 }
 
+/**
+ * Grille figée des 5 typologies (source unique d'affichage) :
+ * mêmes titres dans le détail du groupe, le Dashboard et le Centre d'alertes.
+ */
 export const ALERT_TYPE_META = {
-  autonomie_critique: { label: 'Autonomie critique' },
-  autonomie_preventive: { label: 'Autonomie préventive' },
-  conso_sans_horaire: { label: 'Conso. sans horaire' },
-  horaire_sans_conso: { label: 'Horaire sans conso.' },
-  ecart_conso: { label: 'Écart consommation' },
+  autonomie_critique: {
+    code: 'autonomie_critique',
+    title: 'Autonomie inférieure à 24 h',
+    label: 'Autonomie inférieure à 24 h',
+    priorite: 'critique',
+  },
+  autonomie_preventive: {
+    code: 'autonomie_preventive',
+    title: 'Autonomie inférieure à 36 h',
+    label: 'Autonomie inférieure à 36 h',
+    priorite: 'moyenne',
+  },
+  conso_sans_fonctionnement: {
+    code: 'conso_sans_fonctionnement',
+    title: 'Consommation sans fonctionnement',
+    label: 'Consommation sans fonctionnement',
+    priorite: 'haute',
+  },
+  fonctionnement_sans_consommation: {
+    code: 'fonctionnement_sans_consommation',
+    title: 'Fonctionnement sans consommation',
+    label: 'Fonctionnement sans consommation',
+    priorite: 'haute',
+  },
+  ecart_conso: {
+    code: 'ecart_conso',
+    title: 'Écart de consommation horaire',
+    label: 'Écart de consommation horaire',
+    priorite: 'moyenne',
+  },
+  compteur_incoherent: {
+    code: 'compteur_incoherent',
+    title: 'Compteur horaire incohérent',
+    label: 'Compteur horaire incohérent',
+    priorite: 'haute',
+  },
+}
+
+/** Anciens codes (backend / UI) → codes figés. */
+const TYPE_CODE_ALIASES = {
+  autonomie_critique: 'autonomie_critique',
+  autonomie_preventive: 'autonomie_preventive',
+  conso_sans_fonctionnement: 'conso_sans_fonctionnement',
+  fonctionnement_sans_consommation: 'fonctionnement_sans_consommation',
+  ecart_conso: 'ecart_conso',
+  compteur_incoherent: 'compteur_incoherent',
+  // anciens codes backend
+  conso_sans_horaire: 'conso_sans_fonctionnement',
+  horaire_sans_conso: 'fonctionnement_sans_consommation',
+  // anciens codes UI
+  critique: 'autonomie_critique',
+  alerte: 'autonomie_preventive',
+  anomalie: 'conso_sans_fonctionnement',
+  ecart: 'ecart_conso',
+}
+
+/** Code figé d'une alerte (null si inconnu). */
+export function resolveAlertTypeCode(alert) {
+  const raw = String(alert?.type || alert?.type_alerte || alert?.type_code || '').toLowerCase()
+  return TYPE_CODE_ALIASES[raw] || null
+}
+
+/* — Formateurs fr-FR partagés (grille d'affichage commune) — */
+const nf0 = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 })
+const nf1 = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+const nf2 = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+export function formatLitresFr(value) {
+  const num = Number(value)
+  if (!Number.isFinite(num)) return null
+  return `${nf0.format(Math.round(num))} L`
+}
+
+export function formatHeuresFr(value) {
+  const num = Number(value)
+  if (!Number.isFinite(num)) return null
+  return `${nf1.format(num)} h`
+}
+
+/** Heures affichées : 0 → '0 h' (jamais « 0,0 h »), null si indisponible. */
+function heuresOuZero(value) {
+  const num = Number(value)
+  if (!Number.isFinite(num)) return null
+  return num > 0 ? formatHeuresFr(num) : '0 h'
+}
+
+export function formatTauxFr(value) {
+  const num = Number(value)
+  if (!Number.isFinite(num)) return null
+  return `${nf2.format(num)} L/h`
+}
+
+export function formatPctFr(value, { signed = false } = {}) {
+  const num = Number(value)
+  if (!Number.isFinite(num)) return null
+  const sign = signed ? (num > 0 ? '+' : num < 0 ? '−' : '') : ''
+  return `${sign}${nf1.format(Math.abs(num))} %`
+}
+
+/** '2026-08-31' / ISO → '31/08/2026'. */
+export function formatAlertDateShort(value) {
+  if (!value) return ''
+  const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (match) return `${match[3]}/${match[2]}/${match[1]}`
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleDateString('fr-FR')
+}
+
+/** ISO datetime → '31/08/2026 09:16' (heure masquée si 00:00). */
+export function formatAlertDateTime(value) {
+  if (!value) return '—'
+  const str = String(value)
+  // Chaîne avec fuseau horaire (ex. +00:00 / Z) → conversion en heure locale
+  if (/[zZ]$/.test(str) || /[+-]\d{2}:?\d{2}$/.test(str)) {
+    const date = new Date(str)
+    if (!Number.isNaN(date.getTime())) {
+      const day = date.toLocaleDateString('fr-FR')
+      const time = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+      return time === '00:00' ? day : `${day} ${time}`
+    }
+  }
+  const match = str.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/)
+  if (match) {
+    const hh = match[4]
+    const mm = match[5]
+    const day = `${match[3]}/${match[2]}/${match[1]}`
+    return hh === '00' && mm === '00' ? day : `${day} ${hh}:${mm}`
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return formatAlertDateShort(str)
+  const date = new Date(str)
+  if (Number.isNaN(date.getTime())) return '—'
+  const time = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  if (time === '00:00') return date.toLocaleDateString('fr-FR')
+  return `${date.toLocaleDateString('fr-FR')} ${time}`
+}
+
+/**
+ * Textes figés d'une alerte : titre, sous-titre quantifié (Centre d'alertes)
+ * et valeur essentielle (Dashboard / détail du groupe).
+ */
+export function buildAlertTexts(alert) {
+  const code = resolveAlertTypeCode(alert)
+  if (!code) return null
+  const meta = ALERT_TYPE_META[code]
+  const ctx = alert?.donnees_contexte || alert?.context || {}
+  const out = { type_code: code, title: meta.title, subtitle: '', essential: '' }
+
+  if (code === 'autonomie_critique' || code === 'autonomie_preventive') {
+    const heures = heuresOuZero(ctx.autonomie_heures)
+    const stock = formatLitresFr(ctx.stock_actuel)
+    if (heures) {
+      out.subtitle = `Autonomie restante : ${heures}.${stock ? ` Stock actuel : ${stock}.` : ''}`
+      out.essential = `${heures} restantes`
+    }
+    return out
+  }
+
+  if (code === 'conso_sans_fonctionnement') {
+    const litres = formatLitresFr(ctx.quantite_conso)
+    if (litres) {
+      const heures = heuresOuZero(ctx.compteur_horaire || 0) || '0 h'
+      out.subtitle = `Consommation enregistrée : ${litres}. Temps de fonctionnement : ${heures}.`
+      out.essential = `${litres} · ${heures} de fonctionnement`
+    }
+    return out
+  }
+
+  if (code === 'fonctionnement_sans_consommation') {
+    const heures = heuresOuZero(ctx.compteur_horaire)
+    if (heures) {
+      const litres = formatLitresFr(ctx.quantite_conso || 0) || '0 L'
+      out.subtitle = `Temps de fonctionnement : ${heures}. Consommation enregistrée : ${litres}.`
+      out.essential = `${heures} · ${litres} consommé`
+    }
+    return out
+  }
+
+  if (code === 'ecart_conso') {
+    const latest = Number(ctx.latest_hourly)
+    const previous = Number(ctx.previous_hourly)
+    const ecart = Number(ctx.ecart_pourcent)
+    if (Number.isFinite(latest) && Number.isFinite(previous) && previous > 0) {
+      const signed = ((latest - previous) / previous) * 100
+      const arrow = signed >= 0 ? '▲' : '▼'
+      const dateCourant = formatAlertDateShort(ctx.date_rapport_courant)
+      const dateRef = formatAlertDateShort(ctx.date_rapport_reference)
+      out.subtitle = [
+        `Consommation horaire${dateCourant ? ` au ${dateCourant}` : ''} : ${formatTauxFr(latest)}.`,
+        `Référence${dateRef ? ` au ${dateRef}` : ''} : ${formatTauxFr(previous)}.`,
+        `Écart : ${arrow}${formatPctFr(Math.abs(signed))}.`,
+      ].join(' ')
+      out.essential = formatPctFr(signed, { signed: true })
+    } else if (Number.isFinite(ecart)) {
+      out.subtitle = `Écart : ${formatPctFr(Math.abs(ecart))}.`
+      out.essential = formatPctFr(ecart, { signed: true })
+    }
+    return out
+  }
+
+  return out
 }
 
 const PRIORITE_ALIASES = {
@@ -61,7 +259,7 @@ export function normalizeAlertSeverity(alert) {
   return PRIORITE_META[key] || PRIORITE_META.moyenne
 }
 
-/** Normalise une alerte API BD vers le format UI. */
+/** Normalise une alerte API BD vers le format UI (textes figés des 5 typologies). */
 export function normalizePersistedAlert(alert) {
   if (!alert) return null
   const prioriteKey = resolvePrioriteKey(alert)
@@ -72,7 +270,7 @@ export function normalizePersistedAlert(alert) {
     || meta.label
   )
   const ctx = alert.donnees_contexte || alert.context || {}
-  return {
+  const normalized = {
     ...alert,
     id: alert.id || alert.cle || `alerte-${alert.db_id}`,
     type: alert.type || alert.type_alerte,
@@ -83,11 +281,22 @@ export function normalizePersistedAlert(alert) {
     title: alert.title || alert.message || 'Alerte',
     subtitle: alert.subtitle || '',
     traitee: alert.traitee === true || alert.etat === 'traitee',
-    detected_at: alert.detected_at || alert.date_apparition || null,
+    detected_at: alert.date_detection || alert.detected_at || alert.date_apparition || null,
     target: alert.target || (alert.group_id ? 'groups' : 'site'),
     is_infinite_consumption: !!(alert.is_infinite_consumption || ctx.is_infinite_consumption),
     donnees_contexte: ctx,
   }
+  // Grille figée : titre / sous-titre / valeur essentielle par typologie
+  const texts = buildAlertTexts(normalized)
+  if (texts) {
+    normalized.type_code = texts.type_code
+    normalized.title = texts.title
+    if (texts.subtitle) normalized.subtitle = texts.subtitle
+    normalized.essential = texts.essential || ''
+  } else {
+    normalized.essential = ''
+  }
+  return normalized
 }
 
 /**
@@ -125,7 +334,8 @@ function isEcartConso(g) {
 }
 
 /**
- * Construit la liste d’alertes à partir des lignes sites/groupes du dashboard.
+ * Construit la liste d’alertes à partir des lignes sites/groupes du dashboard
+ * (source de repli) — codes et textes figés des 5 typologies.
  * Ajoute detected_at (ISO) pour le filtre par date côté UI.
  */
 export function buildDashboardAlerts(siteRows = [], groupRows = [], detectedAt = new Date()) {
@@ -138,35 +348,42 @@ export function buildDashboardAlerts(siteRows = [], groupRows = [], detectedAt =
 
     if (site.autonomie_hours == null) return []
 
-    if (site.autonomie_hours < 48) {
+    const heures = heuresOuZero(site.autonomie_hours)
+    const stock = formatLitresFr(site.latest_volume)
+
+    if (site.autonomie_hours < 24) {
       return [{
         id: `site-critique-${site.id}`,
-        type: 'critique',
+        type: 'autonomie_critique',
         target: 'site',
         priority: 'Critique',
+        priorite: 'critique',
         priority_level: 'critical',
         severity: 'critical',
         site_id: site.id,
         site_name: site.site_name,
-        title: `Site ${site.site_name} — autonomie critique : ${site.formatted_autonomy || formatAutonomy(site.autonomie_hours)}`,
-        subtitle: `Moins de 48 h de carburant restant (${site.formatted_autonomy || formatAutonomy(site.autonomie_hours)}). Stock actuel : ${site.latest_volume.toFixed(0)} L. Réapprovisionner de toute urgence.`,
+        title: ALERT_TYPE_META.autonomie_critique.title,
+        subtitle: `Autonomie restante : ${heures}.${stock ? ` Stock actuel : ${stock}.` : ''}`,
+        essential: heures ? `${heures} restantes` : '',
         is_infinite_consumption: false,
         detected_at: stamp,
       }]
     }
 
-    if (site.autonomie_hours < 120) {
+    if (site.autonomie_hours < 36) {
       return [{
-        id: `site-faible-${site.id}`,
-        type: 'alerte',
+        id: `site-preventif-${site.id}`,
+        type: 'autonomie_preventive',
         target: 'site',
-        priority: 'À surveiller',
+        priority: 'Moyenne',
+        priorite: 'moyenne',
         priority_level: 'medium',
         severity: 'medium',
         site_id: site.id,
         site_name: site.site_name,
-        title: `Site ${site.site_name} — autonomie sous surveillance : ${site.formatted_autonomy || formatAutonomy(site.autonomie_hours)}`,
-        subtitle: `Autonomie sous 5 jours (${site.formatted_autonomy || formatAutonomy(site.autonomie_hours)}). Stock actuel : ${site.latest_volume.toFixed(0)} L. Planifier un réapprovisionnement.`,
+        title: ALERT_TYPE_META.autonomie_preventive.title,
+        subtitle: `Autonomie restante : ${heures}.${stock ? ` Stock actuel : ${stock}.` : ''}`,
+        essential: heures ? `${heures} restantes` : '',
         is_infinite_consumption: false,
         detected_at: stamp,
       }]
@@ -175,62 +392,77 @@ export function buildDashboardAlerts(siteRows = [], groupRows = [], detectedAt =
     return []
   })
 
-  const groupWithHoursNoConsumption = groupRows
-    .filter((g) => g.latest_hours > 0 && !(g.latest_consumption > 0))
-    .map((g) => ({
-      id: `group-hours-no-cons-${g.id}`,
-      type: 'anomalie',
-      target: 'groups',
-      priority: 'Attention',
-      priority_level: 'low',
-      severity: 'low',
-      group_id: g.id,
-      group_label: g.label,
-      site_name: g.site_name,
-      title: `Groupe ${g.label} — delta horaire sans consommation (semaine N)`,
-      subtitle: `Delta horaire semaine N : ${g.latest_hours.toFixed(1)} h — aucune consommation de carburant enregistrée (0 L). Vérifier la jauge et la saisie des consommations.`,
-      is_infinite_consumption: false,
-      ecart_pct: 0,
-      detected_at: stamp,
-    }))
-
   const groupWithConsNoHours = groupRows
     .filter((g) => isConsSansDelta(g))
-    .map((g) => ({
-      id: `group-cons-no-hours-${g.id}`,
-      type: 'anomalie',
-      target: 'groups',
-      priority: 'Urgent',
-      priority_level: 'critical',
-      severity: 'critical',
-      group_id: g.id,
-      group_label: g.label,
-      site_name: g.site_name,
-      title: `Groupe ${g.label} — consommation sans fonctionnement (semaine N)`,
-      subtitle: `Consommation enregistrée en semaine N : ${g.latest_consumption.toFixed(1)} L — mais aucun delta horaire (0 h). Le groupe a consommé du carburant sans tourner.`,
-      is_infinite_consumption: true,
-      ecart_pct: 0,
-      detected_at: stamp,
-    }))
+    .map((g) => {
+      const litres = formatLitresFr(g.latest_consumption) || '0 L'
+      return {
+        id: `group-cons-no-hours-${g.id}`,
+        type: 'conso_sans_fonctionnement',
+        target: 'groups',
+        priority: 'Haute',
+        priorite: 'haute',
+        priority_level: 'high',
+        severity: 'high',
+        group_id: g.id,
+        group_label: g.label,
+        site_name: g.site_name,
+        title: ALERT_TYPE_META.conso_sans_fonctionnement.title,
+        subtitle: `Consommation enregistrée : ${litres}. Temps de fonctionnement : 0 h.`,
+        essential: `${litres} · 0 h de fonctionnement`,
+        is_infinite_consumption: true,
+        ecart_pct: 0,
+        detected_at: stamp,
+      }
+    })
+
+  const groupWithHoursNoConsumption = groupRows
+    .filter((g) => g.latest_hours > 0 && !(g.latest_consumption > 0))
+    .map((g) => {
+      const heures = heuresOuZero(g.latest_hours) || '0 h'
+      return {
+        id: `group-hours-no-cons-${g.id}`,
+        type: 'fonctionnement_sans_consommation',
+        target: 'groups',
+        priority: 'Haute',
+        priorite: 'haute',
+        priority_level: 'high',
+        severity: 'high',
+        group_id: g.id,
+        group_label: g.label,
+        site_name: g.site_name,
+        title: ALERT_TYPE_META.fonctionnement_sans_consommation.title,
+        subtitle: `Temps de fonctionnement : ${heures}. Consommation enregistrée : 0 L.`,
+        essential: `${heures} · 0 L consommé`,
+        is_infinite_consumption: false,
+        ecart_pct: 0,
+        detected_at: stamp,
+      }
+    })
 
   const groupWithHighVariance = groupRows
     .filter((g) => isEcartConso(g))
     .map((g) => {
       const signedEcart = ((g.latest_hourly_consumption - g.previous_hourly_consumption) / g.previous_hourly_consumption) * 100
-      const sign = signedEcart >= 0 ? '▲' : '▼'
-      const absEcart = Math.abs(signedEcart).toFixed(1)
+      const arrow = signedEcart >= 0 ? '▲' : '▼'
       return {
         id: `group-variance-${g.id}`,
-        type: 'ecart',
+        type: 'ecart_conso',
         target: 'groups',
-        priority: 'À surveiller',
+        priority: 'Moyenne',
+        priorite: 'moyenne',
         priority_level: 'medium',
         severity: 'medium',
         group_id: g.id,
         group_label: g.label,
         site_name: g.site_name,
-        title: `Groupe ${g.label} — écart consommation horaire ${sign}${absEcart}% (semaine N vs N-1)`,
-        subtitle: `Consommation horaire semaine N : ${g.latest_hourly_consumption.toFixed(2)} L/h — Semaine N-1 : ${g.previous_hourly_consumption.toFixed(2)} L/h — Écart : ${sign}${absEcart}%.`,
+        title: ALERT_TYPE_META.ecart_conso.title,
+        subtitle: [
+          `Consommation horaire semaine N : ${formatTauxFr(g.latest_hourly_consumption)}.`,
+          `Référence semaine N-1 : ${formatTauxFr(g.previous_hourly_consumption)}.`,
+          `Écart : ${arrow}${formatPctFr(Math.abs(signedEcart))}.`,
+        ].join(' '),
+        essential: formatPctFr(signedEcart, { signed: true }),
         is_infinite_consumption: false,
         ecart_pct: Math.abs(signedEcart),
         detected_at: stamp,
@@ -330,10 +562,10 @@ export function mergeAlertTreatments(alerts = [], treatments = []) {
 
 export function splitAlertSubtitle(subtitle) {
   if (!subtitle) return []
-  return String(subtitle).split(/(▲[\d.,]+%|▼[\d.,]+%)/).map((part) => {
-    const arrowMatch = part.match(/^(▲|▼)([\d.,]+%)$/)
+  return String(subtitle).split(/(▲\s?[\d.,]+\s?%|▼\s?[\d.,]+\s?%)/).map((part) => {
+    const arrowMatch = part.match(/^(▲|▼)\s?([\d.,]+)\s?%$/)
     if (arrowMatch) {
-      return { kind: 'arrow', up: arrowMatch[1] === '▲', text: `${arrowMatch[1]}${arrowMatch[2]}%` }
+      return { kind: 'arrow', up: arrowMatch[1] === '▲', text: `${arrowMatch[1]}${arrowMatch[2]} %` }
     }
     return { kind: 'text', text: part }
   })

@@ -1,9 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { ArrowRight, Bell, CheckCircle2, History } from 'lucide-react'
+import { ArrowRight, Bell, CheckCircle2, ChevronDown, Filter, History } from 'lucide-react'
 import Topbar from '@/components/Topbar.jsx'
 import PageEnter from '@/components/PageEnter.jsx'
 import PageLoader from '@/components/PageLoader.jsx'
-import WelcomeBanner from '@/components/WelcomeBanner.jsx'
 import { Button } from '@/components/ui/button.jsx'
 import { EmptyState } from '@/components/ui/empty-state.jsx'
 import Modal from '@/components/ui/modal.jsx'
@@ -14,6 +13,7 @@ import {
   PRIORITE_META,
   countAlertsBySeverity,
   filterAlerts,
+  formatAlertDateTime,
   isIndeterminateAutonomyAlert,
   normalizePersistedAlert,
   splitAlertSubtitle,
@@ -42,10 +42,15 @@ function AlertSubtitle({ subtitle }) {
 }
 
 function formatWhen(value) {
-  if (!value) return '—'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return '—'
-  return date.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
+  return formatAlertDateTime(value)
+}
+
+function formatDetectedLabel(value) {
+  const raw = formatAlertDateTime(value)
+  if (!raw || raw === '—') return 'Détectée récemment'
+  const [day, ...rest] = raw.split(' ')
+  const time = rest.join(' ')
+  return time ? `Détectée le ${day} à ${time}` : `Détectée le ${day}`
 }
 
 function filterByPeriod(rows, period) {
@@ -224,9 +229,11 @@ function AlertCard({ alert, panel, isAdmin, isFocused, onOpen, onTreat, delay = 
         <header className="alx-card-head">
           {/* Badge sans emoji, uniquement une classe CSS pour la couleur */}
           <span className={`alx-pill alx-pill--${severity}`}>{label}</span>
-          <span className="alx-card-date">
-            {panel === 'history' ? `Détectée : ${when}` : when}
-            {panel === 'history' && author ? ` · ${author}` : ''}
+          <span className="alx-card-head-meta">
+            <span className="alx-card-date">{panel === 'history' ? when : formatDetectedLabel(alert.detected_at)}</span>
+            {panel === 'history' && (
+              <span className="alx-pill alx-pill--treated">✓ Traitée</span>
+            )}
           </span>
         </header>
 
@@ -264,14 +271,13 @@ function AlertCard({ alert, panel, isAdmin, isFocused, onOpen, onTreat, delay = 
         )}
 
         <footer className="alx-card-actions">
-          <Button variant="ghost" onClick={onOpen}>
+          <Button variant="outline" onClick={onOpen}>
             {alert.target === 'groups' ? 'Ouvrir le groupe' : 'Ouvrir le site'}
             <ArrowRight size={16} aria-hidden="true" />
           </Button>
           {isAdmin && panel === 'active' && (
             <Button variant="primary" onClick={onTreat}>
-              <CheckCircle2 size={17} aria-hidden="true" />
-              Marquer comme traitée
+              Traiter
             </Button>
           )}
         </footer>
@@ -389,6 +395,9 @@ function AlertsPage({ onNavigate }) {
   const [focusAlertId, setFocusAlertId] = useState(() => new URLSearchParams(window.location.search).get('alertId') || '')
   const [period, setPeriod] = useState('all')
   const [pendingTreat, setPendingTreat] = useState(null)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
 
   const loadAll = useCallback(async () => {
     setLoading(true)
@@ -485,6 +494,14 @@ function AlertsPage({ onNavigate }) {
     [periodFiltered, priority, filterStatus],
   )
 
+  useEffect(() => {
+    setPage(1)
+  }, [panel, priority, period, pageSize])
+
+  const pageCount = Math.max(1, Math.ceil(visible.length / pageSize))
+  const safePage = Math.min(page, pageCount)
+  const pagedAlerts = visible.slice((safePage - 1) * pageSize, safePage * pageSize)
+
   const navItems = useMemo(() => ([
     {
       id: 'active',
@@ -567,46 +584,56 @@ function AlertsPage({ onNavigate }) {
     <div className="app-shell dashboard-shell">
       <Topbar activeView="alerts" onNavigate={onNavigate} />
       <PageEnter className="alerts-page-enter">
-        <main className="page-layout profile-layout--saas">
-          <WelcomeBanner
-            kicker="Supervision"
-            title="Alertes et anomalies"
-            subtitle="Suivez l'état des sites et des groupes électrogènes."
-          />
-
-          <div className="saas-profile-tabs" role="tablist" aria-label="Sections des alertes">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={panel === 'active'}
-              className={`saas-profile-tab${panel === 'active' ? ' is-active' : ''}`}
-              onClick={() => {
-                setMessage('')
-                setFocusAlertId('')
-                setPanel('active')
-              }}
-            >
-              <Bell size={16} aria-hidden="true" />
-              À traiter
-              {activeAlerts.length > 0 ? (
-                <span className="saas-profile-tab-badge">{activeAlerts.length}</span>
+        <main className="page-layout mq-alx-page">
+          <header className="mq-alx-head">
+            <div>
+              <h1>Centre d’alertes</h1>
+              <p>Suivi et traitement des alertes détectées sur vos sites.</p>
+            </div>
+            <div className="mq-alx-filters">
+              <button
+                type="button"
+                className="mq-alx-filters-btn"
+                aria-expanded={filtersOpen}
+                onClick={() => setFiltersOpen((open) => !open)}
+              >
+                <Filter size={16} aria-hidden="true" />
+                Filtres
+                <ChevronDown size={16} aria-hidden="true" />
+              </button>
+              {filtersOpen ? (
+                <div className="mq-alx-filters-panel" role="dialog" aria-label="Filtres des alertes">
+                  <p className="mq-alx-filters-label">Statut</p>
+                  <div className="mq-alx-filters-row">
+                    {navItems.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className={`mq-alx-chip${panel === item.id ? ' is-active' : ''}`}
+                        onClick={() => {
+                          setMessage('')
+                          setFocusAlertId('')
+                          setPanel(item.id)
+                        }}
+                      >
+                        {item.label}
+                        {item.badge ? ` ${item.badge}` : ''}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mq-alx-filters-label">Niveau</p>
+                  <SeverityTiles
+                    counts={panel === 'history' ? historyCounts : counts}
+                    value={priority}
+                    onChange={setPriority}
+                  />
+                  {panel === 'history' ? (
+                    <PeriodChips value={period} onChange={setPeriod} />
+                  ) : null}
+                </div>
               ) : null}
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={panel === 'history'}
-              className={`saas-profile-tab${panel === 'history' ? ' is-active' : ''}`}
-              onClick={() => {
-                setMessage('')
-                setFocusAlertId('')
-                setPanel('history')
-              }}
-            >
-              <History size={16} aria-hidden="true" />
-              Historique
-            </button>
-          </div>
+            </div>
+          </header>
 
           {message && <div className="reports-success" role="status">{message}</div>}
 
@@ -619,18 +646,8 @@ function AlertsPage({ onNavigate }) {
             </div>
           )}
 
-          <SeverityTiles
-            counts={panel === 'history' ? historyCounts : counts}
-            value={priority}
-            onChange={setPriority}
-          />
-
-          {panel === 'history' && (
-            <PeriodChips value={period} onChange={setPeriod} />
-          )}
-
-          <section className="alx-list" aria-label={panel === 'history' ? 'Historique des alertes' : 'Alertes à traiter'}>
-            {visible.length ? visible.map((alert, index) => (
+          <section className="alx-list mq-alx-grid" aria-label={panel === 'history' ? 'Historique des alertes' : 'Alertes à traiter'}>
+            {pagedAlerts.length ? pagedAlerts.map((alert, index) => (
               <AlertCard
                 key={alert.id}
                 alert={alert}
@@ -654,6 +671,38 @@ function AlertsPage({ onNavigate }) {
               />
             )}
           </section>
+
+          {visible.length > 0 ? (
+            <nav className="mq-alx-pager" aria-label="Pagination des alertes">
+              <button
+                type="button"
+                className="mq-alx-pager-btn"
+                disabled={safePage <= 1}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+              >
+                Précédent
+              </button>
+              <span className="mq-alx-pager-status">{safePage} / {pageCount}</span>
+              <button
+                type="button"
+                className="mq-alx-pager-btn"
+                disabled={safePage >= pageCount}
+                onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
+              >
+                Suivant →
+              </button>
+              <label className="mq-alx-pager-size">
+                <span className="sr-only">Alertes par page</span>
+                <select
+                  value={pageSize}
+                  onChange={(event) => setPageSize(Number(event.target.value))}
+                >
+                  <option value={10}>10 par page</option>
+                  <option value={20}>20 par page</option>
+                </select>
+              </label>
+            </nav>
+          ) : null}
         </main>
       </PageEnter>
 

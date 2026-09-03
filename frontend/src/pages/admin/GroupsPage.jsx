@@ -24,7 +24,7 @@ import {
   getAutonomySeverity,
   METRIC_LABELS,
 } from '@/utils/format.js'
-import { normalizePersistedAlert } from '@/utils/alerts.js'
+import { formatAlertDateTime, normalizePersistedAlert } from '@/utils/alerts.js'
 import { DateRangeFilter } from '@/components/DateRangeFilter.jsx'
 import { parseDate } from '@/hooks/useDateFilter.js'
 
@@ -594,18 +594,25 @@ function GroupsPage({ onNavigate }) {
                         {/* Alertes liées — en haut de la fiche détail */}
                         {relatedAlerts.length > 0 && (
                           <div className="group-related-alerts" role="region" aria-label="Alertes du groupe">
-                            <h4 className="group-related-alerts-title">Alertes liées</h4>
+                            <h4 className="group-related-alerts-title">Alertes liées · {relatedAlerts.length}</h4>
                             <ul>
                               {relatedAlerts.map((alert) => {
                                 const severityClass = alert.severity || 'medium'
-                                const label = alert.priority || 'Moyenne'
                                 return (
                                   <li key={alert.id} className="group-related-alert-item">
-                                    <span className={`alx-pill alx-pill--${severityClass}`}>{label}</span>
+                                    <span
+                                      className={`group-related-alert-dot group-related-alert-dot--${severityClass}`}
+                                      aria-hidden="true"
+                                    />
                                     <span className="group-related-alert-date">
                                       {formatWhen(alert.detected_at)}
                                     </span>
                                     <span className="group-related-alert-title">{alert.title}</span>
+                                    {alert.essential ? (
+                                      <span className="group-related-alert-value">
+                                        {alert.essential}
+                                      </span>
+                                    ) : null}
                                     <Button
                                       type="button"
                                       variant="ghost"
@@ -801,10 +808,7 @@ function GroupsPage({ onNavigate }) {
 
 // Fonction utilitaire pour le formatage de date (identique à celle utilisée dans AlertsPage)
 function formatWhen(value) {
-  if (!value) return '—'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return '—'
-  return date.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
+  return formatAlertDateTime(value)
 }
 
 export default GroupsPage

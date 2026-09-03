@@ -7,10 +7,10 @@ import { useTheme } from '@/context/ThemeContext.jsx'
 import { cn } from '@/lib/utils'
 
 const navLinks = [
-  { label: 'Accueil', id: 'home' },
-  { label: 'Fonctionnalités', id: 'how-it-works' },
-  { label: 'Comment ça fonctionne', id: 'how-it-works' },
-  { label: 'À propos', id: 'about' },
+  { label: 'Solution', id: 'solution' },
+  { label: 'Preuve', id: 'preuve' },
+  { label: 'Accès', id: 'acces' },
+  { label: 'Équipe', id: 'about' },
 ]
 
 function LandingNav({ onNavigate }) {

@@ -22,6 +22,7 @@ class DashboardAlertsTests(TestCase):
                 site_id=None,
                 groupe_electrogene_id=None,
                 date_apparition=None,
+                date_detection=None,
                 traite_par=None,                    # ← ajouté
                 get_priorite_display=lambda: 'Critique',
             ),
@@ -30,13 +31,41 @@ class DashboardAlertsTests(TestCase):
                 type_alerte='ecart_conso',
                 priorite='moyenne',
                 message='Écart de consommation\nDétail',
-                donnees_contexte={'groupe_id': 2, 'groupe_label': 'G2'},
+                donnees_contexte={
+                    'groupe_id': 2,
+                    'groupe_label': 'G2',
+                    'latest_hourly': 12.5,
+                    'previous_hourly': 10.55,
+                    'ecart_pourcent': 18.5,
+                    'date_rapport_courant': '2026-08-31',
+                    'date_rapport_reference': '2026-08-24',
+                },
                 etat='en_cours',
                 site_id=None,
                 groupe_electrogene_id=2,
                 date_apparition=None,
+                date_detection=None,
                 traite_par=None,                    # ← ajouté
                 get_priorite_display=lambda: 'Moyenne',
+            ),
+            SimpleNamespace(
+                cle='groupe-7',
+                type_alerte='fonctionnement_sans_consommation',
+                priorite='haute',
+                message='Fonctionnement sans consommation',
+                donnees_contexte={
+                    'groupe_id': 7,
+                    'groupe_label': 'GE-07',
+                    'compteur_horaire': 8.5,
+                    'quantite_conso': 0.0,
+                },
+                etat='nouvelle',
+                site_id=None,
+                groupe_electrogene_id=7,
+                date_apparition=None,
+                date_detection=None,
+                traite_par=None,
+                get_priorite_display=lambda: 'Haute',
             ),
         ]
 
@@ -46,13 +75,26 @@ class DashboardAlertsTests(TestCase):
         self.assertEqual(payload[0]['target'], 'site')
         self.assertEqual(payload[0]['priority'], 'Critique')
         self.assertEqual(payload[0]['priority_level'], 'critical')
+        self.assertEqual(payload[0]['title'], 'Autonomie inférieure à 24 h')
 
         self.assertEqual(payload[1]['id'], 'groupe-2')
         self.assertEqual(payload[1]['target'], 'groups')
         self.assertEqual(payload[1]['priority'], 'Moyenne')
         self.assertEqual(payload[1]['priority_level'], 'medium')
-        self.assertEqual(payload[1]['title'], 'Écart de consommation')
-        self.assertEqual(payload[1]['subtitle'], 'Détail')
+        # Grille figée : titre + sous-titre quantifié (dates des rapports)
+        self.assertEqual(payload[1]['title'], 'Écart de consommation horaire')
+        self.assertEqual(
+            payload[1]['subtitle'],
+            'Consommation horaire au 31/08/2026 : 12,50 L/h. '
+            'Référence au 24/08/2026 : 10,55 L/h. Écart : ▲18,5 %.',
+        )
+
+        # Formulation symétrique avec « consommation sans fonctionnement »
+        self.assertEqual(payload[2]['title'], 'Fonctionnement sans consommation')
+        self.assertEqual(
+            payload[2]['subtitle'],
+            'Temps de fonctionnement : 8,5 h. Consommation enregistrée : 0 L.',
+        )
 
     @pytest.mark.django_db
     def test_upsert_active_updates_date_apparition_for_existing_alert(self):
