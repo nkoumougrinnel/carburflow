@@ -6138,7 +6138,8 @@ main.page-layout.user-home form.groups-filter-bar .ui-input:focus,
   width: 100%;
   max-width: none;
   margin: 0;
-  padding: clamp(16px, 2vw, 24px) 0 clamp(2rem, 4vw, 3rem);
+  /* Alignement latéral contractuel : même inset que .topbar (LAYOUT WIDTH CONTRACT) */
+  padding: clamp(16px, 2vw, 24px) var(--shell-pad-x) clamp(2rem, 4vw, 3rem);
   display: flex;
   flex-direction: column;
   gap: clamp(16px, 1.8vw, 24px);
@@ -6426,7 +6427,8 @@ main.page-layout.user-home form.groups-filter-bar .ui-input:focus,
   width: 100%;
   max-width: none;
   margin: 0;
-  padding: clamp(16px, 2vw, 24px) 0 0;
+  /* Alignement latéral contractuel : même inset que .topbar (LAYOUT WIDTH CONTRACT) */
+  padding: clamp(16px, 2vw, 24px) var(--shell-pad-x) 0;
   flex: 1 1 auto;
   min-height: 0;
   min-width: 0;
@@ -7142,7 +7144,8 @@ main.page-layout.user-home form.groups-filter-bar .ui-input:focus,
 
 /* Layout SaaS alertes : liste défilable (plus figée à 1–2 cartes) */
 .app-shell--alerts .alerts-layout--saas.profile-layout--saas {
-  max-width: min(1400px, 100%);
+  /* Recontrainte 1400px supprimée : pleine largeur contractuelle (LAYOUT WIDTH CONTRACT) */
+  max-width: 100%;
   height: 100%;
   max-height: 100%;
   padding-bottom: 0.5rem;
@@ -8331,7 +8334,10 @@ main.page-layout.user-home form.groups-filter-bar .ui-input:focus,
   width: 100%;
   max-width: none;
   margin-inline: 0;
-  padding-inline: 0;
+  /* LAYOUT WIDTH CONTRACT : le padding-inline: 0 historique écrasait (par ordre
+     de cascade) le padding aligné de .page-layout → contenu full-bleed désaligné
+     de la topbar. On rétablit l'insert contractuel (même valeur que .topbar). */
+  padding-inline: var(--shell-pad-x);
   box-sizing: border-box;
 }
 
@@ -8559,7 +8565,8 @@ main.page-layout.user-home form.groups-filter-bar .ui-input:focus,
 
 @media (min-width: 1100px) {
   .profile-layout--saas {
-    max-width: min(1400px, 100%);
+    /* Recontrainte 1400px supprimée : pleine largeur contractuelle (LAYOUT WIDTH CONTRACT) */
+    max-width: 100%;
   }
 
   .saas-profile-grid {
@@ -9234,9 +9241,10 @@ body {
 
 .alx-layout {
   width: 100%;
-  max-width: min(1280px, 100%);
-  margin-inline: auto;
-  padding: clamp(0.75rem, 2vw, 1.5rem) 0 clamp(2.5rem, 4vw, 3.5rem);
+  /* Recontrainte 1280px supprimée + inset contractuel : s'aligne sur .topbar (LAYOUT WIDTH CONTRACT) */
+  max-width: 100%;
+  margin-inline: 0;
+  padding: clamp(0.75rem, 2vw, 1.5rem) var(--shell-pad-x) clamp(2.5rem, 4vw, 3.5rem);
   display: flex;
   flex-direction: column;
   gap: clamp(0.9rem, 1.5vw, 1.2rem);
@@ -12864,6 +12872,84 @@ body {
   .period-filter-dates .date-filter-field {
     flex: 0 0 auto;
   }
+}
+
+/* =============================================================
+   LAYOUT WIDTH CONTRACT — contrat de largeur (source de vérité)
+   -------------------------------------------------------------
+   Objectif : sur TOUTES les pages et TOUS les rôles, le contenu
+   principal occupe exactement la largeur de .app-shell de base
+   (width: 100%, max-width: none, margin: 0). L'alignement latéral
+   est porté UNIQUEMENT par le padding horizontal var(--shell-pad-x)
+   du conteneur principal — la même valeur qui cale .topbar
+   (width: calc(100% - 2 * var(--shell-pad-x)) ; margin: 0 var(--shell-pad-x)).
+
+   Cette section est volontairement placée en fin de fichier :
+   à spécificité égale, elle gagne par ordre de cascade sur toutes
+   les définitions individuelles précédentes. Aucun !important n'est
+   nécessaire : après audit de la cascade, aucune règle de largeur
+   plus spécifique ne subsiste sur ces sélecteurs.
+   ============================================================= */
+
+/* 1) Shells : pleine largeur, jamais recontraints. */
+.app-shell,
+.app-shell--reports,
+.app-shell--operator,
+.app-shell--alerts,
+.app-shell--messaging {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+/* 2) Enfants directs du shell (wrappers d'entrée de page) :
+      pleine largeur, marges latérales nulles. Les marges verticales
+      (respiration sous la topbar, règle ligne ~7023) sont préservées :
+      on ne réinitialise que margin-left / margin-right. */
+.app-shell > .page-enter-root,
+.app-shell > .page-layout,
+.app-shell--reports > .page-enter-root,
+.app-shell--reports > .reports-page-enter,
+.app-shell--alerts > .page-enter-root,
+.app-shell--alerts > .alerts-page-enter,
+.app-shell--operator > .page-enter-root,
+.app-shell--messaging > .page-enter-root,
+.app-shell--messaging > .notif-page-enter,
+.dashboard-shell > .page-enter-root,
+.dashboard-shell > .page-layout {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin-left: 0;
+  margin-right: 0;
+  box-sizing: border-box;
+}
+
+/* 3) Conteneurs principaux de page : pleine largeur, extensibles
+      (min-width: 0 pour autoriser le rétrécissement dans un flex),
+      marges latérales nulles, ET alignement latéral contractuel :
+      padding horizontal = var(--shell-pad-x) — la même valeur qui
+      cale .topbar. Placé en fin de fichier, ce bloc écrase par ordre
+      de cascade toute règle antérieure de même spécificité qui
+      mettrait padding-inline à 0 (ex : .profile-layout--saas l.~8333). */
+.page-layout,
+.user-home,
+.op-home,
+.alx-layout,
+.profile-layout--saas,
+.reports-layout--saas,
+.alerts-layout--saas,
+.notifications-layout,
+.notifications-layout--saas {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin-left: 0;
+  margin-right: 0;
+  padding-left: var(--shell-pad-x);
+  padding-right: var(--shell-pad-x);
+  box-sizing: border-box;
 }
 
 
