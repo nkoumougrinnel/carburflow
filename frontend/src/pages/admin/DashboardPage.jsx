@@ -433,12 +433,12 @@ function DashboardPage({ onNavigate }) {
             <table>
               <thead>
                 <tr>
-                  <th style={{ textAlign: 'left' }}>Site</th>
-                  <th style={{ textAlign: 'right' }}>Dernier stock</th>
-                  <th style={{ textAlign: 'right' }}>Conso. semaine N</th>
-                  <th style={{ textAlign: 'right' }}>Conso. semaine N-1</th>
-                  <th style={{ textAlign: 'right' }}>Écart-type</th>
-                  <th style={{ textAlign: 'center' }}>Temps restant</th>
+                  <th className="col-flex" style={{ textAlign: 'left' }}>Site</th>
+                  <th className="col-numeric" style={{ textAlign: 'right' }}>Dernier stock</th>
+                  <th className="col-numeric" style={{ textAlign: 'right' }}>Conso. semaine N</th>
+                  <th className="col-numeric" style={{ textAlign: 'right' }}>Conso. semaine N-1</th>
+                  <th className="col-numeric" style={{ textAlign: 'right' }}>Écart-type</th>
+                  <th className="col-alerts" style={{ textAlign: 'center' }}>Temps restant</th>
                 </tr>
               </thead>
               <tbody>
@@ -460,16 +460,16 @@ function DashboardPage({ onNavigate }) {
                       role="link"
                       aria-label={`Ouvrir le site ${row.site_name || row.label}`}
                     >
-                      <td style={{ textAlign: 'left' }}>{row.site_name || row.label}</td>
-                      <td style={{ textAlign: 'right' }}>{formatValue(row.latest_volume, ' L')}</td>
-                      <td style={{ textAlign: 'right' }}>{formatValue(row.latest_consumption, ' L')}</td>
-                      <td style={{ textAlign: 'right' }}>
+                      <td className="col-flex" style={{ textAlign: 'left' }}>{row.site_name || row.label}</td>
+                      <td className="col-numeric" style={{ textAlign: 'right' }}>{formatValue(row.latest_volume, ' L')}</td>
+                      <td className="col-numeric" style={{ textAlign: 'right' }}>{formatValue(row.latest_consumption, ' L')}</td>
+                      <td className="col-numeric" style={{ textAlign: 'right' }}>
                         {row.previous_consumption == null ? '—' : formatValue(row.previous_consumption, ' L')}
                       </td>
-                      <td style={{ textAlign: 'right' }}>
+                      <td className="col-numeric" style={{ textAlign: 'right' }}>
                         {row.consumption_stddev == null ? '—' : formatValue(row.consumption_stddev, ' L')}
                       </td>
-                      <td style={{ textAlign: 'center' }}>
+                      <td className="col-alerts" style={{ textAlign: 'center' }}>
                         <AutonomyBadge entity={row} size="sm" showLabel={false} />
                       </td>
                     </tr>
@@ -504,12 +504,12 @@ function DashboardPage({ onNavigate }) {
             <table>
               <thead>
                 <tr>
-                  <th style={{ textAlign: 'left' }}>Groupe</th>
-                  <th style={{ textAlign: 'left' }}>Site</th>
-                  <th style={{ textAlign: 'right' }}>Consommation horaire moyenne</th>
-                  <th style={{ textAlign: 'right' }}>Consommation horaire semaine N</th>
-                  <th style={{ textAlign: 'right' }}>Consommation horaire semaine N-1</th>
-                  <th style={{ textAlign: 'center' }}>Écart</th>
+                  <th className="col-flex" style={{ textAlign: 'left' }}>Groupe</th>
+                  <th className="col-flex" style={{ textAlign: 'left' }}>Site</th>
+                  <th className="col-numeric" style={{ textAlign: 'right' }}>Conso. horaire moyenne</th>
+                  <th className="col-numeric" style={{ textAlign: 'right' }}>Conso. horaire N</th>
+                  <th className="col-numeric" style={{ textAlign: 'right' }}>Conso. horaire N-1</th>
+                  <th className="col-alerts" style={{ textAlign: 'center' }}>Écart</th>
                 </tr>
               </thead>
               <tbody>
@@ -528,20 +528,20 @@ function DashboardPage({ onNavigate }) {
                     role="link"
                     aria-label={`Ouvrir le groupe ${row.label}`}
                   >
-                    <td style={{ textAlign: 'left' }}>{row.label}</td>
-                    <td style={{ textAlign: 'left' }}>{row.site_name || '—'}</td>
-                    <td style={{ textAlign: 'right' }}>
+                    <td className="col-flex" style={{ textAlign: 'left' }}>{row.label}</td>
+                    <td className="col-flex" style={{ textAlign: 'left' }}>{row.site_name || '—'}</td>
+                    <td className="col-numeric" style={{ textAlign: 'right' }}>
                       <strong className="text-danger">
                         {formatValue(row.mean_hourly_consumption_deduite)}
                       </strong>
                     </td>
-                    <td style={{ textAlign: 'right' }}>
+                    <td className="col-numeric" style={{ textAlign: 'right' }}>
                       {formatValue(row.latest_hourly_consumption)}
                     </td>
-                    <td style={{ textAlign: 'right' }}>
+                    <td className="col-numeric" style={{ textAlign: 'right' }}>
                       {formatValue(row.previous_hourly_consumption)}
                     </td>
-                    <td style={{ textAlign: 'center' }}>
+                    <td className="col-alerts" style={{ textAlign: 'center' }}>
                       {renderEcartVsN1(row.latest_hourly_consumption, row.previous_hourly_consumption, '—')}
                     </td>
                   </tr>
@@ -575,12 +575,12 @@ function DashboardPage({ onNavigate }) {
             <table>
               <thead>
                 <tr>
-                  <th style={{ textAlign: 'left' }}>Groupe</th>
-                  <th style={{ textAlign: 'left' }}>Site</th>
-                  <th style={{ textAlign: 'right' }}>Consommation moyenne</th>
-                  <th style={{ textAlign: 'right' }}>Consommation semaine N-1</th>
-                  <th style={{ textAlign: 'right' }}>Consommation semaine N</th>
-                  <th style={{ textAlign: 'center' }}>Écart</th>
+                  <th className="col-flex" style={{ textAlign: 'left' }}>Groupe</th>
+                  <th className="col-flex" style={{ textAlign: 'left' }}>Site</th>
+                  <th className="col-numeric" style={{ textAlign: 'right' }}>Conso. moyenne</th>
+                  <th className="col-numeric" style={{ textAlign: 'right' }}>Conso. N-1</th>
+                  <th className="col-numeric" style={{ textAlign: 'right' }}>Conso. N</th>
+                  <th className="col-alerts" style={{ textAlign: 'center' }}>Écart</th>
                 </tr>
               </thead>
               <tbody>
@@ -599,12 +599,12 @@ function DashboardPage({ onNavigate }) {
                     role="link"
                     aria-label={`Ouvrir le groupe ${row.label}`}
                   >
-                    <td style={{ textAlign: 'left' }}>{row.label}</td>
-                    <td style={{ textAlign: 'left' }}>{row.site_name || '—'}</td>
-                    <td style={{ textAlign: 'right' }}><strong>{formatValue(row.avg_consumption, ' L')}</strong></td>
-                    <td style={{ textAlign: 'right' }}>{row.previous_consumption == null ? '—' : formatValue(row.previous_consumption, ' L')}</td>
-                    <td style={{ textAlign: 'right' }}>{formatValue(row.latest_consumption, ' L')}</td>
-                    <td style={{ textAlign: 'center' }}>{renderEcartVsN1(row.latest_consumption, row.previous_consumption, '—')}</td>
+                    <td className="col-flex" style={{ textAlign: 'left' }}>{row.label}</td>
+                    <td className="col-flex" style={{ textAlign: 'left' }}>{row.site_name || '—'}</td>
+                    <td className="col-numeric" style={{ textAlign: 'right' }}><strong>{formatValue(row.avg_consumption, ' L')}</strong></td>
+                    <td className="col-numeric" style={{ textAlign: 'right' }}>{row.previous_consumption == null ? '—' : formatValue(row.previous_consumption, ' L')}</td>
+                    <td className="col-numeric" style={{ textAlign: 'right' }}>{formatValue(row.latest_consumption, ' L')}</td>
+                    <td className="col-alerts" style={{ textAlign: 'center' }}>{renderEcartVsN1(row.latest_consumption, row.previous_consumption, '—')}</td>
                   </tr>
                 ))}
                 {topConsumerGroupRows.length === 0 && (
@@ -636,11 +636,11 @@ function DashboardPage({ onNavigate }) {
             <table>
               <thead>
                 <tr>
-                  <th style={{ textAlign: 'left' }}>Site</th>
-                  <th style={{ textAlign: 'right' }}>Consommation moyenne</th>
-                  <th style={{ textAlign: 'right' }}>Consommation semaine N-1</th>
-                  <th style={{ textAlign: 'right' }}>Consommation semaine N</th>
-                  <th style={{ textAlign: 'center' }}>Écart</th>
+                  <th className="col-flex" style={{ textAlign: 'left' }}>Site</th>
+                  <th className="col-numeric" style={{ textAlign: 'right' }}>Conso. moyenne</th>
+                  <th className="col-numeric" style={{ textAlign: 'right' }}>Conso. N-1</th>
+                  <th className="col-numeric" style={{ textAlign: 'right' }}>Conso. N</th>
+                  <th className="col-alerts" style={{ textAlign: 'center' }}>Écart</th>
                 </tr>
               </thead>
               <tbody>
@@ -659,11 +659,11 @@ function DashboardPage({ onNavigate }) {
                     role="link"
                     aria-label={`Ouvrir le site ${row.site_name || row.label}`}
                   >
-                    <td style={{ textAlign: 'left' }}>{row.site_name || row.label}</td>
-                    <td style={{ textAlign: 'right' }}><strong>{formatValue(row.avg_consumption, ' L')}</strong></td>
-                    <td style={{ textAlign: 'right' }}>{row.previous_consumption == null ? '—' : formatValue(row.previous_consumption, ' L')}</td>
-                    <td style={{ textAlign: 'right' }}>{formatValue(row.latest_consumption, ' L')}</td>
-                    <td style={{ textAlign: 'center' }}>{renderEcartVsN1(row.latest_consumption, row.previous_consumption, '—')}</td>
+                    <td className="col-flex" style={{ textAlign: 'left' }}>{row.site_name || row.label}</td>
+                    <td className="col-numeric" style={{ textAlign: 'right' }}><strong>{formatValue(row.avg_consumption, ' L')}</strong></td>
+                    <td className="col-numeric" style={{ textAlign: 'right' }}>{row.previous_consumption == null ? '—' : formatValue(row.previous_consumption, ' L')}</td>
+                    <td className="col-numeric" style={{ textAlign: 'right' }}>{formatValue(row.latest_consumption, ' L')}</td>
+                    <td className="col-alerts" style={{ textAlign: 'center' }}>{renderEcartVsN1(row.latest_consumption, row.previous_consumption, '—')}</td>
                   </tr>
                 ))}
                 {topConsumerSiteRows.length === 0 && (

@@ -413,13 +413,13 @@ function ReportsPage({ onNavigate }) {
                       <table className="op-table op-envois-table">
                         <thead>
                           <tr>
-                            <th style={{ textAlign: 'left' }}>Relevé</th>
-                            <th style={{ textAlign: 'left' }}>Période couverte</th>
-                            <th style={{ textAlign: 'center' }}>Sites</th>
-                            <th style={{ textAlign: 'center' }}>Groupes</th>
-                            <th style={{ textAlign: 'center' }}>Lignes</th>
-                            <th style={{ textAlign: 'left' }}>Envoyé le</th>
-                            <th style={{ textAlign: 'right' }}>Actions</th>
+                            <th className="col-flex" style={{ textAlign: 'left' }}>Relevé</th>
+                            <th className="col-flex" style={{ textAlign: 'left' }}>Période couverte</th>
+                            <th className="col-count" style={{ textAlign: 'center' }}>Sites</th>
+                            <th className="col-count" style={{ textAlign: 'center' }}>Groupes</th>
+                            <th className="col-count" style={{ textAlign: 'center' }}>Lignes</th>
+                            <th className="col-flex" style={{ textAlign: 'left' }}>Envoyé le</th>
+                            <th className="col-actions" style={{ textAlign: 'right' }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -432,7 +432,7 @@ function ReportsPage({ onNavigate }) {
                             return (
                               <tr key={r.id}>
                                 {/* 11. RELEVÉ */}
-                                <td style={{ textAlign: 'left' }}>
+                                <td className="col-flex" style={{ textAlign: 'left' }}>
                                   <div className="op-table-file-cell">
                                     <FileSpreadsheet size={20} className="text-primary" />
                                     <div>
@@ -445,7 +445,7 @@ function ReportsPage({ onNavigate }) {
                                 </td>
 
                                 {/* 12. PÉRIODE COUVERTE */}
-                                <td style={{ textAlign: 'left' }}>
+                                <td className="col-flex" style={{ textAlign: 'left' }}>
                                   <div>
                                     <strong>{formatDate(r.date_debut)} → {formatDate(r.date_fin)}</strong>
                                     {weekNum && <div className="op-cp-tag">Semaine {weekNum}</div>}
@@ -453,7 +453,7 @@ function ReportsPage({ onNavigate }) {
                                 </td>
 
                                 {/* 13. SITES */}
-                                <td style={{ textAlign: 'center' }}>
+                                <td className="col-count" style={{ textAlign: 'center' }}>
                                   <div className="op-table-count-cell">
                                     <strong>{r.sites_count || 8} sites</strong>
                                     <button
@@ -467,17 +467,17 @@ function ReportsPage({ onNavigate }) {
                                 </td>
 
                                 {/* 14. GROUPES */}
-                                <td style={{ textAlign: 'center' }}>
+                                <td className="col-count" style={{ textAlign: 'center' }}>
                                   <strong>{r.groupes_count || 24} groupes</strong>
                                 </td>
 
                                 {/* 15. LIGNES */}
-                                <td style={{ textAlign: 'center' }}>
+                                <td className="col-count" style={{ textAlign: 'center' }}>
                                   <strong>{r.lignes_count ?? 33} lignes</strong>
                                 </td>
 
                                 {/* 17. ENVOYÉ LE */}
-                                <td style={{ textAlign: 'left' }}>
+                                <td className="col-flex" style={{ textAlign: 'left' }}>
                                   <div className="op-table-date-cell">
                                     <span>{dt.date}</span>
                                     <span className="op-cp-tag">{dt.time}</span>
@@ -485,7 +485,7 @@ function ReportsPage({ onNavigate }) {
                                 </td>
 
                                 {/* 18. ACTIONS */}
-                                <td style={{ textAlign: 'right' }}>
+                                <td className="col-actions" style={{ textAlign: 'right' }}>
                                   <div className="op-table-actions-row">
                                     <Button
                                       variant="primary"

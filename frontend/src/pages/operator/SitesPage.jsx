@@ -341,10 +341,10 @@ function OperatorSitesPage({ onNavigate }) {
               <table className="op-table">
                 <thead>
                   <tr>
-                    <th style={{ textAlign: 'left' }}>Site</th>
-                    <th style={{ textAlign: 'left' }}>Niveau</th>
-                    <th style={{ textAlign: 'left' }}>Autonomie</th>
-                    <th style={{ textAlign: 'left' }}>Groupe(s)</th>
+                    <th className="col-flex" style={{ textAlign: 'left' }}>Site</th>
+                    <th className="col-flex" style={{ textAlign: 'left' }}>Niveau</th>
+                    <th className="col-alerts" style={{ textAlign: 'left' }}>Autonomie</th>
+                    <th className="col-flex" style={{ textAlign: 'left' }}>Groupe(s)</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -363,7 +363,7 @@ function OperatorSitesPage({ onNavigate }) {
                         }
                       }}
                     >
-                      <td style={{ textAlign: 'left' }}>
+                      <td className="col-flex" style={{ textAlign: 'left' }}>
                         <div className="op-table-site-name">
                           <Building2 size={16} className="op-table-site-icon" />
                           <div>
@@ -373,7 +373,7 @@ function OperatorSitesPage({ onNavigate }) {
                         </div>
                       </td>
 
-                      <td style={{ textAlign: 'left' }}>
+                      <td className="col-flex" style={{ textAlign: 'left' }}>
                         <TankGauge
                           variant="horizontal"
                           percent={site.percent}
@@ -383,11 +383,11 @@ function OperatorSitesPage({ onNavigate }) {
                         />
                       </td>
 
-                      <td style={{ textAlign: 'left' }}>
+                      <td className="col-alerts" style={{ textAlign: 'left' }}>
                         <strong className="text-primary">{site.formattedAutonomy}</strong>
                       </td>
 
-                      <td style={{ textAlign: 'left' }}>
+                      <td className="col-flex" style={{ textAlign: 'left' }}>
                         <span className="op-cp-tag">{site.groupLabels}</span>
                       </td>
                     </tr>
