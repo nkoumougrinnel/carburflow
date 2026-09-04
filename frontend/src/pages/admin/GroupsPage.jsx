@@ -773,100 +773,141 @@ function GroupsPage({ onNavigate }) {
           <section className="groups-list">
             {mode === 'all' ? (
               <section className="site-overview">
-                <div className="section-title-wrap">
-                  <span className="metric-label">Vue d’ensemble</span>
-                  <h2>Tous les groupes électrogènes</h2>
-                </div>
-                <div className="dashboard-table-scroll">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th className="col-flex">Groupe</th>
-                        <th className="col-flex">Site</th>
-                        <th className="col-alerts">Alertes</th>
-                        <th className="col-numeric">{METRIC_LABELS.consumptionWeekN}</th>
-                        <th className="col-numeric">{METRIC_LABELS.consumptionWeekN1}</th>
-                        <th className="col-numeric">{METRIC_LABELS.consumptionMean}</th>
-                        <th className="col-numeric">{METRIC_LABELS.hoursDeltaWeekN}</th>
-                        <th className="col-alerts">{METRIC_LABELS.autonomyRemaining}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(groupsData.group_blocks || []).length > 0 ? (
-                        (groupsData.group_blocks || []).map((g) => {
-                          const siteName = g.site_nom || g.nom_site || g.site_name || (groupsData.sites || []).find((s) => String(s.id) === String(g.site_id))?.nom_site || ''
-                          const hoursWindow = (g.hours_run || []).slice(startIndex, endIndex + 1)
-                          const consWindow = (g.consumption || []).slice(startIndex, endIndex + 1)
-                          const consumption = buildPeriodSeriesStats(consWindow)
-                          const hours = buildPeriodSeriesStats(hoursWindow)
-                          const autonomyEntity = buildGroupAutonomyEntity(g)
-                          const severity = getAutonomySeverity(autonomyEntity)
-                          const relatedAlerts = alertsByGroupId.get(String(g.id)) || []
-                          return (
-                            <tr
-                              key={g.id}
-                              className={`autonomy-row autonomy-row--${severity} dashboard-row-link`}
-                              onClick={() => openGroupDetails(g)}
-                              onKeyDown={(event) => {
-                                if (event.key === 'Enter' || event.key === ' ') {
-                                  event.preventDefault()
-                                  openGroupDetails(g)
-                                }
-                              }}
-                              tabIndex={0}
-                              role="link"
-                              aria-label={`Ouvrir le détail du groupe ${g.label}`}
-                            >
-                              <td className="col-flex">{g.label}</td>
-                              <td className="col-flex">{siteName}</td>
-                              <td className="col-alerts">
-                                {relatedAlerts.length ? (
-                                  <Button
-                                    type="button"
-                                    variant="secondary"
-                                    size="sm"
-                                    className="group-alert-chip"
-                                    title={relatedAlerts.map((a) => a.title).join(' · ')}
-                                    onClick={(event) => {
-                                      event.stopPropagation()
-                                      onNavigate?.({
-                                        view: 'alerts',
-                                        groupId: g.id,
-                                        groupLabel: g.label,
-                                      })
-                                    }}
-                                  >
-                                    {relatedAlerts.length} alerte{relatedAlerts.length > 1 ? 's' : ''}
-                                  </Button>
-                                ) : (
-                                  <span className="group-alert-none">—</span>
-                                )}
-                              </td>
-                              <td className="col-numeric">{formatMetric(consumption.weekN)}</td>
-                              <td className="col-numeric">{formatMetric(consumption.weekN1)}</td>
-                              <td className="col-numeric">{formatMetric(consumption.mean)}</td>
-                              <td className="col-numeric">{formatMetric(hours.weekN)}</td>
-                              <td className="col-alerts">
-                                <AutonomyBadge entity={autonomyEntity} size="sm" />
-                              </td>
-                            </tr>
-                          )
+  <div className="section-title-wrap">
+    <span className="metric-label">Vue d’ensemble</span>
+    <h2>Tous les groupes électrogènes</h2>
+  </div>
+
+  <div className="dashboard-table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th className="col-flex" style={{ textAlign: 'left' }}>Groupe</th>
+          <th className="col-flex" style={{ textAlign: 'left' }}>Site</th>
+          <th className="col-alerts" style={{ textAlign: 'center' }}>Alertes</th>
+          <th className="col-numeric" style={{ textAlign: 'right' }}>Consommation N</th>
+          <th className="col-numeric" style={{ textAlign: 'right' }}>Référence</th>
+          <th className="col-alerts" style={{ textAlign: 'center' }}>Écart</th>
+          <th className="col-numeric" style={{ textAlign: 'right' }}>Conso. moyenne</th>
+          <th className="col-numeric" style={{ textAlign: 'right' }}>Fonctionnement</th>
+          <th className="col-alerts" style={{ textAlign: 'center' }}>Autonomie</th>
+        </tr>
+      </thead>
+      <tbody>
+        {(groupsData.group_blocks || []).length > 0 ? (
+          (groupsData.group_blocks || []).map((g) => {
+            const siteName = g.site_nom || g.nom_site || g.site_name || (
+              groupsData.sites || []
+            ).find((s) => String(s.id) === String(g.site_id))?.nom_site || ''
+
+            const hoursWindow = (g.hours_run || []).slice(startIndex, endIndex + 1)
+            const consWindow = (g.consumption || []).slice(startIndex, endIndex + 1)
+
+            const consumption = buildPeriodSeriesStats(consWindow)
+            const hours = buildPeriodSeriesStats(hoursWindow)
+
+            const autonomyEntity = buildGroupAutonomyEntity(g)
+            const severity = getAutonomySeverity(autonomyEntity)
+
+            const relatedAlerts = alertsByGroupId.get(String(g.id)) || []
+
+            // Fonction de rendu d'écart (identique à DashboardPage)
+            const renderEcart = (current, previous) => {
+              if (current == null || previous == null || previous === 0) {
+                return <span className="deviation-cell neutral">—</span>
+              }
+              const pct = Number((((current - previous) / previous) * 100).toFixed(1))
+              const isUp = pct > 0
+              return (
+                <span className={`deviation-cell ${isUp ? 'negative' : 'positive'}`}>
+                  {isUp ? '▲' : '▼'} {Math.abs(pct).toFixed(1)}%
+                </span>
+              )
+            }
+
+            return (
+              <tr
+                key={g.id}
+                className={`autonomy-row autonomy-row--${severity} dashboard-row-link`}
+                onClick={() => openGroupDetails(g)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    openGroupDetails(g)
+                  }
+                }}
+                tabIndex={0}
+                role="link"
+                aria-label={`Ouvrir le détail du groupe ${g.label}`}
+              >
+                <td className="col-flex" style={{ textAlign: 'left' }}>{g.label}</td>
+                <td className="col-flex" style={{ textAlign: 'left' }}>{siteName}</td>
+
+                <td className="col-alerts" style={{ textAlign: 'center' }}>
+                  {relatedAlerts.length ? (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="group-alert-chip"
+                      title={relatedAlerts.map((a) => a.title).join(' · ')}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        onNavigate?.({
+                          view: 'alerts',
+                          groupId: g.id,
+                          groupLabel: g.label,
                         })
-                      ) : (
-                        <tr>
-                          <td colSpan={8}>
-                            <EmptyState
-                              icon={<div className="text-muted">⚙️</div>}
-                              title="Aucun groupe électrogène"
-                              description="Aucune machine n'est actuellement enregistrée dans le système."
-                            />
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
+                      }}
+                    >
+                      {relatedAlerts.length} alerte{relatedAlerts.length > 1 ? 's' : ''}
+                    </Button>
+                  ) : (
+                    <span className="group-alert-none">—</span>
+                  )}
+                </td>
+
+                <td className="col-numeric" style={{ textAlign: 'right' }}>
+                  {formatMetric(consumption.weekN)}
+                </td>
+
+                <td className="col-numeric" style={{ textAlign: 'right' }}>
+                  {formatMetric(consumption.weekN1)}
+                </td>
+
+                <td className="col-alerts" style={{ textAlign: 'center' }}>
+                  {renderEcart(consumption.weekN, consumption.weekN1)}
+                </td>
+
+                <td className="col-numeric" style={{ textAlign: 'right' }}>
+                  {formatMetric(consumption.mean)}
+                </td>
+
+                <td className="col-numeric" style={{ textAlign: 'right' }}>
+                  {formatMetric(hours.weekN)}
+                </td>
+
+                <td className="col-alerts" style={{ textAlign: 'center' }}>
+                  <AutonomyBadge entity={autonomyEntity} size="sm" />
+                </td>
+              </tr>
+            )
+          })
+        ) : (
+          <tr>
+            <td colSpan="9">
+              <EmptyState
+                icon={<div className="text-muted">⚙️</div>}
+                title="Aucun groupe électrogène"
+                description="Aucune machine n'est actuellement enregistrée dans le système."
+              />
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+</section>
             ) : (
               (groupsData.group_blocks || []).filter((group) => {
                 if (selectedGroupId) return String(group.id) === String(selectedGroupId)

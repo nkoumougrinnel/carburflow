@@ -5,7 +5,8 @@ import WelcomeBanner from '@/components/WelcomeBanner.jsx'
 import { EmptyState } from '@/components/ui/empty-state.jsx'
 import { Select } from '@/components/ui/select.jsx'
 import AutonomyBadge from '@/components/AutonomyBadge.jsx'
-import { apiFetch } from '@/auth.js'
+import { apiFetch, listAlertes } from '@/auth.js'
+import { normalizePersistedAlert } from '@/utils/alerts.js'
 import PageLoader from '@/components/PageLoader.jsx'
 import PageEnter from '@/components/PageEnter.jsx'
 import PeriodLineChart from '@/components/PeriodLineChart.jsx'
@@ -34,6 +35,7 @@ function SitesPage({ onNavigate }) {
   const [dateFin, setDateFin] = useState('')
   const [availableDateRange, setAvailableDateRange] = useState(null)
   const [availableSites, setAvailableSites] = useState([])
+  const [siteAlerts, setSiteAlerts] = useState([])
 
   const querySiteId = useMemo(() => new URLSearchParams(window.location.search).get('siteId'), [])
   const querySiteName = useMemo(() => new URLSearchParams(window.location.search).get('siteName'), [])
@@ -162,6 +164,14 @@ function SitesPage({ onNavigate }) {
       }
     }
     loadSitesData()
+  }, [])
+
+  useEffect(() => {
+    listAlertes({ etat: 'actives' })
+      .then((rows) => {
+        setSiteAlerts((Array.isArray(rows) ? rows : []).map(normalizePersistedAlert).filter(Boolean))
+      })
+      .catch(() => setSiteAlerts([]))
   }, [])
 
   const siteOptions = useMemo(() => {
@@ -626,6 +636,7 @@ function SitesPage({ onNavigate }) {
                       <th className="col-numeric" style={{ textAlign: 'right' }}>Stock</th>
                       <th className="col-numeric" style={{ textAlign: 'right' }}>Consommation</th>
                       <th className="col-numeric" style={{ textAlign: 'right' }}>Évolution</th>
+                      <th className="col-alerts" style={{ textAlign: 'center' }}>Alertes</th>
                       <th className="col-alerts" style={{ textAlign: 'center' }}>Autonomie</th>
                     </tr>
                   </thead>
@@ -634,6 +645,9 @@ function SitesPage({ onNavigate }) {
                       siteTableRows.map((site) => {
                         const siteAut = sitesDashboard?.autonomyBySite?.[String(site.id)] || {}
                         const severity = getAutonomySeverity(siteAut)
+                        const alertsCount = siteAlerts.filter(
+                          (alert) => String(alert.site_id) === String(site.id),
+                        ).length
                         return (
                           <tr
                             key={site.id}
@@ -668,6 +682,15 @@ function SitesPage({ onNavigate }) {
                               )}
                             </td>
                             <td className="col-alerts" style={{ textAlign: 'center' }}>
+                              {alertsCount > 0 ? (
+                                <span className="group-alert-chip">
+                                  {alertsCount} alerte{alertsCount > 1 ? 's' : ''}
+                                </span>
+                              ) : (
+                                <span className="group-alert-none">—</span>
+                              )}
+                            </td>
+                            <td className="col-alerts" style={{ textAlign: 'center' }}>
                               <AutonomyBadge entity={siteAut} size="sm" />
                             </td>
                           </tr>
@@ -675,7 +698,7 @@ function SitesPage({ onNavigate }) {
                       })
                     ) : (
                       <tr>
-                        <td colSpan={5}>
+                        <td colSpan={6}>
                           <EmptyState
                             icon={<div className="text-muted">📍</div>}
                             title="Aucun site disponible"
