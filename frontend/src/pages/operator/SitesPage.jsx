@@ -6,6 +6,7 @@ import PageEnter from '@/components/PageEnter.jsx'
 import PageLoader from '@/components/PageLoader.jsx'
 import { apiFetch } from '@/auth.js'
 import { StatusBadge } from '@/components/ui/status-badge.jsx'
+import AutonomyBadge from '@/components/AutonomyBadge.jsx'
 import { TankGauge } from '@/components/ui/tank-gauge.jsx'
 import {
   SiteDetailBack,
@@ -384,7 +385,15 @@ function OperatorSitesPage({ onNavigate }) {
                       </td>
 
                       <td style={{ textAlign: 'left' }}>
-                        <strong className="text-primary">{site.formattedAutonomy}</strong>
+                        <AutonomyBadge
+                          entity={{
+                            autonomie_hours: site.autonomieHours,
+                            formatted_autonomy: site.formattedAutonomy,
+                            is_infinite_autonomy: site.isInfiniteAutonomy,
+                            is_sans_fonctionnement: site.isSansFonctionnement,
+                          }}
+                          size="sm"
+                        />
                       </td>
 
                       <td style={{ textAlign: 'left' }}>

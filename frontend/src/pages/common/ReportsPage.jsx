@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Download, Upload, History, Trash2, CheckCircle2, Sparkles, PlusCircle, FileSpreadsheet, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react'
+import { Download, Upload, History, Trash2, CheckCircle2, Sparkles, PlusCircle, FileSpreadsheet, ExternalLink } from 'lucide-react'
 import Topbar from '@/components/Topbar.jsx'
 import PageEnter from '@/components/PageEnter.jsx'
 import WelcomeBanner from '@/components/WelcomeBanner.jsx'
@@ -111,8 +111,6 @@ function ReportsPage({ onNavigate }) {
   const [appliedFilter, setAppliedFilter] = useState({ debut: '', fin: '' })
   const [activeQuick, setActiveQuick] = useState('all')
   
-  const [page, setPage] = useState(1)
-  const pageSize = 10
   const [siteModalRapport, setSiteModalRapport] = useState(null)
   const [deleteConfirmRapport, setDeleteConfirmRapport] = useState(null)
 
@@ -245,7 +243,6 @@ function ReportsPage({ onNavigate }) {
     setFilterFin('')
     setAppliedFilter({ debut: '', fin: '' })
     setActiveQuick('all')
-    setPage(1)
   }
 
   // Filtrage des rapports selon les dates
@@ -256,14 +253,6 @@ function ReportsPage({ onNavigate }) {
       return true
     })
   }, [rapports, appliedFilter])
-
-  // Pagination
-  const totalCount = filteredRapports.length
-  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
-  const paginatedRapports = useMemo(() => {
-    const start = (page - 1) * pageSize
-    return filteredRapports.slice(start, start + pageSize)
-  }, [filteredRapports, page, pageSize])
 
   const feedbackBlocks = (
     <>
@@ -371,14 +360,12 @@ function ReportsPage({ onNavigate }) {
                   onDateFinChange={(value) => setFilterFin(value)}
                   onApply={(range) => {
                     setAppliedFilter(range || { debut: filterDebut, fin: filterFin })
-                    setPage(1)
                   }}
                   onReset={() => {
                     setFilterDebut('')
                     setFilterFin('')
                     setAppliedFilter({ debut: '', fin: '' })
                     setActiveQuick('all')
-                    setPage(1)
                   }}
                 />
 
@@ -423,7 +410,7 @@ function ReportsPage({ onNavigate }) {
                           </tr>
                         </thead>
                         <tbody>
-                          {paginatedRapports.map((r) => {
+                          {filteredRapports.map((r) => {
                             const weekNum = getWeekNumber(r.date_debut)
                             const dt = formatDateTime(r.date_creation)
                             const keyX = `${r.id}:xlsx`
@@ -539,40 +526,6 @@ function ReportsPage({ onNavigate }) {
                       </table>
                     </div>
 
-                    {/* 20. PAGINATION DYNAMIQUE */}
-                    <div className="op-pagination-bar">
-                      <span className="op-pagination-info">
-                        Affichage de {((page - 1) * pageSize) + 1} à {Math.min(page * pageSize, totalCount)} sur {totalCount} relevé{totalCount > 1 ? 's' : ''}
-                      </span>
-                      {totalPages > 1 && (
-                        <div className="op-pagination-controls">
-                          <Button
-                            variant="secondary"
-                            disabled={page === 1}
-                            onClick={() => setPage((p) => Math.max(1, p - 1))}
-                          >
-                            <ChevronLeft size={16} />
-                          </Button>
-                          {Array.from({ length: totalPages }, (_, i) => i + 1).map((pNum) => (
-                            <Button
-                              key={pNum}
-                              variant="ghost"
-                              className={`op-page-num${page === pNum ? ' is-active' : ''}`}
-                              onClick={() => setPage(pNum)}
-                            >
-                              {pNum}
-                            </Button>
-                          ))}
-                          <Button
-                            variant="secondary"
-                            disabled={page === totalPages}
-                            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                          >
-                            <ChevronRight size={16} />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
                   </>
                 )}
 

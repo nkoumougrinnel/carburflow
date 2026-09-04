@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { ArrowRight, Bell, CheckCircle2, History } from 'lucide-react'
 import Topbar from '@/components/Topbar.jsx'
+import WelcomeBanner from '@/components/WelcomeBanner.jsx'
 import PageEnter from '@/components/PageEnter.jsx'
 import PageLoader from '@/components/PageLoader.jsx'
 import { Button } from '@/components/ui/button.jsx'
@@ -571,28 +572,25 @@ function AlertsPage({ onNavigate }) {
       <Topbar activeView="alerts" onNavigate={onNavigate} />
       <PageEnter className="alerts-page-enter">
         <main className="page-layout mq-alx-page">
-          <header className="mq-alx-head">
-            <div>
-              <h1>Centre d’alertes</h1>
-              <p>Suivi et traitement des alertes détectées sur vos sites.</p>
-            </div>
-          </header>
+          <WelcomeBanner
+            kicker="Centre d’alertes"
+            title="Centre d’alertes"
+            subtitle="Suivi et traitement des alertes détectées sur vos sites."
+          />
 
-          <AlertsHero counts={counts} />
+          <div className="mq-alx-status-tabs">
+            <AlertsTabs
+              items={navItems}
+              value={panel}
+              onChange={(id) => {
+                setMessage('')
+                setFocusAlertId('')
+                setPanel(id)
+              }}
+            />
+          </div>
 
           <section className="mq-alx-filters-panel mq-alx-filters-panel--inline cf-filter-bar" aria-label="Filtres des alertes">
-            <div className="cf-filter-field">
-              <span className="cf-filter-label">Statut</span>
-              <AlertsTabs
-                items={navItems}
-                value={panel}
-                onChange={(id) => {
-                  setMessage('')
-                  setFocusAlertId('')
-                  setPanel(id)
-                }}
-              />
-            </div>
             <div className="cf-filter-field">
               <span className="cf-filter-label">Niveau</span>
               <SeverityChips

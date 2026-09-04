@@ -390,9 +390,6 @@ function DashboardPage({ onNavigate }) {
           <div className="mq-dash-alert-list">
             {previewAlerts.length ? previewAlerts.map((alert) => {
               const severity = alert.severity || 'medium'
-              const heading = alert.group_label
-                ? `${alert.title} — ${alert.group_label}`
-                : alert.title
               return (
                 <button
                   key={alert.id}
@@ -402,7 +399,12 @@ function DashboardPage({ onNavigate }) {
                 >
                   <span className={`alx-pill alx-pill--${severity}`}>{alert.priority || 'Moyenne'}</span>
                   <span className="mq-dash-alert-copy">
-                    <strong>{heading}</strong>
+                    <strong>{alert.title}</strong>
+                    {(alert.group_label || alert.site_name) ? (
+                      <span className="mq-dash-alert-context">
+                        {[alert.group_label, alert.site_name].filter(Boolean).join(' · ')}
+                      </span>
+                    ) : null}
                     {alert.essential ? <span>{alert.essential}</span> : null}
                   </span>
                   <span className="mq-dash-alert-open">Ouvrir →</span>

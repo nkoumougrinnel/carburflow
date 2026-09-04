@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { Menu, Moon, Sun, X } from 'lucide-react'
+import { useLocation } from 'react-router-dom'
 import BrandLogo from '../BrandLogo.jsx'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/context/AuthContext.jsx'
@@ -16,6 +17,7 @@ const navLinks = [
 function LandingNav({ onNavigate }) {
   const { isAuthenticated, isAdmin, logout } = useAuth()
   const { theme, toggleTheme } = useTheme()
+  const location = useLocation()
   const [open, setOpen] = useState(false)
 
   const go = (view) => {
@@ -25,10 +27,18 @@ function LandingNav({ onNavigate }) {
 
   const scrollToSection = (id) => {
     setOpen(false)
-    const node = document.getElementById(id)
-    if (node) {
-      node.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    const scroll = () => {
+      const node = document.getElementById(id)
+      if (node) node.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
+
+    if (location.pathname !== '/') {
+      onNavigate('home')
+      window.setTimeout(scroll, 80)
+      return
+    }
+
+    scroll()
   }
 
   const isDark = theme === 'dark'

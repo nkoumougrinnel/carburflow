@@ -585,7 +585,12 @@ def serialize_dashboard_alerts(alerts):
 
         results.append({
             'id': a.cle,
+            'type': a.type_alerte,
             'target': 'groups' if is_group_alert else 'site',
+            'site_id': list_serializer.get_site_id(a),
+            'site_name': list_serializer.get_site_name(a),
+            'group_id': list_serializer.get_group_id(a),
+            'group_label': list_serializer.get_group_label(a),
             'priority': a.get_priorite_display(),
             'priority_level': priority_map.get(a.priorite, 'medium'),
             'title': list_serializer.get_title(a),
