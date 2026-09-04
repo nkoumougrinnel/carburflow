@@ -21,7 +21,8 @@ COPY backend /app/backend
 COPY data/imports /app/data/imports
 COPY docker/backend/entrypoint.sh /app/backend/entrypoint.sh
 
-RUN chmod +x /app/backend/entrypoint.sh \
+RUN sed -i 's/\r$//' /app/backend/entrypoint.sh \
+    && chmod +x /app/backend/entrypoint.sh \
     && mkdir -p /app/staticfiles /app/data/media /app/data/exports /app/data/logs
 
 WORKDIR /app/backend

@@ -6,5 +6,9 @@
 **/__pycache__/** linguist-generated
 *.pyc linguist-generated
 
+<<<<<<< HEAD
 # Scripts shell : toujours LF (un CRLF casse l'entrypoint Docker en Linux)
+=======
+# Les scripts exécutés directement par Linux doivent rester en LF.
+>>>>>>> b75dcb54426b59033c49a6316aca3ba9635eb3a4
 *.sh text eol=lf

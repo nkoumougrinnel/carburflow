@@ -103,7 +103,7 @@ function ProfilePage({ onNavigate }) {
 
   const mePane = (
     <div className="saas-profile">
-      <header className="saas-profile-hero">
+      <header className="saas-profile-hero cf-hover-lift">
         <div className="saas-profile-avatar" aria-hidden="true">{initialsFromUser(user)}</div>
         <div className="saas-profile-hero-copy">
           <h2>{displayName}</h2>
@@ -117,6 +117,12 @@ function ProfilePage({ onNavigate }) {
       <div className="saas-profile-grid">
         <form className="saas-profile-panel" onSubmit={handleProfileSubmit}>
           <div className="saas-profile-panel-head">
+<<<<<<< HEAD
+=======
+            <span className="saas-profile-panel-icon saas-profile-panel-icon--primary" aria-hidden="true">
+              <UserRound size={18} />
+            </span>
+>>>>>>> b75dcb54426b59033c49a6316aca3ba9635eb3a4
             <div>
               <h3>Informations</h3>
               <p>Nom, prénom et e-mail visibles dans l’application.</p>
@@ -172,6 +178,12 @@ function ProfilePage({ onNavigate }) {
 
         <form className="saas-profile-panel" onSubmit={handlePasswordSubmit}>
           <div className="saas-profile-panel-head">
+<<<<<<< HEAD
+=======
+            <span className="saas-profile-panel-icon saas-profile-panel-icon--amber" aria-hidden="true">
+              <KeyRound size={18} />
+            </span>
+>>>>>>> b75dcb54426b59033c49a6316aca3ba9635eb3a4
             <div>
               <h3>Mot de passe</h3>
               <p>Changez votre mot de passe. Vous restez connecté.</p>
