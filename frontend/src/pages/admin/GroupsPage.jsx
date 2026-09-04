@@ -5,8 +5,11 @@ import Button from '@/components/ui/button.jsx'
 import { EmptyState } from '@/components/ui/empty-state.jsx'
 import { Select } from '@/components/ui/select.jsx'
 import { StatusBadge } from '@/components/ui/status-badge.jsx'
-import { apiFetch, listAlertes } from '@/auth.js'
+import Modal from '@/components/ui/modal.jsx'
+import { apiFetch, listAlertes, treatAlert } from '@/auth.js'
+import { requestBadgesRefresh } from '@/utils/badges.js'
 import AutonomyBadge from '@/components/AutonomyBadge.jsx'
+import { TankGauge } from '@/components/ui/tank-gauge.jsx'
 import PageLoader from '@/components/PageLoader.jsx'
 import PageEnter from '@/components/PageEnter.jsx'
 import {
@@ -58,6 +61,119 @@ const renderHourlyMetric = (value, digits = 2) => {
   return `${value.toFixed(digits)} L/h`
 }
 
+function GroupTankCard({ title, currentVolume, capacity, empty = false }) {
+  const safeCapacity = Number(capacity) > 0 ? Number(capacity) : 0
+  const safeVolume = Number(currentVolume) >= 0 ? Number(currentVolume) : 0
+  const percent = safeCapacity > 0 ? Math.min(100, (safeVolume / safeCapacity) * 100) : 0
+  const available = Math.max(0, safeCapacity - safeVolume)
+
+  return (
+    <article className="group-tank-card">
+      <span className="group-tank-card-title">{title}</span>
+      {empty ? (
+        <p className="group-tank-card-empty">Aucune cuve journalière rattachée à ce groupe.</p>
+      ) : (
+        <>
+          <TankGauge
+            variant="vertical"
+            size="md"
+            percent={percent}
+            currentVolume={safeVolume}
+            capacity={safeCapacity}
+            showLabels
+          />
+          <div className="group-tank-card-stats">
+            <div><span>Capacité</span><strong>{safeCapacity.toLocaleString('fr-FR')} L</strong></div>
+            <div><span>Disponible</span><strong>{available.toLocaleString('fr-FR')} L</strong></div>
+          </div>
+        </>
+      )}
+    </article>
+  )
+}
+
+function TreatGroupAlertModal({ alert, onClose, onConfirm }) {
+  const [justification, setJustification] = useState('')
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const submit = async (event) => {
+    event.preventDefault()
+    const text = justification.trim()
+    if (text.length < 20) {
+      setError('Veuillez écrire au moins 20 caractères.')
+      return
+    }
+    if (text.length > 280) {
+      setError('Veuillez rester sous 280 caractères.')
+      return
+    }
+    setSaving(true)
+    setError('')
+    try {
+      await onConfirm(text)
+    } catch (err) {
+      setError(err.message || 'Impossible d’enregistrer le traitement.')
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal
+      onClose={onClose}
+      kicker="Résolution"
+      title="Marquer comme traitée"
+      subtitle={alert.title}
+      titleId="group-alert-treat-title"
+      cardClassName="alert-treat-modal"
+    >
+      <form className="rapport-modal-form" onSubmit={submit}>
+        <p className="alert-treat-context">
+          Détectée le {formatWhen(alert.detected_at || alert.date_detection || alert.date_apparition)}
+          {alert.essential ? ` · ${alert.essential}` : ''}
+        </p>
+        <label className="alert-treat-field">
+          <span>Note de traitement</span>
+          <textarea
+            value={justification}
+            onChange={(event) => setJustification(event.target.value)}
+            rows={5}
+            placeholder="Expliquez le traitement effectué (20 caractères minimum)…"
+            required
+            autoFocus
+          />
+          <span className={`cf-reason-counter${justification.trim().length > 0 && justification.trim().length < 20 ? ' is-error' : ''}`}>
+            {justification.trim().length}/280
+          </span>
+        </label>
+        {error && <p className="alert-treat-error" role="alert">{error}</p>}
+        <div className="rapport-modal-actions">
+          <Button variant="ghost" onClick={onClose} disabled={saving}>Annuler</Button>
+          <Button variant="primary" type="submit" loading={saving}>
+            {saving ? 'Enregistrement…' : 'Marquer comme traitée'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+function GroupAnalysisCard({ title, children, chart }) {
+  return (
+    <article className="group-analysis-card">
+      <div className="analysis-indicator-block">
+        <span className="curve-title">Indicateur</span>
+        <h3>{title}</h3>
+        <div className="group-analysis-stats">{children}</div>
+      </div>
+      <div className="analysis-chart-block">
+        <span className="curve-title">Courbe {title.toLowerCase()}</span>
+        <div className="chart-box small-box">{chart}</div>
+      </div>
+    </article>
+  )
+}
+
 function GroupsPage({ onNavigate }) {
   const [groupsData, setGroupsData] = useState(null)
   const [groupAlerts, setGroupAlerts] = useState([])
@@ -77,6 +193,8 @@ function GroupsPage({ onNavigate }) {
   const [filtering, setFiltering] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
   const [chartPan, setChartPan] = useState(0)
+  const [pendingTreatAlert, setPendingTreatAlert] = useState(null)
+  const [showAllGroupAlerts, setShowAllGroupAlerts] = useState(false)
   const filterSeq = useRef(0)
 
   /**
@@ -343,6 +461,7 @@ function GroupsPage({ onNavigate }) {
   const openGroupDetails = (group) => {
     setSelectedGroupId(String(group.id))
     setMode('details')
+    setShowAllGroupAlerts(false)
     onNavigate?.({
       view: 'groups',
       groupId: group.id,
@@ -351,11 +470,209 @@ function GroupsPage({ onNavigate }) {
     })
   }
 
+  const confirmTreatGroupAlert = async (justification) => {
+    if (!pendingTreatAlert) return
+    const alert = pendingTreatAlert
+    await treatAlert({
+      cle: alert.id,
+      justification,
+      title: alert.title,
+      subtitle: alert.subtitle,
+      type: alert.type,
+      severity: alert.severity,
+      site_id: alert.site_id || null,
+      group_id: alert.group_id || alert.groupe_id || detailGroup?.id || null,
+    })
+    setGroupAlerts((current) => current.filter((item) => item.id !== alert.id))
+    setPendingTreatAlert(null)
+    requestBadgesRefresh({ source: 'group-detail-alert' })
+  }
+
   if (initialLoading || !groupsData) {
     return (
       <div className="app-shell dashboard-shell">
         <Topbar activeView="groups" onNavigate={onNavigate} />
         <PageLoader label="Analyse des groupes électrogènes…" />
+      </div>
+    )
+  }
+
+  const detailGroup = mode !== 'all'
+    ? (groupsData.group_blocks || []).find((group) => {
+        if (selectedGroupId) return String(group.id) === String(selectedGroupId)
+        if (queryGroupId) return String(group.id) === String(queryGroupId)
+        if (queryGroupLabel) return String(group.label) === String(queryGroupLabel)
+        return true
+      })
+    : null
+
+  if (detailGroup) {
+    const autonomyEntity = buildGroupAutonomyEntity(detailGroup)
+    const severity = getAutonomySeverity(autonomyEntity)
+    const relatedAlerts = [...(alertsByGroupId.get(String(detailGroup.id)) || [])].sort((left, right) => {
+      const leftDate = new Date(left.detected_at || left.date_detection || left.date_apparition || 0).getTime()
+      const rightDate = new Date(right.detected_at || right.date_detection || right.date_apparition || 0).getTime()
+      return rightDate - leftDate
+    })
+    const visibleGroupAlerts = showAllGroupAlerts ? relatedAlerts : relatedAlerts.slice(0, 5)
+    const hoursWindow = (detailGroup.hours_run || []).slice(startIndex, endIndex + 1)
+    const consumptionWindow = (detailGroup.consumption || []).slice(startIndex, endIndex + 1)
+    const hourlyStats = buildHourlyConsumptionStats(hoursWindow, consumptionWindow)
+    const consumptionStats = buildPeriodSeriesStats(consumptionWindow, { excludeZeroValues: true })
+    const hoursStats = buildPeriodSeriesStats(hoursWindow)
+    const hourly = buildHourlyRateSeries(
+      sliceChart(detailGroup.hours_run || []),
+      sliceChart(detailGroup.consumption || []),
+    )
+    const mainVolume = detailGroup.latest_main_volume
+    const dailyVolume = detailGroup.latest_daily_volume
+    const mainCapacity = detailGroup.main_capacity || detailGroup.capacite || 3000
+    const dailyCapacity = detailGroup.daily_capacity || 1000
+
+    return (
+      <div className="app-shell dashboard-shell">
+        <Topbar activeView="groups" onNavigate={onNavigate} />
+        <PageEnter>
+          <main className="page-layout groups-grid group-detail-page">
+            <button
+              type="button"
+              className="site-btn-back"
+              onClick={() => {
+                setSelectedGroupId('')
+                setMode('all')
+                setShowAllGroupAlerts(false)
+                onNavigate?.({ view: 'groups', mode: 'all' })
+              }}
+            >
+              <span aria-hidden="true">←</span>
+              <span>Retour aux groupes</span>
+            </button>
+
+            <section className="group-detail-presentation" aria-labelledby="group-detail-title">
+              <div className="group-detail-identity">
+                <div>
+                  <span className="metric-label">Présentation du groupe</span>
+                  <h1 id="group-detail-title">{detailGroup.label}</h1>
+                  <p>{detailGroup.site_nom || 'Site non renseigné'}</p>
+                </div>
+                <AutonomyBadge
+                  entity={autonomyEntity}
+                  size="md"
+                  aria-label={`Autonomie : ${formatAutonomyValue(autonomyEntity)}`}
+                />
+              </div>
+
+              <div className="group-tanks-grid">
+                <GroupTankCard
+                  title="Cuve principale"
+                  currentVolume={mainVolume}
+                  capacity={mainCapacity}
+                  empty={mainVolume == null}
+                />
+                <GroupTankCard
+                  title="Cuve journalière"
+                  currentVolume={dailyVolume}
+                  capacity={dailyCapacity}
+                  empty={dailyVolume == null}
+                />
+              </div>
+            </section>
+
+            <section className="group-detail-section" aria-labelledby="group-alerts-title">
+              <div className="group-detail-section-head">
+                <div>
+                  <span className="metric-label">Alertes liées</span>
+                  <h2 id="group-alerts-title">Alertes liées au groupe</h2>
+                </div>
+                <span className="site-detail-section-count">{relatedAlerts.length}</span>
+              </div>
+              {relatedAlerts.length > 0 ? (
+                <ul className="group-related-alerts-list">
+                  {visibleGroupAlerts.map((alert) => (
+                    <li key={alert.id} className="group-related-alert-item">
+                      <span className={`alx-pill alx-pill--${alert.severity || 'medium'}`}>
+                        {alert.priority || 'Moyenne'}
+                      </span>
+                      <span className="group-related-alert-date">
+                        {formatWhen(alert.detected_at || alert.date_detection || alert.date_apparition)}
+                      </span>
+                      <span className="group-related-alert-title">{alert.title}</span>
+                      {alert.essential ? <span className="group-related-alert-value">{alert.essential}</span> : null}
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        className="group-related-alert-link"
+                        onClick={() => setPendingTreatAlert(alert)}
+                      >
+                        Traiter
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="group-detail-empty">Aucune alerte liée à ce groupe.</p>
+              )}
+              {relatedAlerts.length > 5 ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="group-related-alerts-toggle"
+                  onClick={() => setShowAllGroupAlerts((current) => !current)}
+                >
+                  {showAllGroupAlerts ? 'Afficher moins' : `Voir les ${relatedAlerts.length - 5} autres alertes`}
+                </Button>
+              ) : null}
+            </section>
+
+            <section className="group-detail-section" aria-labelledby="group-analysis-title">
+              <div className="group-detail-section-head">
+                <div>
+                  <span className="metric-label">Analyse</span>
+                  <h2 id="group-analysis-title">Vue analytique du groupe</h2>
+                </div>
+              </div>
+              <div className="group-analysis-grid">
+                <GroupAnalysisCard
+                  title="Delta horaire"
+                  chart={<PeriodLineChart data={sliceChart(detailGroup.hours_run || [])} labels={chartLabels} fullLabels={chartFullLabels} color={detailGroup.color || '#0b3d7a'} unit="h" yBeginZero />}
+                >
+                  <div><span>Semaine N</span><strong>{formatMetric(hoursStats.weekN)} h</strong></div>
+                  <div><span>Semaine N-1</span><strong>{formatMetric(hoursStats.weekN1)} h</strong></div>
+                  <div><span>Total sur la période</span><strong>{formatMetric(hoursStats.total)} h</strong></div>
+                  <div><span>Moyenne</span><strong>{formatMetric(hoursStats.mean)} h</strong></div>
+                </GroupAnalysisCard>
+
+                <GroupAnalysisCard
+                  title="Consommation"
+                  chart={<PeriodLineChart data={sliceChart(detailGroup.consumption || [])} labels={chartLabels} fullLabels={chartFullLabels} color={detailGroup.color || '#0b3d7a'} unit="L" yBeginZero />}
+                >
+                  <div><span>Semaine N</span><strong>{formatMetric(consumptionStats.weekN)} L</strong></div>
+                  <div><span>Semaine N-1</span><strong>{formatMetric(consumptionStats.weekN1)} L</strong></div>
+                  <div><span>Total sur la période</span><strong>{formatMetric(consumptionStats.total)} L</strong></div>
+                  <div><span>Moyenne</span><strong>{formatMetric(consumptionStats.mean)} L</strong></div>
+                </GroupAnalysisCard>
+
+                <GroupAnalysisCard
+                  title="Consommation horaire"
+                  chart={<PeriodLineChart data={hourly.data} labels={chartLabels} fullLabels={chartFullLabels} color={detailGroup.color || '#0b3d7a'} unit="L/h" yBeginZero suggestedMax={hourly.suggestedMax} pointKinds={hourly.kinds} />}
+                >
+                  <div><span>Moyenne</span><strong>{renderHourlyMetric(hourlyStats.mean, 2)}</strong></div>
+                  <div><span>Maximum</span><strong>{renderHourlyMetric(hourlyStats.max, 2)}</strong></div>
+                  <div><span>Minimum</span><strong>{renderHourlyMetric(hourlyStats.min, 2)}</strong></div>
+                  <div><span>Écart-type</span><strong>{renderHourlyMetric(hourlyStats.stddev, 2)}</strong></div>
+                </GroupAnalysisCard>
+              </div>
+            </section>
+          </main>
+        </PageEnter>
+        {pendingTreatAlert ? (
+          <TreatGroupAlertModal
+            alert={pendingTreatAlert}
+            onClose={() => setPendingTreatAlert(null)}
+            onConfirm={confirmTreatGroupAlert}
+          />
+        ) : null}
       </div>
     )
   }
@@ -426,13 +743,6 @@ function GroupsPage({ onNavigate }) {
               ]}
             />
           </form>
-          {dateDebut && dateFin && (
-            <p className="group-block-note">
-              <span className="date-filter-info">Données réelles</span>
-              Période sélectionnée : du <strong>{parseDate(dateDebut)?.toLocaleDateString('fr-FR') || '—'}</strong> au <strong>{parseDate(dateFin)?.toLocaleDateString('fr-FR') || '—'}</strong>
-            </p>
-          )}
-
           {(mode !== 'all' && siteId) && (
             <section className="metric-section">
               <div className="section-title-wrap">

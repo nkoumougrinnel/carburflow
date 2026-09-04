@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { ArrowRight, Bell, CheckCircle2, ChevronDown, Filter, History } from 'lucide-react'
+import { ArrowRight, Bell, CheckCircle2, History } from 'lucide-react'
 import Topbar from '@/components/Topbar.jsx'
 import PageEnter from '@/components/PageEnter.jsx'
 import PageLoader from '@/components/PageLoader.jsx'
@@ -74,6 +74,14 @@ const REASON_PRESETS = [
 const MIN_JUSTIF = 20
 const MAX_JUSTIF = 280
 
+const SEVERITY_OPTIONS = [
+  { id: 'all', key: 'total', label: 'Toutes' },
+  { id: 'critique', key: 'critique', label: 'Critique' },
+  { id: 'haute', key: 'haute', label: 'Haute' },
+  { id: 'moyenne', key: 'moyenne', label: 'Moyenne' },
+  { id: 'basse', key: 'basse', label: 'Basse' },
+]
+
 /* ——————————————————————————————————————————————————————————
     Composants internes
    —————————————————————————————————————————————————————————— */
@@ -118,41 +126,11 @@ function AlertsHero({ counts }) {
 }
 
 /**
- * Tuiles de filtre par sévérité (sans emoji, uniquement la couleur)
- */
-const SEVERITY_OPTIONS = [
-  { id: 'all', label: 'Toutes', key: 'total', tone: 'all' },
-  { id: 'critique', label: 'Critiques', key: 'critique', tone: 'critical' },
-  { id: 'haute', label: 'Hautes', key: 'haute', tone: 'high' },
-  { id: 'moyenne', label: 'Moyennes', key: 'moyenne', tone: 'medium' },
-  { id: 'basse', label: 'Basses', key: 'basse', tone: 'low' },
-]
-
-function SeverityTiles({ counts, value, onChange }) {
-  return (
-    <div className="alx-tiles" role="group" aria-label="Filtrer les alertes par niveau">
-      {SEVERITY_OPTIONS.map((option) => (
-        <button
-          key={option.id}
-          type="button"
-          className={`alx-tile alx-tile--${option.tone}${value === option.id ? ' is-active' : ''}`}
-          aria-pressed={value === option.id}
-          onClick={() => onChange(option.id)}
-        >
-          <span className="alx-tile-label">{option.label}</span>
-          <strong className="alx-tile-count">{counts?.[option.key] ?? 0}</strong>
-        </button>
-      ))}
-    </div>
-  )
-}
-
-/**
  * Onglets « À traiter » / « Historique »
  */
 function AlertsTabs({ items, value, onChange }) {
   return (
-    <div className="alx-tabs" role="tablist" aria-label="Sections des alertes">
+    <div className="saas-profile-tabs" role="tablist" aria-label="Sections des alertes">
       {items.map((item) => {
         const Icon = item.icon
         return (
@@ -161,17 +139,39 @@ function AlertsTabs({ items, value, onChange }) {
             type="button"
             role="tab"
             aria-selected={value === item.id}
-            className={`alx-tab${value === item.id ? ' is-active' : ''}`}
+            className={`saas-profile-tab${value === item.id ? ' is-active' : ''}`}
             onClick={() => onChange(item.id)}
           >
             {Icon ? <Icon size={17} aria-hidden="true" /> : null}
             {item.label}
             {item.badge != null && item.badge > 0 ? (
-              <span className="alx-tab-badge">{item.badge}</span>
+              <span className="saas-profile-tab-badge">{item.badge}</span>
             ) : null}
           </button>
         )
       })}
+    </div>
+  )
+}
+
+/**
+ * Filtres de priorité (toutes / critique / haute / moyenne / basse)
+ */
+function SeverityChips({ counts, value, onChange }) {
+  return (
+    <div className="saas-profile-tabs" role="group" aria-label="Filtrer par niveau">
+      {SEVERITY_OPTIONS.map((option) => (
+        <button
+          key={option.id}
+          type="button"
+          className={`saas-profile-tab${value === option.id ? ' is-active' : ''}`}
+          aria-pressed={value === option.id}
+          onClick={() => onChange(option.id)}
+        >
+          <span className="saas-profile-tab-label">{option.label}</span>
+          <span className="saas-profile-tab-badge">{counts?.[option.key] ?? 0}</span>
+        </button>
+      ))}
     </div>
   )
 }
@@ -187,20 +187,17 @@ function PeriodChips({ value, onChange }) {
     { id: 'all', label: 'Tout' },
   ]
   return (
-    <div className="alx-period" role="group" aria-label="Filtrer par période">
-      <span className="alx-period-label">Période :</span>
-      <div className="alx-period-chips">
-        {options.map((option) => (
-          <button
-            key={option.id}
-            type="button"
-            className={`alx-period-chip${value === option.id ? ' is-active' : ''}`}
-            onClick={() => onChange(option.id)}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
+    <div className="saas-profile-tabs" role="group" aria-label="Filtrer par période">
+      {options.map((option) => (
+        <button
+          key={option.id}
+          type="button"
+          className={`saas-profile-tab${value === option.id ? ' is-active' : ''}`}
+          onClick={() => onChange(option.id)}
+        >
+          {option.label}
+        </button>
+      ))}
     </div>
   )
 }
@@ -395,9 +392,6 @@ function AlertsPage({ onNavigate }) {
   const [focusAlertId, setFocusAlertId] = useState(() => new URLSearchParams(window.location.search).get('alertId') || '')
   const [period, setPeriod] = useState('all')
   const [pendingTreat, setPendingTreat] = useState(null)
-  const [filtersOpen, setFiltersOpen] = useState(false)
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
 
   const loadAll = useCallback(async () => {
     setLoading(true)
@@ -494,14 +488,6 @@ function AlertsPage({ onNavigate }) {
     [periodFiltered, priority, filterStatus],
   )
 
-  useEffect(() => {
-    setPage(1)
-  }, [panel, priority, period, pageSize])
-
-  const pageCount = Math.max(1, Math.ceil(visible.length / pageSize))
-  const safePage = Math.min(page, pageCount)
-  const pagedAlerts = visible.slice((safePage - 1) * pageSize, safePage * pageSize)
-
   const navItems = useMemo(() => ([
     {
       id: 'active',
@@ -590,50 +576,38 @@ function AlertsPage({ onNavigate }) {
               <h1>Centre d’alertes</h1>
               <p>Suivi et traitement des alertes détectées sur vos sites.</p>
             </div>
-            <div className="mq-alx-filters">
-              <button
-                type="button"
-                className="mq-alx-filters-btn"
-                aria-expanded={filtersOpen}
-                onClick={() => setFiltersOpen((open) => !open)}
-              >
-                <Filter size={16} aria-hidden="true" />
-                Filtres
-                <ChevronDown size={16} aria-hidden="true" />
-              </button>
-              {filtersOpen ? (
-                <div className="mq-alx-filters-panel" role="dialog" aria-label="Filtres des alertes">
-                  <p className="mq-alx-filters-label">Statut</p>
-                  <div className="mq-alx-filters-row">
-                    {navItems.map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        className={`mq-alx-chip${panel === item.id ? ' is-active' : ''}`}
-                        onClick={() => {
-                          setMessage('')
-                          setFocusAlertId('')
-                          setPanel(item.id)
-                        }}
-                      >
-                        {item.label}
-                        {item.badge ? ` ${item.badge}` : ''}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="mq-alx-filters-label">Niveau</p>
-                  <SeverityTiles
-                    counts={panel === 'history' ? historyCounts : counts}
-                    value={priority}
-                    onChange={setPriority}
-                  />
-                  {panel === 'history' ? (
-                    <PeriodChips value={period} onChange={setPeriod} />
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
           </header>
+
+          <AlertsHero counts={counts} />
+
+          <section className="mq-alx-filters-panel mq-alx-filters-panel--inline cf-filter-bar" aria-label="Filtres des alertes">
+            <div className="cf-filter-field">
+              <span className="cf-filter-label">Statut</span>
+              <AlertsTabs
+                items={navItems}
+                value={panel}
+                onChange={(id) => {
+                  setMessage('')
+                  setFocusAlertId('')
+                  setPanel(id)
+                }}
+              />
+            </div>
+            <div className="cf-filter-field">
+              <span className="cf-filter-label">Niveau</span>
+              <SeverityChips
+                counts={panel === 'history' ? historyCounts : counts}
+                value={priority}
+                onChange={setPriority}
+              />
+            </div>
+            {panel === 'history' ? (
+              <div className="cf-filter-field">
+                <span className="cf-filter-label">Période</span>
+                <PeriodChips value={period} onChange={setPeriod} />
+              </div>
+            ) : null}
+          </section>
 
           {message && <div className="reports-success" role="status">{message}</div>}
 
@@ -647,7 +621,7 @@ function AlertsPage({ onNavigate }) {
           )}
 
           <section className="alx-list mq-alx-grid" aria-label={panel === 'history' ? 'Historique des alertes' : 'Alertes à traiter'}>
-            {pagedAlerts.length ? pagedAlerts.map((alert, index) => (
+            {visible.length ? visible.map((alert, index) => (
               <AlertCard
                 key={alert.id}
                 alert={alert}
@@ -672,37 +646,6 @@ function AlertsPage({ onNavigate }) {
             )}
           </section>
 
-          {visible.length > 0 ? (
-            <nav className="mq-alx-pager" aria-label="Pagination des alertes">
-              <button
-                type="button"
-                className="mq-alx-pager-btn"
-                disabled={safePage <= 1}
-                onClick={() => setPage((current) => Math.max(1, current - 1))}
-              >
-                Précédent
-              </button>
-              <span className="mq-alx-pager-status">{safePage} / {pageCount}</span>
-              <button
-                type="button"
-                className="mq-alx-pager-btn"
-                disabled={safePage >= pageCount}
-                onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
-              >
-                Suivant →
-              </button>
-              <label className="mq-alx-pager-size">
-                <span className="sr-only">Alertes par page</span>
-                <select
-                  value={pageSize}
-                  onChange={(event) => setPageSize(Number(event.target.value))}
-                >
-                  <option value={10}>10 par page</option>
-                  <option value={20}>20 par page</option>
-                </select>
-              </label>
-            </nav>
-          ) : null}
         </main>
       </PageEnter>
 

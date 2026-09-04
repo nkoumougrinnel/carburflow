@@ -439,9 +439,10 @@ function SitesPage({ onNavigate }) {
                 </div>
                 <div className="site-analysis-grid">
                   <article className="metric-panel site-metric-card">
-                    <span className="metric-label">Delta horaire</span>
-                    <h3>Delta horaire</h3>
-                    <div className="site-metric-stack">
+                    <div className="analysis-indicator-block">
+                      <span className="metric-label">Indicateur</span>
+                      <h3>Delta horaire</h3>
+                      <div className="site-metric-stack">
                       <div>
                         <span>Total sur la période</span>
                         <strong>{siteHoursStats.total.toFixed(1)} h</strong>
@@ -452,23 +453,28 @@ function SitesPage({ onNavigate }) {
                         <strong>{siteHoursStats.mean.toFixed(1)} h</strong>
                         {renderMeanDelta(siteHoursStats)}
                       </div>
+                      </div>
                     </div>
-                    <div className={`chart-box secondary-box${canScroll ? ' is-scrollable' : ''}`}>
-                      <PeriodLineChart
-                        data={sliceChart(siteHoursData)}
-                        labels={chartLabels}
-                        fullLabels={chartFullLabels}
-                        color="#3b82f6"
-                        unit="h"
-                        strokeWidth={3}
-                      />
+                    <div className="analysis-chart-block">
+                      <span className="curve-title">Courbe delta horaire</span>
+                      <div className={`chart-box secondary-box${canScroll ? ' is-scrollable' : ''}`}>
+                        <PeriodLineChart
+                          data={sliceChart(siteHoursData)}
+                          labels={chartLabels}
+                          fullLabels={chartFullLabels}
+                          color="#3b82f6"
+                          unit="h"
+                          strokeWidth={3}
+                        />
+                      </div>
                     </div>
                   </article>
 
                   <article className="metric-panel site-metric-card">
-                    <span className="metric-label">Consommation</span>
-                    <h3>Consommation</h3>
-                    <div className="site-metric-stack">
+                    <div className="analysis-indicator-block">
+                      <span className="metric-label">Indicateur</span>
+                      <h3>Consommation</h3>
+                      <div className="site-metric-stack">
                       <div>
                         <span>Total sur la période</span>
                         <strong>{siteConsumptionStats.total.toFixed(1)} L</strong>
@@ -479,23 +485,28 @@ function SitesPage({ onNavigate }) {
                         <strong>{siteConsumptionStats.mean.toFixed(1)} L</strong>
                         {renderMeanDelta(siteConsumptionStats)}
                       </div>
+                      </div>
                     </div>
-                    <div className={`chart-box secondary-box${canScroll ? ' is-scrollable' : ''}`}>
-                      <PeriodLineChart
-                        data={sliceChart(siteConsumptionData)}
-                        labels={chartLabels}
-                        fullLabels={chartFullLabels}
-                        color="#60a5fa"
-                        unit="L"
-                        strokeWidth={3}
-                      />
+                    <div className="analysis-chart-block">
+                      <span className="curve-title">Courbe consommation</span>
+                      <div className={`chart-box secondary-box${canScroll ? ' is-scrollable' : ''}`}>
+                        <PeriodLineChart
+                          data={sliceChart(siteConsumptionData)}
+                          labels={chartLabels}
+                          fullLabels={chartFullLabels}
+                          color="#60a5fa"
+                          unit="L"
+                          strokeWidth={3}
+                        />
+                      </div>
                     </div>
                   </article>
 
                   <article className="metric-panel site-metric-card">
-                    <span className="metric-label">Stock</span>
-                    <h3>Volume stock</h3>
-                    <div className="site-metric-stack">
+                    <div className="analysis-indicator-block">
+                      <span className="metric-label">Indicateur</span>
+                      <h3>Volume stock</h3>
+                      <div className="site-metric-stack">
                       <div>
                         <span>Dernière valeur</span>
                         <strong>{siteVolumeStats.latest.toFixed(1)} L</strong>
@@ -506,16 +517,20 @@ function SitesPage({ onNavigate }) {
                         <strong>{siteVolumeStats.mean.toFixed(1)} L</strong>
                         {renderMeanDelta(siteVolumeStats, '', true)}
                       </div>
+                      </div>
                     </div>
-                    <div className={`chart-box secondary-box${canScroll ? ' is-scrollable' : ''}`}>
-                      <PeriodLineChart
-                        data={sliceChart(siteVolumeData)}
-                        labels={chartLabels}
-                        fullLabels={chartFullLabels}
-                        color="#0b3d7a"
-                        unit="L"
-                        strokeWidth={3}
-                      />
+                    <div className="analysis-chart-block">
+                      <span className="curve-title">Courbe volume stock</span>
+                      <div className={`chart-box secondary-box${canScroll ? ' is-scrollable' : ''}`}>
+                        <PeriodLineChart
+                          data={sliceChart(siteVolumeData)}
+                          labels={chartLabels}
+                          fullLabels={chartFullLabels}
+                          color="#0b3d7a"
+                          unit="L"
+                          strokeWidth={3}
+                        />
+                      </div>
                     </div>
                   </article>
                 </div>
@@ -587,13 +602,6 @@ function SitesPage({ onNavigate }) {
               ]}
             />
           </form>
-          {dateDebut && dateFin && (
-            <p className="group-block-note">
-              <span className="date-filter-info">Données réelles</span>
-              Période sélectionnée : du <strong>{parseDate(dateDebut)?.toLocaleDateString('fr-FR') || '—'}</strong> au <strong>{parseDate(dateFin)?.toLocaleDateString('fr-FR') || '—'}</strong>
-            </p>
-          )}
-
           {availableDateRange && availableDateRange.reports_count === 0 && (
             <EmptyState
               icon={<CircleAlert size={40} />}
