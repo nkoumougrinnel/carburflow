@@ -158,24 +158,28 @@ export function buildHourlyRateSeries(hours = [], consumption = []) {
   for (let index = 0; index < len; index += 1) {
     const hoursValue = hours[index];
     const consumptionValue = consumption[index];
-    if (!isFiniteNumber(hoursValue) || !isFiniteNumber(consumptionValue)) {
+    const hasHours = isFiniteNumber(hoursValue);
+    const hasConsumption = isFiniteNumber(consumptionValue);
+    if (!hasHours && !hasConsumption) {
       kinds.push('missing');
       raw.push(null);
       continue;
     }
-    if (hoursValue > 0 && consumptionValue === 0) {
+    const normalizedHours = hasHours ? hoursValue : 0;
+    const normalizedConsumption = hasConsumption ? consumptionValue : 0;
+    if (normalizedHours > 0 && normalizedConsumption === 0) {
       kinds.push('zero');
       raw.push(0);
       continue;
     }
-    if (hoursValue === 0 && consumptionValue > 0) {
+    if (normalizedHours === 0 && normalizedConsumption > 0) {
       kinds.push('infinite');
       raw.push(Infinity);
       continue;
     }
-    if (hoursValue > 0) {
+    if (normalizedHours > 0) {
       kinds.push('normal');
-      raw.push(Number((consumptionValue / hoursValue).toFixed(2)));
+      raw.push(Number((normalizedConsumption / normalizedHours).toFixed(2)));
       continue;
     }
     kinds.push('zero');

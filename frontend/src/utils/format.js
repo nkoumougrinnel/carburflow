@@ -29,7 +29,7 @@ export function getAutonomySeverity(entity = {}) {
   // Données manquantes / zéros → Sans fonctionnement
   if (entity.is_sans_fonctionnement) return 'idle'
   if (entity.is_infinite_autonomy || entity.formatted_autonomy === '∞') return 'idle'
-  const hrs = entity.autonomie_hours
+  const hrs = entity.autonomie_hours ?? entity.autonomy
   if (hrs == null || Number.isNaN(Number(hrs))) return 'idle'
   if (hrs < 24) return 'critical'
   if (hrs < 36) return 'medium'

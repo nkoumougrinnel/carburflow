@@ -152,10 +152,9 @@ function DashboardPage({ onNavigate }) {
   const summaryCards = useMemo(() => {
     if (!dashboardData) return []
 
-    const criticalSiteAlertCount = alerts.filter((alert) => {
-      if (alert.target !== 'site' && alert.site_id == null) return false
-      return resolvePrioriteKey(alert) === 'critique'
-    }).length
+    const criticalSiteAlertCount = siteRows.filter((site) =>
+      getAutonomySeverity(site) === 'critical'
+    ).length
 
     const activeAlertCount = alerts.length
 

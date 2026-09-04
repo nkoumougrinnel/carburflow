@@ -7,8 +7,8 @@ import re
 # ─────────────────────────────────────────────────────────────
 
 def format_rapport_label(report) -> str:
-    """Libellé période pour filtres / axes : date de début (jj/mm/aaaa)."""
-    return report.date_debut.strftime('%d/%m/%Y')
+    """Libellé période pour filtres / axes : date de fin (jj/mm/aaaa)."""
+    return report.date_fin.strftime('%d/%m/%Y')
 
 
 def ordered_rapports(queryset=None):
@@ -166,7 +166,10 @@ def _consommation_periode(
     """
     prev_total = float(previous_cp) + float(previous_cj)
     curr_total = float(current_cp) + float(current_cj)
-    return prev_total - curr_total + float(depotage or 0.0)
+    # Une hausse de stock non expliquée par un dépotage ne constitue pas une
+    # consommation négative. On l'expose comme 0 L et les contrôles d'anomalie
+    # peuvent alors signaler un fonctionnement sans consommation.
+    return max(0.0, prev_total - curr_total + float(depotage or 0.0))
 
 
 # ─────────────────────────────────────────────────────────────
@@ -240,22 +243,13 @@ def should_mark_sans_fonctionnement(latest_hours_n, latest_cons_n, hours_run, co
     latest_hours = float(latest_hours_n) if latest_hours_n is not None else None
     latest_cons = float(latest_cons_n) if latest_cons_n is not None else None
 
-    if latest_hours is None or latest_hours != 0.0:
-        return False
-    if latest_cons is None:
-        latest_cons = 0.0
-    if latest_cons > 0.0:
-        return False
-
-    prior_pairs = []
-    if len(hours_run) > 1:
-        prior_pairs = list(zip(hours_run[:-1], consumed_deltas[:-1]))
-
-    has_previous_activity = any(
-        (h is not None and float(h) > 0.0) or (d is not None and float(d) > 0.0)
-        for h, d in prior_pairs
+    all_pairs = zip(hours_run or [], consumed_deltas or [])
+    has_activity = any(
+        (h is not None and float(h) > 0.0)
+        or (d is not None and float(d) > 0.0)
+        for h, d in all_pairs
     )
-    return not has_previous_activity
+    return not has_activity
 
 
 # ─────────────────────────────────────────────────────────────
@@ -502,12 +496,36 @@ def calculer_groupes(
 
             group_hour_deltas[(g.id, r.id)] = h_delta
 
+    # Pré-calcul des capacités réelles (CP + CJ) par groupe.
+    # On récupère la CP du site principal pour la capacité principale,
+    # et la CJ liée au groupe pour la capacité journalière.
+    primary_cp_by_id = {cp.id: cp for cp in sites}
+
+    group_capacities = {}
+    for groupe in groupes:
+        primary_site_id = group_primary_site_ids.get(groupe.id)
+        main_cap = None
+        if primary_site_id is not None:
+            cp_obj = primary_cp_by_id.get(primary_site_id)
+            if cp_obj is not None:
+                main_cap = float(getattr(cp_obj, 'capacite', None) or 0.0)
+
+        cj = getattr(groupe, 'cuve_journaliere', None)
+        daily_cap = float(getattr(cj, 'capacite', None) or 0.0) if cj is not None else None
+
+        group_capacities[groupe.id] = {
+            'main_capacity': round(main_cap, 1) if main_cap and main_cap > 0 else None,
+            'daily_capacity': round(daily_cap, 1) if daily_cap and daily_cap > 0 else None,
+        }
+
     # Construction des blocs groupes
     group_blocks = []
     for groupe in groupes:
         primary_site_id = group_primary_site_ids.get(groupe.id)
         if selected_site_id is not None and primary_site_id != selected_site_id:
             continue
+
+        capacities = group_capacities.get(groupe.id, {})
 
         hours_run = []
         volume = []
@@ -601,7 +619,9 @@ def calculer_groupes(
                     period_share = 1.0
 
             weighted_report_volume = round(site_current_volume * power_share, 1)
-            weighted_report_delta = round(site_delta * period_share, 1)
+            # Une consommation doit rester visible pour un groupe a 0 h :
+            # c'est précisément le cas qui produit l'alerte sans fonctionnement.
+            weighted_report_delta = round(site_delta * power_share, 1)
 
             volume.append(weighted_report_volume)
             weighted_volumes.append(weighted_report_volume)
@@ -782,7 +802,7 @@ def calculer_groupes(
             'latest_hours_n': round(latest_hours_n, 1) if latest_hours_n is not None else None,
             'previous_hours_n': round(previous_hours_n, 1) if previous_hours_n is not None else None,
             'latest_cons_n': round(latest_cons_n, 1) if latest_cons_n is not None else None,
-            'previous_cons_n': round(previous_cons_n, 1) if previous_hours_n is not None else None,
+            'previous_cons_n': round(previous_cons_n, 1) if previous_cons_n is not None else None,
             'autonomie_hours': round(autonomy_hours, 1) if autonomy_hours is not None else None,
             'formatted_autonomy': formatted_autonomy,
             'is_infinite_autonomy': is_infinite_autonomy,
@@ -791,6 +811,10 @@ def calculer_groupes(
             'indet_reason': indet_reason,
             'latest_main_volume': latest_main_volume,
             'latest_daily_volume': latest_daily_volume,
+            'main_capacity': capacities.get('main_capacity'),
+            'daily_capacity': capacities.get('daily_capacity'),
+            'cuve_principale_id': primary_site_id,
+            'cuve_journaliere_id': getattr(getattr(groupe, 'cuve_journaliere', None), 'id', None),
             'color': '#0b3d7a',
         })
 

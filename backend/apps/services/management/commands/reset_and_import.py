@@ -93,7 +93,7 @@ class Command(BaseCommand):
         if not options.get('skip_alerts'):
             self.stdout.write('Détection des alertes en cours…')
             try:
-                from apps.services.alerts.detection import detecter_et_persister_alertes
+                from apps.services.alerts import detecter_et_persister_alertes
                 result = detecter_et_persister_alertes(auto_ignorer_levees=True)
                 self.stdout.write(
                     self.style.SUCCESS(

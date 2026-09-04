@@ -63,9 +63,11 @@ const renderHourlyMetric = (value, digits = 2) => {
 
 function GroupTankCard({ title, currentVolume, capacity, empty = false }) {
   const safeCapacity = Number(capacity) > 0 ? Number(capacity) : 0
-  const safeVolume = Number(currentVolume) >= 0 ? Number(currentVolume) : 0
+  const hasVolume = currentVolume != null && Number(currentVolume) >= 0
+  const safeVolume = hasVolume ? Number(currentVolume) : 0
   const percent = safeCapacity > 0 ? Math.min(100, (safeVolume / safeCapacity) * 100) : 0
   const available = Math.max(0, safeCapacity - safeVolume)
+  const isZeroVolume = hasVolume && safeVolume === 0
 
   return (
     <article className="group-tank-card">
@@ -82,9 +84,19 @@ function GroupTankCard({ title, currentVolume, capacity, empty = false }) {
             capacity={safeCapacity}
             showLabels
           />
+          {isZeroVolume ? (
+            <p className="group-tank-card-empty" role="status">
+              Cuve vide : aucun volume relevé sur le dernier rapport.
+            </p>
+          ) : null}
+          {safeCapacity <= 0 ? (
+            <p className="group-tank-card-empty" role="status">
+              Capacité non renseignée pour cette cuve.
+            </p>
+          ) : null}
           <div className="group-tank-card-stats">
-            <div><span>Capacité</span><strong>{safeCapacity.toLocaleString('fr-FR')} L</strong></div>
-            <div><span>Disponible</span><strong>{available.toLocaleString('fr-FR')} L</strong></div>
+            <div><span>Capacité</span><strong>{safeCapacity > 0 ? `${safeCapacity.toLocaleString('fr-FR')} L` : '—'}</strong></div>
+            <div><span>Disponible</span><strong>{safeCapacity > 0 ? `${available.toLocaleString('fr-FR')} L` : '—'}</strong></div>
           </div>
         </>
       )}
@@ -524,10 +536,24 @@ function GroupsPage({ onNavigate }) {
       sliceChart(detailGroup.hours_run || []),
       sliceChart(detailGroup.consumption || []),
     )
+    const chartHours = sliceChart(detailGroup.hours_run || []).map((value, index) => (
+      value == null && isFiniteNumber(sliceChart(detailGroup.consumption || [])[index]) ? 0 : value
+    ))
+    const chartConsumption = sliceChart(detailGroup.consumption || []).map((value, index) => (
+      value == null && isFiniteNumber(sliceChart(detailGroup.hours_run || [])[index]) ? 0 : value
+    ))
     const mainVolume = detailGroup.latest_main_volume
     const dailyVolume = detailGroup.latest_daily_volume
-    const mainCapacity = detailGroup.main_capacity || detailGroup.capacite || 3000
-    const dailyCapacity = detailGroup.daily_capacity || 1000
+    const mainCapacity = Number(detailGroup.main_capacity) > 0
+      ? Number(detailGroup.main_capacity)
+      : Number(detailGroup.capacite) > 0
+        ? Number(detailGroup.capacite)
+        : 0
+    const dailyCapacity = Number(detailGroup.daily_capacity) > 0
+      ? Number(detailGroup.daily_capacity)
+      : 0
+    const mainHasNoCapacity = !mainVolume || mainCapacity <= 0
+    const dailyHasNoCapacity = !dailyVolume || dailyCapacity <= 0
 
     return (
       <div className="app-shell dashboard-shell">
@@ -567,13 +593,13 @@ function GroupsPage({ onNavigate }) {
                   title="Cuve principale"
                   currentVolume={mainVolume}
                   capacity={mainCapacity}
-                  empty={mainVolume == null}
+                  empty={mainHasNoCapacity}
                 />
                 <GroupTankCard
                   title="Cuve journalière"
                   currentVolume={dailyVolume}
                   capacity={dailyCapacity}
-                  empty={dailyVolume == null}
+                  empty={dailyHasNoCapacity}
                 />
               </div>
             </section>
@@ -635,7 +661,7 @@ function GroupsPage({ onNavigate }) {
               <div className="group-analysis-grid">
                 <GroupAnalysisCard
                   title="Delta horaire"
-                  chart={<PeriodLineChart data={sliceChart(detailGroup.hours_run || [])} labels={chartLabels} fullLabels={chartFullLabels} color={detailGroup.color || '#0b3d7a'} unit="h" yBeginZero />}
+                  chart={<PeriodLineChart data={chartHours} labels={chartLabels} fullLabels={chartFullLabels} color={detailGroup.color || '#0b3d7a'} unit="h" yBeginZero />}
                 >
                   <div><span>Semaine N</span><strong>{formatMetric(hoursStats.weekN)} h</strong></div>
                   <div><span>Semaine N-1</span><strong>{formatMetric(hoursStats.weekN1)} h</strong></div>
@@ -645,7 +671,7 @@ function GroupsPage({ onNavigate }) {
 
                 <GroupAnalysisCard
                   title="Consommation"
-                  chart={<PeriodLineChart data={sliceChart(detailGroup.consumption || [])} labels={chartLabels} fullLabels={chartFullLabels} color={detailGroup.color || '#0b3d7a'} unit="L" yBeginZero />}
+                  chart={<PeriodLineChart data={chartConsumption} labels={chartLabels} fullLabels={chartFullLabels} color={detailGroup.color || '#0b3d7a'} unit="L" yBeginZero />}
                 >
                   <div><span>Semaine N</span><strong>{formatMetric(consumptionStats.weekN)} L</strong></div>
                   <div><span>Semaine N-1</span><strong>{formatMetric(consumptionStats.weekN1)} L</strong></div>
@@ -992,10 +1018,16 @@ function GroupsPage({ onNavigate }) {
                             <p className="group-header-meta">{group.site_nom || selectedSite?.nom_site}</p>
                           ) : null}
                           {group.latest_main_volume != null && (
-                            <p className="group-header-meta">Cuve principale : {group.latest_main_volume} litres</p>
+                            <p className="group-header-meta">
+                              Cuve principale : {Number(group.latest_main_volume) === 0 ? '0 L (aucun relevé)' : `${group.latest_main_volume} L`}
+                              {group.main_capacity ? ` / ${group.main_capacity.toLocaleString('fr-FR')} L` : ''}
+                            </p>
                           )}
                           {group.latest_daily_volume != null && (
-                            <p className="group-header-meta">Cuve journalière : {group.latest_daily_volume} litres</p>
+                            <p className="group-header-meta">
+                              Cuve journalière : {Number(group.latest_daily_volume) === 0 ? '0 L (aucun relevé)' : `${group.latest_daily_volume} L`}
+                              {group.daily_capacity ? ` / ${group.daily_capacity.toLocaleString('fr-FR')} L` : ''}
+                            </p>
                           )}
                         </div>
 

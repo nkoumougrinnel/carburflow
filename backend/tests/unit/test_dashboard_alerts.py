@@ -212,6 +212,85 @@ class DashboardAlertsTests(TestCase):
         g2_block = next(b for b in blocks if b['id'] == 102)
 
         # On report 2 (index 1), G1 ran (+10h) while G2 did not run (+0h).
-        # Therefore, all 500 L consumption is assigned to G1, and 0 L to G2.
+        # Therefore, all 500 L consumption is assigned to G1, and G2 receives None
+        # (no consumption attributable since period_share = 0).
         self.assertEqual(g1_block['consumption'][1], 500.0)
-        self.assertEqual(g2_block['consumption'][1], 0.0)
+        self.assertIsNone(g2_block['consumption'][1])
+
+    @pytest.mark.django_db
+    def test_previous_cons_n_is_none_when_group_did_not_contribute(self):
+        """
+        Régression : le calcul de previous_cons_n ne doit pas planter
+        quand le groupe n'a pas contribué sur N-1 mais qu'il a un compteur
+        (donc hours_run[-2] != None). Avec le nouveau calcul, consumed_deltas[-2]
+        vaut None et le bloc doit être sérialisable sans TypeError.
+        """
+        from apps.services.calculs import calculer_groupes
+        from apps.reports.models import Rapport, LigneRapport
+        from apps.equipment.models import GroupeElectrogene, CuvePrincipale
+
+        reports = [
+            Rapport(id=1, date_debut=date(2026, 7, 1), date_fin=date(2026, 7, 7)),
+            Rapport(id=2, date_debut=date(2026, 7, 8), date_fin=date(2026, 7, 14)),
+            Rapport(id=3, date_debut=date(2026, 7, 15), date_fin=date(2026, 7, 21)),
+        ]
+        g = GroupeElectrogene(id=201, identifiant='G_REGR', puissance='100 kVA')
+        autres = [
+            GroupeElectrogene(id=202, identifiant='G_AUTRE_1', puissance='100 kVA'),
+            GroupeElectrogene(id=203, identifiant='G_AUTRE_2', puissance='100 kVA'),
+        ]
+        groupes = [g, *autres]
+        groupes_by_id = {gr.id: gr for gr in groupes}
+
+        # Site state : report 1 → 1000 L (delta=0), report 2 → 700 L (delta=300),
+        # report 3 → 400 L (delta=300). Notre groupe ne tourne jamais.
+        site_report_state = {
+            (1, 1): {'present': True, 'current_volume': 1000.0, 'delta': 0.0},
+            (1, 2): {'present': True, 'current_volume': 700.0, 'delta': 300.0},
+            (1, 3): {'present': True, 'current_volume': 400.0, 'delta': 300.0},
+        }
+        groups_by_site_report = {
+            (1, 1): {201, 202, 203},
+            (1, 2): {201, 202, 203},
+            (1, 3): {201, 202, 203},
+        }
+        group_primary_site_ids = {201: 1, 202: 1, 203: 1}
+
+        # Notre groupe : compteur identique sur les 3 rapports (0h de delta),
+        # donc hours_run = [None, 0.0, 0.0] et consumed_deltas = [None, None, None]
+        # (period_share=0 sur tous les rapports).
+        # Les 2 autres groupes tournent normalement.
+        lines_by_group_report = {
+            (201, 1): [LigneRapport(groupe_electrogene_id=201, cuve_principale_id=1, compteur_horaire=500.0)],
+            (201, 2): [LigneRapport(groupe_electrogene_id=201, cuve_principale_id=1, compteur_horaire=500.0)],
+            (201, 3): [LigneRapport(groupe_electrogene_id=201, cuve_principale_id=1, compteur_horaire=500.0)],
+            (202, 1): [LigneRapport(groupe_electrogene_id=202, cuve_principale_id=1, compteur_horaire=100.0)],
+            (202, 2): [LigneRapport(groupe_electrogene_id=202, cuve_principale_id=1, compteur_horaire=110.0)],
+            (202, 3): [LigneRapport(groupe_electrogene_id=203, cuve_principale_id=1, compteur_horaire=120.0)],
+            (203, 1): [LigneRapport(groupe_electrogene_id=203, cuve_principale_id=1, compteur_horaire=200.0)],
+            (203, 2): [LigneRapport(groupe_electrogene_id=203, cuve_principale_id=1, compteur_horaire=215.0)],
+            (203, 3): [LigneRapport(groupe_electrogene_id=203, cuve_principale_id=1, compteur_horaire=230.0)],
+        }
+
+        # Ne doit pas lever de TypeError (round(None, 1))
+        blocks = calculer_groupes(
+            reports=reports,
+            groupes=groupes,
+            sites=[CuvePrincipale(id=1, identifiant='CP001', capacite=5000.0)],
+            lines_by_group_report=lines_by_group_report,
+            site_report_state=site_report_state,
+            groups_by_site_report=groups_by_site_report,
+            groupes_by_id=groupes_by_id,
+            group_primary_site_ids=group_primary_site_ids,
+        )
+
+        target_block = next(b for b in blocks if b['id'] == 201)
+        # Notre groupe n'a pas contribué (consumption doit être None ou 0)
+        self.assertTrue(
+            all(d is None or d == 0 for d in target_block['consumption'])
+        )
+        # previous_cons_n doit être None sans lever d'erreur (régression)
+        self.assertIsNone(target_block['previous_cons_n'])
+        self.assertIsNone(target_block['latest_cons_n'])
+        # Le bloc doit être sérialisable (pas de None dans round())
+        self.assertIn('consumption', target_block)

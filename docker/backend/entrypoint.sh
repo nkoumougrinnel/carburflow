@@ -53,6 +53,11 @@ PY
   else
     echo "→ Données déjà présentes — import CSV ignoré (RUN_IMPORT_FORCE=1 pour forcer)."
   fi
+
+  if [ "${RUN_DETECT_ALERTS:-1}" = "1" ]; then
+    echo "→ Synchronisation des alertes…"
+    python manage.py detect_alertes
+  fi
 fi
 
 echo "→ Démarrage…"

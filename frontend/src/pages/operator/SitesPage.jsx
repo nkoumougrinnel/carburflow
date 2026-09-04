@@ -198,14 +198,33 @@ function OperatorSitesPage({ onNavigate }) {
                   <div className="cj-cards-grid">
                     {selectedSite.cuvesJournalieres.map((cj) => {
                       const cap = cj.capacite || 1000
-                      const cjPct = selectedSite.percent
-                      const cjVol = Math.round((cjPct / 100) * cap)
                       const groupLabel = cj.groupe_electrogene_identifiant || cj.groupe_electrogene || selectedSite.groupLabels || '—'
 
-                      const isCritical = cjPct < 20
-                      const isWarning = !isCritical && cjPct < 40
-                      const cjBadgeVariant = isCritical ? 'critical' : isWarning ? 'warning' : 'success'
-                      const cjBadgeLabel = isCritical ? 'Critique' : isWarning ? 'Surveillance' : 'Active'
+                      // Volume réel de la CJ depuis le dernier rapport.
+                      // Si null/0 → cuve sans dernier relevé (message dédié).
+                      const cjVolRaw = cj.latest_volume
+                      const cjHasVolume = cjVolRaw != null && Number(cjVolRaw) > 0
+                      const cjVol = cjHasVolume ? Math.round(Number(cjVolRaw)) : 0
+                      const cjPct = cjHasVolume && cap > 0
+                        ? Math.min(100, (cjVol / cap) * 100)
+                        : 0
+
+                      const isCritical = cjHasVolume && cjPct < 20
+                      const isWarning = cjHasVolume && !isCritical && cjPct < 40
+                      const cjBadgeVariant = !cjHasVolume
+                        ? 'neutral'
+                        : isCritical
+                          ? 'critical'
+                          : isWarning
+                            ? 'warning'
+                            : 'success'
+                      const cjBadgeLabel = !cjHasVolume
+                        ? 'Aucun relevé'
+                        : isCritical
+                          ? 'Critique'
+                          : isWarning
+                            ? 'Surveillance'
+                            : 'Active'
 
                       return (
                         <article key={cj.id} className="cj-card">
@@ -219,11 +238,17 @@ function OperatorSitesPage({ onNavigate }) {
                           <div className="site-main-metrics-grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
                             <div className="site-main-metric-card">
                               <span className="site-main-metric-label">Niveau</span>
-                              <strong className="site-main-metric-value">{cjVol.toLocaleString('fr-FR')} / {cap.toLocaleString('fr-FR')} L</strong>
+                              <strong className="site-main-metric-value">
+                                {cjHasVolume
+                                  ? `${cjVol.toLocaleString('fr-FR')} / ${cap.toLocaleString('fr-FR')} L`
+                                  : `— / ${cap.toLocaleString('fr-FR')} L`}
+                              </strong>
                             </div>
                             <div className="site-main-metric-card">
                               <span className="site-main-metric-label">Remplissage</span>
-                              <strong className="site-main-metric-value">{Math.round(cjPct)} %</strong>
+                              <strong className="site-main-metric-value">
+                                {cjHasVolume ? `${Math.round(cjPct)} %` : '—'}
+                              </strong>
                             </div>
                             <div className="site-main-metric-card" style={{ gridColumn: '1 / -1' }}>
                               <span className="site-main-metric-label">Groupe alimenté</span>
@@ -233,6 +258,11 @@ function OperatorSitesPage({ onNavigate }) {
                               </strong>
                             </div>
                           </div>
+                          {!cjHasVolume ? (
+                            <p className="group-tank-card-empty" role="status">
+                              Cuve vide : aucun volume relevé sur le dernier rapport.
+                            </p>
+                          ) : null}
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                             <span className="metric-label">{cj.identifiant || `CJ${cj.id}`}</span>
                             <StatusBadge variant={cjBadgeVariant} size="sm">{cjBadgeLabel}</StatusBadge>

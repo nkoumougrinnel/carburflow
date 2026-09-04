@@ -411,74 +411,7 @@ def _candidates_from_block(block, groupe, cp, site, cuve_j, latest_report, repor
     return candidates
 
 
-def _candidates_from_site_blocks(group_blocks, sites_by_cp_id, latest_report):
-    """
-    Alertes « site urgent » (< 24 h d’autonomie chiffrée) — une alerte critique par site.
-    Les sites en autonomie indéterminée (conso sans delta horaire) ou sans fonctionnement
-    ne génèrent PAS d’alerte d’urgence.
-    """
-    by_site: dict = {}
-    for block in group_blocks:
-        sid = block.get('site_id')
-        if sid is None:
-            continue
-        by_site.setdefault(sid, []).append(block)
-
-    candidates = []
-    report_date = latest_report.date_fin if latest_report is not None else None
-    for sid, blocks in by_site.items():
-        cp = sites_by_cp_id.get(sid)
-        site = getattr(cp, 'site', None) if cp is not None else None
-        site_name = _site_display_name(cp)
-
-        # Autonomie saine uniquement (hors indéterminée / sans fonctionnement)
-        finite = [
-            float(b['autonomie_hours'])
-            for b in blocks
-            if b.get('autonomie_hours') is not None
-            and not b.get('is_infinite_autonomy')
-            and not b.get('is_infinite_consumption')
-            and not b.get('is_sans_fonctionnement')
-        ]
-
-        if finite:
-            aut_hours = round(max(finite), 1)
-            if aut_hours < SEUIL_AUTONOMIE_CRITIQUE_H:
-                stock_site = sum(
-                    float(b.get('volume_proportionnel') or 0) for b in blocks
-                )
-                message = (
-                    f'Site urgent — Autonomie inférieure à 24 h : {aut_hours:.1f}h restantes'
-                    + (f' — {site_name}' if site_name else '')
-                )
-
-                candidates.append({
-                    'cle': Alerte.generer_cle('autonomie_critique', sid, prefix='site'),
-                    'type_alerte': 'autonomie_critique',
-                    'priorite': 'critique',
-                    'message': message,
-                    'donnees_contexte': {
-                        'cuve_principale_id': sid,
-                        'site_name': site_name,
-                        'autonomie_heures': aut_hours,
-                        'seuil': SEUIL_AUTONOMIE_CRITIQUE_H,
-                        'stock_actuel': round(stock_site, 1),
-                        'is_site_urgent': True,
-                        'is_infinite_consumption': False,
-                    },
-                    'site': site,
-                    'groupe_electrogene': None,
-                    'cuve_journaliere': None,
-                    'date_apparition': report_date,
-                    'date_detection': _detection_datetime(latest_report),
-                })
-
-        # Aucun autre type d'alerte site n'est généré ici ; seul le site urgent
-        # avec autonomie critique est conservé.
-
-    return candidates
-
-
+# Function _candidates_from_site_blocks removed
 @transaction.atomic
 def detecter_et_persister_alertes(*, auto_ignorer_levees: bool = True):
     """
@@ -514,15 +447,6 @@ def detecter_et_persister_alertes(*, auto_ignorer_levees: bool = True):
         report_by_id,
         latest_report,
     ):
-        cle = payload.pop('cle')
-        active_keys.add(cle)
-        _alerte, should_alert = _upsert_active(cle, **payload)
-        if should_alert:
-            created += 1
-        else:
-            updated += 1
-
-    for payload in _candidates_from_site_blocks(group_blocks, sites_by_cp_id, latest_report):
         cle = payload.pop('cle')
         active_keys.add(cle)
         _alerte, should_alert = _upsert_active(cle, **payload)
