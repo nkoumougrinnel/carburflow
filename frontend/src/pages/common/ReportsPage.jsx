@@ -63,16 +63,6 @@ function defaultWeekRange() {
   return { dateDebut: toInputDate(debut), dateFin: toInputDate(fin) }
 }
 
-function getWeekNumber(dateInput) {
-  if (!dateInput) return null
-  const d = new Date(dateInput)
-  if (isNaN(d.getTime())) return null
-  d.setHours(0, 0, 0, 0)
-  d.setDate(d.getDate() + 4 - (d.getDay() || 7))
-  const yearStart = new Date(d.getFullYear(), 0, 1)
-  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7)
-}
-
 function initialReportsPane(isAdmin) {
   const pane = new URLSearchParams(window.location.search).get('pane')
   if (pane === 'history' || pane === 'download') return 'download'
@@ -411,7 +401,6 @@ function ReportsPage({ onNavigate }) {
                         </thead>
                         <tbody>
                           {filteredRapports.map((r) => {
-                            const weekNum = getWeekNumber(r.date_debut)
                             const dt = formatDateTime(r.date_creation)
                             const keyX = `${r.id}:xlsx`
                             const keyC = `${r.id}:csv`
@@ -435,32 +424,24 @@ function ReportsPage({ onNavigate }) {
                                 <td className="col-flex" style={{ textAlign: 'left' }}>
                                   <div>
                                     <strong>{formatDate(r.date_debut)} → {formatDate(r.date_fin)}</strong>
-                                    {weekNum && <div className="op-cp-tag">Semaine {weekNum}</div>}
                                   </div>
                                 </td>
 
                                 {/* 13. SITES */}
                                 <td className="col-count" style={{ textAlign: 'center' }}>
                                   <div className="op-table-count-cell">
-                                    <strong>{r.sites_count || 8} sites</strong>
-                                    <button
-                                      type="button"
-                                      className="op-link-discrete"
-                                      onClick={() => setSiteModalRapport(r)}
-                                    >
-                                      Voir la liste
-                                    </button>
+                                    <strong>{r.sites_count ?? 0} sites</strong>
                                   </div>
                                 </td>
 
                                 {/* 14. GROUPES */}
                                 <td className="col-count" style={{ textAlign: 'center' }}>
-                                  <strong>{r.groupes_count || 24} groupes</strong>
+                                  <strong>{r.groupes_count ?? 0} groupes</strong>
                                 </td>
 
                                 {/* 15. LIGNES */}
                                 <td className="col-count" style={{ textAlign: 'center' }}>
-                                  <strong>{r.lignes_count ?? 33} lignes</strong>
+                                  <strong>{r.lignes_count ?? 0} lignes</strong>
                                 </td>
 
                                 {/* 17. ENVOYÉ LE */}

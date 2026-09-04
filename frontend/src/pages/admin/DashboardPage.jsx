@@ -485,7 +485,7 @@ function DashboardPage({ onNavigate }) {
                       <th className="col-flex" style={{ textAlign: 'left' }}>Groupe</th>
                       <th className="col-flex" style={{ textAlign: 'left' }}>Site</th>
                       <th className="col-numeric" style={{ textAlign: 'right' }}>Conso. horaire moyenne</th>
-                      <th className="col-numeric" style={{ textAlign: 'right' }}>Conso. horaire N</th>
+                      <th className="col-numeric" style={{ textAlign: 'right' }}>Conso. horaire</th>
                       <th className="col-numeric" style={{ textAlign: 'right' }}>Référence</th>
                       <th className="col-alerts" style={{ textAlign: 'center' }}>Écart</th>
                     </tr>
@@ -510,14 +510,14 @@ function DashboardPage({ onNavigate }) {
                         <td className="col-flex" style={{ textAlign: 'left' }}>{row.site_name || '—'}</td>
                         <td className="col-numeric" style={{ textAlign: 'right' }}>
                           <strong className="text-danger">
-                            {formatValue(row.mean_hourly_consumption_deduite)}
+                            {formatValue(row.mean_hourly_consumption_deduite, ' L/h')}
                           </strong>
                         </td>
                         <td className="col-numeric" style={{ textAlign: 'right' }}>
-                          {formatValue(row.latest_hourly_consumption)}
+                          {formatValue(row.latest_hourly_consumption, ' L/h')}
                         </td>
                         <td className="col-numeric" style={{ textAlign: 'right' }}>
-                          {formatValue(row.previous_hourly_consumption)}
+                          {formatValue(row.previous_hourly_consumption, ' L/h')}
                         </td>
                         <td className="col-alerts" style={{ textAlign: 'center' }}>
                           {renderEcartVsN1(row.latest_hourly_consumption, row.previous_hourly_consumption, '—')}
@@ -557,7 +557,6 @@ function DashboardPage({ onNavigate }) {
                       <th className="col-flex" style={{ textAlign: 'left' }}>Site</th>
                       <th className="col-numeric" style={{ textAlign: 'right' }}>Consommation</th>
                       <th className="col-numeric" style={{ textAlign: 'right' }}>Référence</th>
-                      <th className="col-numeric" style={{ textAlign: 'right' }}>Consommation N</th>
                       <th className="col-alerts" style={{ textAlign: 'center' }}>Écart</th>
                     </tr>
                   </thead>
@@ -584,9 +583,6 @@ function DashboardPage({ onNavigate }) {
                         </td>
                         <td className="col-numeric" style={{ textAlign: 'right' }}>
                           {row.previous_consumption == null ? '—' : formatValue(row.previous_consumption, ' L')}
-                        </td>
-                        <td className="col-numeric" style={{ textAlign: 'right' }}>
-                          {formatValue(row.latest_consumption, ' L')}
                         </td>
                         <td className="col-alerts" style={{ textAlign: 'center' }}>
                           {renderEcartVsN1(row.latest_consumption, row.previous_consumption, '—')}
@@ -625,7 +621,6 @@ function DashboardPage({ onNavigate }) {
                       <th className="col-flex" style={{ textAlign: 'left' }}>Site</th>
                       <th className="col-numeric" style={{ textAlign: 'right' }}>Consommation</th>
                       <th className="col-numeric" style={{ textAlign: 'right' }}>Référence</th>
-                      <th className="col-numeric" style={{ textAlign: 'right' }}>Consommation N</th>
                       <th className="col-alerts" style={{ textAlign: 'center' }}>Écart</th>
                     </tr>
                   </thead>
@@ -651,9 +646,6 @@ function DashboardPage({ onNavigate }) {
                         </td>
                         <td className="col-numeric" style={{ textAlign: 'right' }}>
                           {row.previous_consumption == null ? '—' : formatValue(row.previous_consumption, ' L')}
-                        </td>
-                        <td className="col-numeric" style={{ textAlign: 'right' }}>
-                          {formatValue(row.latest_consumption, ' L')}
                         </td>
                         <td className="col-alerts" style={{ textAlign: 'center' }}>
                           {renderEcartVsN1(row.latest_consumption, row.previous_consumption, '—')}

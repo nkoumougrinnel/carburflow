@@ -55,6 +55,8 @@ class RapportSerializer(serializers.ModelSerializer):
 
 class RapportListSerializer(serializers.ModelSerializer):
     created_by_username = serializers.SerializerMethodField()
+    sites_count = serializers.SerializerMethodField()
+    groupes_count = serializers.SerializerMethodField()
     lignes_count = serializers.SerializerMethodField()
 
     class Meta:
@@ -66,6 +68,8 @@ class RapportListSerializer(serializers.ModelSerializer):
             'date_creation',
             'created_by',
             'created_by_username',
+            'sites_count',
+            'groupes_count',
             'lignes_count',
         ]
         read_only_fields = ['id', 'date_creation', 'created_by']
@@ -79,3 +83,9 @@ class RapportListSerializer(serializers.ModelSerializer):
 
     def get_lignes_count(self, obj):
         return obj.lignes.count()
+
+    def get_sites_count(self, obj):
+        return obj.lignes.values('cuve_principale__site_id').distinct().count()
+
+    def get_groupes_count(self, obj):
+        return obj.lignes.values('groupe_electrogene_id').distinct().count()
