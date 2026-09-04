@@ -26,7 +26,6 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
-<<<<<<< HEAD
       // Découpe du bundle par famille de vendors : évite un chunk unique
       // > 500 kB et améliore la mise en cache navigateur (vendors stables).
       rollupOptions: {
@@ -41,13 +40,11 @@ export default defineConfig(({ mode }) => {
           },
         },
       },
-=======
       // Le bundle est volontairement mono-chunk (dashboard interne). Au-delà
       // de 500 kB, Vite écrit un avertissement sur stderr que Windows
       // PowerShell affiche comme une erreur rouge « NativeCommandError ».
       // On relève la limite pour garder une sortie console propre.
       chunkSizeWarningLimit: 1600,
->>>>>>> b75dcb54426b59033c49a6316aca3ba9635eb3a4
     },
     server: {
       host: true,

@@ -11268,8 +11268,6 @@ body {
     transform: none !important;
   }
 }
-<<<<<<< HEAD
-
 /* ——— Page profil : cartes « Informations » / « Mot de passe » (maquette) ——— */
 .saas-profile-grid .saas-profile-panel {
   border: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
@@ -11382,7 +11380,8 @@ body {
 .op-hero-cta-btn--on-banner:hover{
   background:rgba(255,255,255,0.24);
   transform:translateY(-2px);
-=======
+}
+
 /* ============================================================
    AMÉLIORATIONS VISUELLES — AJOUTS (aucune suppression)
    1) Profil : badges de rôle colorés + icônes de panneaux + avatar dégradé
@@ -11540,5 +11539,4 @@ html[data-theme="dark"] .dashboard-summary-card--danger p {
 
 .saas-profile-hero {
   margin-bottom: clamp(1.15rem, 2.2vw, 1.6rem);
->>>>>>> b75dcb54426b59033c49a6316aca3ba9635eb3a4
 }
