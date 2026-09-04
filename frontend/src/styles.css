@@ -3996,6 +3996,8 @@ main.page-layout.user-home form.groups-filter-bar .ui-input:focus,
   min-height: 100vh;
   min-height: 100dvh;
   width: 100%;
+  overflow-x: clip;
+  padding: var(--shell-pad-y, 0) 0 clamp(32px, 4vw, 56px);
 }
 
 .app-shell--reports > .topbar {
@@ -6403,6 +6405,9 @@ main.page-layout.user-home form.groups-filter-bar .ui-input:focus,
   min-height: 100vh;
   min-height: 100dvh;
   width: 100%;
+  box-sizing: border-box;
+  overflow-x: clip;
+  padding: var(--shell-pad-y, 0) 0 clamp(32px, 4vw, 56px);
 }
 
 .app-shell--operator > .topbar {
@@ -7059,6 +7064,7 @@ main.page-layout.user-home form.groups-filter-bar .ui-input:focus,
   max-height: 100vh;
   max-height: 100dvh;
   overflow: hidden;
+  overflow-x: clip;
   padding-bottom: var(--shell-pad-y);
 }
 
@@ -7740,6 +7746,7 @@ main.page-layout.user-home form.groups-filter-bar .ui-input:focus,
   max-height: 100vh;
   max-height: 100dvh;
   overflow: hidden;
+  overflow-x: clip;
   padding-bottom: var(--shell-pad-y);
 }
 
@@ -12858,3 +12865,6 @@ body {
     flex: 0 0 auto;
   }
 }
+
+
+

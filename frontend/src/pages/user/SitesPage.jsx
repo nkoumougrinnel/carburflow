@@ -214,9 +214,9 @@ function UserSitesPage({ onNavigate }) {
               <table className="viewer-table">
                 <thead>
                   <tr>
-                    <th style={{ textAlign: 'left' }}>Site</th>
-                    <th style={{ textAlign: 'left' }}>Niveau</th>
-                    <th style={{ textAlign: 'center' }}>État</th>
+                    <th className="col-flex" style={{ textAlign: 'left' }}>Site</th>
+                    <th className="col-flex" style={{ textAlign: 'left' }}>Niveau</th>
+                    <th className="col-alerts" style={{ textAlign: 'center' }}>État</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -235,7 +235,7 @@ function UserSitesPage({ onNavigate }) {
                         }
                       }}
                     >
-                      <td style={{ textAlign: 'left' }}>
+                      <td className="col-flex" style={{ textAlign: 'left' }}>
                         <div className="viewer-table-site-name">
                           <Building2 size={16} className="viewer-table-site-icon" />
                           <div>
@@ -245,7 +245,7 @@ function UserSitesPage({ onNavigate }) {
                         </div>
                       </td>
 
-                      <td style={{ textAlign: 'left' }}>
+                      <td className="col-flex" style={{ textAlign: 'left' }}>
                         <HorizontalTankGauge
                           percent={site.percent}
                           currentVolume={site.currentVolume}
@@ -253,7 +253,7 @@ function UserSitesPage({ onNavigate }) {
                         />
                       </td>
 
-                      <td style={{ textAlign: 'center' }}>
+                      <td className="col-alerts" style={{ textAlign: 'center' }}>
                         <ViewerStatusBadge statusKey={site.statusKey} />
                       </td>
                     </tr>

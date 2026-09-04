@@ -622,11 +622,11 @@ function SitesPage({ onNavigate }) {
                 <table>
                   <thead>
                     <tr>
-                      <th style={{ textAlign: 'left' }}>Site</th>
-                      <th style={{ textAlign: 'right' }}>Stock</th>
-                      <th style={{ textAlign: 'right' }}>Consommation</th>
-                      <th style={{ textAlign: 'right' }}>Évolution</th>
-                      <th style={{ textAlign: 'center' }}>Autonomie</th>
+                      <th className="col-flex" style={{ textAlign: 'left' }}>Site</th>
+                      <th className="col-numeric" style={{ textAlign: 'right' }}>Stock</th>
+                      <th className="col-numeric" style={{ textAlign: 'right' }}>Consommation</th>
+                      <th className="col-numeric" style={{ textAlign: 'right' }}>Évolution</th>
+                      <th className="col-alerts" style={{ textAlign: 'center' }}>Autonomie</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -649,16 +649,16 @@ function SitesPage({ onNavigate }) {
                             role="link"
                             aria-label={`Ouvrir le détail du site ${site.nom_site}`}
                           >
-                            <td style={{ textAlign: 'left' }}>{site.nom_site}</td>
-                            <td style={{ textAlign: 'right' }}>
+                            <td className="col-flex" style={{ textAlign: 'left' }}>{site.nom_site}</td>
+                            <td className="col-numeric" style={{ textAlign: 'right' }}>
                               <strong>{site.volume.latest.toFixed(1)} L</strong>
                               <div className="viewer-cp-tag">{renderDelta(site.volume)}</div>
                             </td>
-                            <td style={{ textAlign: 'right' }}>
+                            <td className="col-numeric" style={{ textAlign: 'right' }}>
                               <strong>{site.consumption.total.toFixed(1)} L</strong>
                               <div className="viewer-cp-tag">{renderDelta(site.consumption)}</div>
                             </td>
-                            <td style={{ textAlign: 'right' }}>
+                            <td className="col-numeric" style={{ textAlign: 'right' }}>
                               {site.consumption.previous_total != null ? (
                                 <span className={site.consumption.variation_pct >= 0 ? 'delta-up' : 'delta-down'}>
                                   {site.consumption.variation_pct >= 0 ? '▲' : '▼'} {Math.abs(site.consumption.variation_pct || 0).toFixed(1)}%
@@ -667,7 +667,7 @@ function SitesPage({ onNavigate }) {
                                 <span className="delta-neutral">—</span>
                               )}
                             </td>
-                            <td style={{ textAlign: 'center' }}>
+                            <td className="col-alerts" style={{ textAlign: 'center' }}>
                               <AutonomyBadge entity={siteAut} size="sm" />
                             </td>
                           </tr>

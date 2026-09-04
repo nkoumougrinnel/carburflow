@@ -781,14 +781,14 @@ function GroupsPage({ onNavigate }) {
                   <table>
                     <thead>
                       <tr>
-                        <th>Groupe</th>
-                        <th>Site</th>
-                        <th>Alertes</th>
-                        <th>{METRIC_LABELS.consumptionWeekN}</th>
-                        <th>{METRIC_LABELS.consumptionWeekN1}</th>
-                        <th>{METRIC_LABELS.consumptionMean}</th>
-                        <th>{METRIC_LABELS.hoursDeltaWeekN}</th>
-                        <th>{METRIC_LABELS.autonomyRemaining}</th>
+                        <th className="col-flex">Groupe</th>
+                        <th className="col-flex">Site</th>
+                        <th className="col-alerts">Alertes</th>
+                        <th className="col-numeric">{METRIC_LABELS.consumptionWeekN}</th>
+                        <th className="col-numeric">{METRIC_LABELS.consumptionWeekN1}</th>
+                        <th className="col-numeric">{METRIC_LABELS.consumptionMean}</th>
+                        <th className="col-numeric">{METRIC_LABELS.hoursDeltaWeekN}</th>
+                        <th className="col-alerts">{METRIC_LABELS.autonomyRemaining}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -817,9 +817,9 @@ function GroupsPage({ onNavigate }) {
                               role="link"
                               aria-label={`Ouvrir le détail du groupe ${g.label}`}
                             >
-                              <td>{g.label}</td>
-                              <td>{siteName}</td>
-                              <td>
+                              <td className="col-flex">{g.label}</td>
+                              <td className="col-flex">{siteName}</td>
+                              <td className="col-alerts">
                                 {relatedAlerts.length ? (
                                   <Button
                                     type="button"
@@ -842,11 +842,11 @@ function GroupsPage({ onNavigate }) {
                                   <span className="group-alert-none">—</span>
                                 )}
                               </td>
-                              <td>{formatMetric(consumption.weekN)}</td>
-                              <td>{formatMetric(consumption.weekN1)}</td>
-                              <td>{formatMetric(consumption.mean)}</td>
-                              <td>{formatMetric(hours.weekN)}</td>
-                              <td>
+                              <td className="col-numeric">{formatMetric(consumption.weekN)}</td>
+                              <td className="col-numeric">{formatMetric(consumption.weekN1)}</td>
+                              <td className="col-numeric">{formatMetric(consumption.mean)}</td>
+                              <td className="col-numeric">{formatMetric(hours.weekN)}</td>
+                              <td className="col-alerts">
                                 <AutonomyBadge entity={autonomyEntity} size="sm" />
                               </td>
                             </tr>
