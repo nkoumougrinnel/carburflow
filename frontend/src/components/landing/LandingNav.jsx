@@ -8,9 +8,9 @@ import { useTheme } from '@/context/ThemeContext.jsx'
 import { cn } from '@/lib/utils'
 
 const navLinks = [
-  { label: 'Solution', id: 'solution' },
-  { label: 'Preuve', id: 'preuve' },
-  { label: 'Accès', id: 'acces' },
+  { label: 'Accueil', id: 'home' },
+  { label: 'Le défi', id: 'challenge' },
+  { label: 'Comment ça marche', id: 'how-it-works' },
   { label: 'Équipe', id: 'about' },
 ]
 
@@ -79,30 +79,21 @@ function LandingNav({ onNavigate }) {
           </Button>
           {isAuthenticated ? (
             <>
-              {isAdmin && (
-                <Button variant="ghost" onClick={() => go('dashboard')}>
-                  Tableau de bord
-                </Button>
-              )}
-              <Button variant="ghost" onClick={() => go('reports')}>
-                Relevés
+              <Button type="button" onClick={() => go(isAdmin ? 'dashboard' : 'operator')}>
+                Mon espace
               </Button>
-              <Button
-                variant="outline"
-                onClick={async () => {
-                  await logout()
-                  go('home')
-                }}
-              >
+              <Button type="button" variant="outline" onClick={() => { logout(); go('home') }}>
                 Déconnexion
               </Button>
             </>
           ) : (
             <>
-              <Button variant="ghost" onClick={() => go('login')}>
-                Se connecter
+              <Button type="button" variant="ghost" onClick={() => go('login')}>
+                Connexion
               </Button>
-              <Button onClick={() => go('register')}>S’inscrire</Button>
+              <Button type="button" onClick={() => go('register')}>
+                Inscription
+              </Button>
             </>
           )}
         </nav>
@@ -110,7 +101,7 @@ function LandingNav({ onNavigate }) {
         <div className="flex items-center gap-2 md:hidden">
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
             size="icon"
             onClick={(e) => { e.preventDefault(); toggleTheme() }}
             aria-label={isDark ? 'Passer en mode clair' : 'Passer en mode sombre'}
@@ -118,65 +109,51 @@ function LandingNav({ onNavigate }) {
             {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
           </Button>
           <Button
-            variant="outline"
+            type="button"
+            variant="ghost"
             size="icon"
-            aria-label={open ? 'Fermer le menu' : 'Ouvrir le menu'}
             aria-expanded={open}
+            aria-label={open ? 'Fermer le menu' : 'Ouvrir le menu'}
             onClick={() => setOpen((v) => !v)}
           >
-            {open ? <X /> : <Menu />}
+            {open ? <X className="size-5" /> : <Menu className="size-5" />}
           </Button>
         </div>
       </div>
 
-      <div
-        className={cn(
-          'border-t border-border bg-card md:hidden',
-          open ? 'block' : 'hidden',
-        )}
-      >
-        <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-4">
+      <div className={cn('border-t border-border/70 bg-background md:hidden', open ? 'block' : 'hidden')}>
+        <div className="mx-auto flex max-w-6xl flex-col gap-1 px-4 py-3 sm:px-6">
           {navLinks.map((link) => (
-            <Button
+            <button
               key={link.id}
-              variant="ghost"
-              className="justify-start"
+              type="button"
               onClick={() => scrollToSection(link.id)}
+              className="rounded-md px-3 py-2 text-left text-sm font-medium text-muted-foreground hover:bg-muted/80 hover:text-foreground"
             >
               {link.label}
-            </Button>
+            </button>
           ))}
-          {isAuthenticated ? (
-            <>
-              {isAdmin && (
-                <Button variant="ghost" className="justify-start" onClick={() => go('dashboard')}>
-                  Tableau de bord
+          <div className="mt-2 flex flex-col gap-2 border-t border-border/60 pt-3">
+            {isAuthenticated ? (
+              <>
+                <Button type="button" onClick={() => go(isAdmin ? 'dashboard' : 'operator')}>
+                  Mon espace
                 </Button>
-              )}
-              <Button variant="ghost" className="justify-start" onClick={() => go('reports')}>
-                Relevés
-              </Button>
-              <Button
-                variant="outline"
-                className="justify-start"
-                onClick={async () => {
-                  await logout()
-                  go('home')
-                }}
-              >
-                Déconnexion
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button variant="ghost" className="justify-start" onClick={() => go('login')}>
-                Se connecter
-              </Button>
-              <Button className="justify-start" onClick={() => go('register')}>
-                S’inscrire
-              </Button>
-            </>
-          )}
+                <Button type="button" variant="outline" onClick={() => { logout(); go('home') }}>
+                  Déconnexion
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button type="button" variant="outline" onClick={() => go('login')}>
+                  Connexion
+                </Button>
+                <Button type="button" onClick={() => go('register')}>
+                  Inscription
+                </Button>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </header>
