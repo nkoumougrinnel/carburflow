@@ -89,13 +89,13 @@ const team = [
     bio: 'Infra, déploiement et stabilité.',
   },
   {
-    name: 'BIENVENU BALAWE',
-    role: 'Data Engineer',
+    name: 'BALAWE NDIKWA BIENVENU',
+    role: 'Backend & Data Engineer',
     image: '/assets/team_ultime/balawe.jpeg',
     linkedin: 'https://www.linkedin.com/in/bienvenu-balawe-ndikwa',
-    portfolio: '#',
+    portfolio: 'https://portfolio-003bnb.vercel.app',
     accent: '#10b981',
-    bio: 'Pipelines et qualité de la donnée.',
+    bio: 'Pipelines, DevOps, Automatisation et qualité de la donnée.',
   },
   {
     name: 'DIVINE SOUNDJOCK',
