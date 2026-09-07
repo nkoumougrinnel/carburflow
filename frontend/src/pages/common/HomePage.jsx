@@ -91,7 +91,7 @@ const team = [
   {
     name: 'BALAWE NDIKWA BIENVENU',
     role: 'Backend & Data Engineer',
-    image: '/assets/team_ultime/balawe.jpeg',
+    image: '/assets/team_ultime/bnb.jpeg',
     linkedin: 'https://www.linkedin.com/in/bienvenu-balawe-ndikwa-1618b7433/',
     portfolio: 'https://portfolio-003bnb.vercel.app',
     accent: '#10b981',
